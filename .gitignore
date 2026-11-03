@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# PrePro caches / outputs
+.prepro/
+out/
+*.prepro-out/
+testmedia/
+# Node / UI / desktop
+node_modules/
+ui/dist/
+desktop/dist/
+desktop/release/
+# OS
+.DS_Store
+Thumbs.db

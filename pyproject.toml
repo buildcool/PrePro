@@ -1,0 +1,76 @@
+[project]
+name = "prepro"
+version = "0.0.1"
+description = "PrePro: AI pre-edit engine for creators — turns a shoot folder into a reasoned first cut with suggestions."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "Proprietary" }
+authors = [{ name = "buildcool" }]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "rich>=13.7",
+  "platformdirs>=4.2",
+  "pillow>=10.3",
+  "opencv-python-headless>=4.9",
+  "scenedetect>=0.6.4",
+  "librosa>=0.10.2",
+  "soundfile>=0.12",
+  "pyloudnorm>=0.1.1",
+  "imagehash>=4.3",
+  "rapidfuzz>=3.9",
+  "opentimelineio>=0.17",
+  "fastapi>=0.111",
+  "uvicorn>=0.30",
+  "httpx>=0.27",
+  "keyring>=25.2",
+  "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+asr = ["faster-whisper>=1.0.3", "pocketsphinx>=5.0.3"]
+ai = ["anthropic>=0.40", "openai>=1.40", "google-genai>=1.0", "ollama>=0.3"]
+geo = ["reverse_geocoder>=1.5"]
+dev = ["pytest>=8.2", "pytest-timeout>=2.3", "ruff>=0.5", "mypy>=1.10", "types-PyYAML"]
+
+[project.scripts]
+prepro = "prepro.cli:app"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prepro"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["E501", "B008", "SIM108", "UP042", "SIM105"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "slow: long-running (rendering, real media)",
+  "realmedia: needs downloaded test media (scripts/fetch_test_media.py)",
+  "live: calls a real AI connector (needs credentials/CLI)",
+]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+
+[tool.hatch.build.targets.wheel.force-include]
+"assets" = "prepro/assets"
