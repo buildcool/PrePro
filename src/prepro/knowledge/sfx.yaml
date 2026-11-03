@@ -1,0 +1,10 @@
+# SFX vocabulary: name → when it is motivated. Bundled procedurally generated versions live in assets/sfx.
+whoosh: {motivation: "fast camera move, whip transition, text/graphic flying in", intents: [transition, movement]}
+pop:    {motivation: "on-screen text or sticker appearing", intents: [text]}
+riser:  {motivation: "build-up right before a reveal or the drop", intents: [build]}
+impact: {motivation: "the reveal, the drop, a hard title card", intents: [reveal, drop]}
+ding:   {motivation: "a point, a price, a correct answer", intents: [point, numbers]}
+boom:   {motivation: "deadpan punchline / shock reveal (vine boom)", intents: [shock, punchline]}
+scratch: {motivation: "'wait, what?' — record scratch before a rewind/freeze", intents: [irony]}
+laugh:  {motivation: "comedy punchline (sparingly)", intents: [punchline]}
+click:  {motivation: "UI/camera click, ASMR detail", intents: [detail]}

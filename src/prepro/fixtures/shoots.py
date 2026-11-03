@@ -270,9 +270,6 @@ def _build_gaming(root, truth, *, face, md, quick, sidecars, with_brief):
     ]
     voice = root / "gameplay/.voice.wav"
     spoken = _write_speech(lines, voice, seed=7)
-    import numpy as np
-
-    y, _ = A.build_speech([], lead_in=0.0, tail=0.0)
     import soundfile as sf
 
     v, sr = sf.read(str(voice), dtype="float32")
@@ -293,7 +290,6 @@ def _build_gaming(root, truth, *, face, md, quick, sidecars, with_brief):
     _music(root, truth, "montage_dnb_174", bpm=174, mood="hype", seed=14, sections=[("intro", 2, 0.5), ("drop", 8, 1.0), ("outro", 2, 0.4)])
     _memes(root)
     truth["expect"] = {"playbooks": ["gaming"], "highlights": [e[0] for e in events]}
-    _ = np
 
 
 def _build_hindi_vlog(root, truth, *, face, md, quick, sidecars, with_brief):

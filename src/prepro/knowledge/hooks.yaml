@@ -1,0 +1,9 @@
+# Hook taxonomy. A hook = visual + spoken + on-screen text in <= 3 s, works on mute, foreshadows the payoff.
+peak_moment: {label: "Peak moment first (in medias res)", cue: "strongest action/visual or emotional beat, moved to the start"}
+result_first: {label: "Result first / reveal", cue: "show the finished dish/outfit/view, then how"}
+visual_spectacle: {label: "Visual spectacle", cue: "most striking wide/drone/motion shot in frame 1"}
+curiosity_gap: {label: "Curiosity gap", cue: "a line that opens a question the video answers"}
+bold_claim: {label: "Bold claim", cue: "numbers, superlatives, contrarian statement"}
+question: {label: "Direct question", cue: "a question the viewer wants answered"}
+number_list: {label: "Number / list promise", cue: "'3 mistakes…', '5 places…'"}
+stakes: {label: "Stakes / challenge", cue: "budget, time limit, risk"}

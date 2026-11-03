@@ -1,0 +1,149 @@
+# Genre playbooks — the craft knowledge PrePro edits with. Same file feeds the rules brain, the AI prompt
+# and the critic. Durations in seconds; budgets are per minute of finished video.
+story_vlog:
+  name: Story vlog
+  aspect: "16:9"
+  target: [60, 900]            # never padded: real target = usable material × keep ratio, clamped
+  keep_ratio: 0.75
+  structure: [cold_open, setup, journey, payoff, reflection, outro]
+  pacing: {aroll_shot: [3, 8], broll_shot: [1.6, 4.0], tightness: 0.45, breath: 0.14, max_pause: 0.6, dead_zone: 15}
+  budgets: {zoom: 3, sfx: 4, meme: 0.5, transition: 1, text: 3, slowmo: 1.5}
+  captions: {default: clean, words: [3, 7], lines: 2, max_cps: 17}
+  music: {mode: mixed, bed_db: -20, front_db: -9, prefer: [chill, happy, upbeat, warm], avoid: [hype]}
+  memes: comedic_only
+  transitions: {default: cut, allowed: [cut, whip, dissolve], at: [place_change]}
+  signature: [establishing_first, location_cards, jcut_new_place, broll_advances_story, timelapse_travel]
+  donts:
+    - Opening with "hey guys, welcome back" before the hook
+    - Dumping every clip in shooting order with no arc
+    - Long walking/driving shots at 1x speed
+    - Music with vocals under talking
+  hooks: [peak_moment, curiosity_gap, bold_claim, result_first, question]
+
+travel_film:
+  name: Cinematic travel film
+  aspect: "16:9"
+  target: [45, 240]
+  keep_ratio: 0.5
+  structure: [intro, build, drop, break, outro]
+  pacing: {aroll_shot: [3, 6], broll_shot: [1.2, 3.5], tightness: 0.6, breath: 0.12, max_pause: 0.5, dead_zone: 8}
+  budgets: {zoom: 1, sfx: 3, meme: 0, transition: 2, text: 2, slowmo: 3}
+  captions: {default: off, words: [3, 6], lines: 1, max_cps: 17}
+  music: {mode: front, bed_db: -18, front_db: -6, prefer: [epic, build-drop, happy, upbeat], avoid: []}
+  memes: never
+  transitions: {default: cut, allowed: [cut, whip, dissolve, zoom], at: [section_change, place_change]}
+  signature: [cut_on_beat, motion_continuity, match_cut, natural_sound_accents, slowmo_on_peaks]
+  donts: [Talking over the montage, Random effects not tied to the beat]
+  hooks: [visual_spectacle, peak_moment]
+
+hype_reel:
+  name: Hype / velocity reel
+  aspect: "9:16"
+  target: [8, 30]
+  keep_ratio: 0.25
+  structure: [spectacle, escalation, loop]
+  pacing: {aroll_shot: [1.5, 3], broll_shot: [0.4, 1.6], tightness: 0.9, breath: 0.06, max_pause: 0.25, dead_zone: 2}
+  budgets: {zoom: 6, sfx: 8, meme: 0, transition: 6, text: 2, slowmo: 6}
+  captions: {default: bold, words: [1, 3], lines: 1, max_cps: 25}
+  music: {mode: front, bed_db: -16, front_db: -4, prefer: [hype, energetic, epic, build-drop], avoid: [calm]}
+  memes: never
+  transitions: {default: cut, allowed: [cut, whip, zoom], at: [beat]}
+  signature: [frame1_spectacle, cut_on_beat, speed_ramps_on_hits, loop_ending, text_hook]
+  donts: [Flash/shake on every beat, Slow intro, Cuts off the beat]
+  hooks: [visual_spectacle, peak_moment]
+
+aesthetic:
+  name: Aesthetic / day-in-life / cooking
+  aspect: "9:16"
+  target: [20, 60]
+  keep_ratio: 0.55
+  structure: [satisfying_open, progression, reveal]
+  pacing: {aroll_shot: [3, 6], broll_shot: [2.0, 5.0], tightness: 0.3, breath: 0.2, max_pause: 0.9, dead_zone: 9}
+  budgets: {zoom: 0.5, sfx: 0, meme: 0, transition: 2, text: 2, slowmo: 2}
+  captions: {default: clean, words: [3, 6], lines: 2, max_cps: 14, case: lower}
+  music: {mode: light, bed_db: -22, front_db: -14, prefer: [calm, chill, warm, aesthetic], avoid: [hype, epic]}
+  memes: never
+  transitions: {default: dissolve, allowed: [cut, dissolve], at: [any]}
+  signature: [hold_satisfying_actions, asmr_foley_up, slow_push_in, soft_small_text, speedup_long_steps]
+  donts: [Cartoon SFX, Memes, Hard zooms, Loud music over natural sound]
+  hooks: [result_first, visual_spectacle]
+
+teaser:
+  name: Teaser / trailer
+  aspect: "9:16"
+  target: [15, 30]
+  keep_ratio: 0.2
+  structure: [setup, escalation, climax, button, title]
+  pacing: {aroll_shot: [1.5, 3], broll_shot: [0.6, 2.0], tightness: 0.8, breath: 0.08, max_pause: 0.3, dead_zone: 3}
+  budgets: {zoom: 4, sfx: 6, meme: 0, transition: 4, text: 3, slowmo: 4}
+  captions: {default: bold, words: [2, 4], lines: 1, max_cps: 22}
+  music: {mode: front, bed_db: -16, front_db: -5, prefer: [epic, build-drop, hype], avoid: [calm]}
+  memes: never
+  transitions: {default: cut, allowed: [cut, zoom, fade_black], at: [beat]}
+  signature: [dialogue_as_beats, riser_silence_hit, button_after_silence, backtime_music, end_title_card]
+  donts: [Giving away the payoff, Starting slow]
+  hooks: [peak_moment, curiosity_gap]
+
+talking_head:
+  name: Talking head / tips
+  aspect: "9:16"
+  target: [30, 90]
+  keep_ratio: 0.85
+  structure: [hook, promise, points, payoff, cta]
+  pacing: {aroll_shot: [2, 6], broll_shot: [1.5, 3.5], tightness: 0.85, breath: 0.08, max_pause: 0.3, dead_zone: 5}
+  budgets: {zoom: 6, sfx: 4, meme: 1, transition: 0.5, text: 6, slowmo: 0}
+  captions: {default: bold, words: [2, 4], lines: 2, max_cps: 20}
+  music: {mode: bed, bed_db: -22, front_db: -12, prefer: [chill, calm, upbeat], avoid: [epic]}
+  memes: light
+  transitions: {default: cut, allowed: [cut], at: []}
+  signature: [hook_first, jump_cut_punch_in_alternation, broll_on_nouns, number_callouts, list_counters]
+  donts: [Logo intros, Zooming on every sentence, Music louder than the voice]
+  hooks: [bold_claim, curiosity_gap, question, number_list]
+
+podcast_clip:
+  name: Podcast / interview clip
+  aspect: "9:16"
+  target: [30, 75]
+  keep_ratio: 0.9
+  structure: [strongest_line, context, payoff]
+  pacing: {aroll_shot: [2, 8], broll_shot: [2, 4], tightness: 0.75, breath: 0.1, max_pause: 0.35, dead_zone: 6}
+  budgets: {zoom: 4, sfx: 1, meme: 0.5, transition: 0, text: 3, slowmo: 0}
+  captions: {default: bold, words: [2, 4], lines: 2, max_cps: 20}
+  music: {mode: none, bed_db: -26, front_db: -14, prefer: [calm], avoid: [hype, epic]}
+  memes: light
+  transitions: {default: cut, allowed: [cut], at: []}
+  signature: [one_idea_per_clip, keep_qualifiers, speaker_locked_framing, text_hook_on_top]
+  donts: [Cutting the qualifier from a claim, Switching framing every sentence]
+  hooks: [bold_claim, curiosity_gap, question]
+
+gaming:
+  name: Gaming highlights
+  aspect: "16:9"
+  target: [30, 600]
+  keep_ratio: 0.35
+  structure: [best_moment_cold_open, rising_highlights, climax, outro]
+  pacing: {aroll_shot: [2, 6], broll_shot: [1, 3], tightness: 0.8, breath: 0.1, max_pause: 0.4, dead_zone: 6}
+  budgets: {zoom: 6, sfx: 6, meme: 2, transition: 1, text: 4, slowmo: 3}
+  captions: {default: bold, words: [2, 4], lines: 1, max_cps: 22}
+  music: {mode: mixed, bed_db: -22, front_db: -8, prefer: [hype, energetic], avoid: [calm]}
+  memes: allowed
+  transitions: {default: cut, allowed: [cut, zoom, whip], at: [highlight]}
+  signature: [cut_dead_gameplay, facecam_punch_in_on_reactions, replay_slowmo, meme_after_reaction, montage_on_beat]
+  donts: [Long looting/walking sections, Memes over important callouts]
+  hooks: [peak_moment]
+
+comedy:
+  name: Comedy / skit
+  aspect: "9:16"
+  target: [15, 90]
+  keep_ratio: 0.95
+  structure: [setup, escalation, punchline, button]
+  pacing: {aroll_shot: [1.5, 5], broll_shot: [1, 2.5], tightness: 0.7, breath: 0.1, max_pause: 0.5, dead_zone: 5}
+  budgets: {zoom: 5, sfx: 5, meme: 3, transition: 0.5, text: 3, slowmo: 1}
+  captions: {default: bold, words: [2, 4], lines: 2, max_cps: 20}
+  music: {mode: light, bed_db: -24, front_db: -12, prefer: [happy, upbeat], avoid: [epic]}
+  memes: allowed
+  transitions: {default: cut, allowed: [cut], at: []}
+  signature: [hold_before_punchline, cut_fast_to_reaction, meme_after_joke, dramatic_zoom_on_reaction]
+  donts: [Meme or SFX over the punchline itself, Explaining the joke with text]
+  hooks: [peak_moment, curiosity_gap]

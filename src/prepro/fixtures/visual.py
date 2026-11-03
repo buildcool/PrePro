@@ -144,7 +144,8 @@ def scenery(kind: str, w: int = 3200, h: int = 1800, seed: int = 0) -> Image.Ima
 
 def _moves(move: str, dur: float, out_w: int, out_h: int) -> str:
     D = max(0.1, dur)
-    base = f"scale={int(out_w * 1.6)}:-2"
+    # scale the 16:9 scenery so it covers the output frame with room to move (works for 9:16 too)
+    base = f"scale={int(out_w * 1.6)}:-2" if out_w >= out_h else f"scale=-2:{int(out_h * 1.25)}"
     if move == "pan_right":
         return f"{base},crop={out_w}:{out_h}:x='(iw-ow)*t/{D}':y='(ih-oh)/2'"
     if move == "pan_left":
@@ -160,7 +161,8 @@ def _moves(move: str, dur: float, out_w: int, out_h: int) -> str:
         return (f"{base},crop={out_w}:{out_h}:x='if(lt(t,{a}),(iw-ow)*0.3*t/{a},(iw-ow)*(0.3+0.7*(t-{a})/0.4))':y='(ih-oh)/2',"
                 f"boxblur=luma_radius=22:luma_power=2:enable='gte(t,{a})'")
     if move == "push_in":
-        return f"scale={out_w * 2}:-2,zoompan=z='min(1+0.25*on/({D}*30),1.25)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={out_w}x{out_h}:fps=30"
+        pre = f"scale={out_w * 2}:-2" if out_w >= out_h else f"scale=-2:{out_h * 2},crop=ih*{out_w}/{out_h}:ih"
+        return f"{pre},zoompan=z='min(1+0.25*on/({D}*30),1.25)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={out_w}x{out_h}:fps=30"
     raise ValueError(move)
 
 

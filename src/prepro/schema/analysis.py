@@ -42,6 +42,7 @@ class Segment(BaseModel):
     energy: float = 0.0               # mean speech loudness (relative)
     emotion: str | None = None        # filled by AI (or heuristics)
     lang: str | None = None
+    tags: list[str] = Field(default_factory=list)   # greeting|cta|question|numbers|hesitation|punchline…
 
 
 class Transcript(BaseModel):
@@ -100,6 +101,10 @@ class Shot(BaseModel):
     mood: str | None = None
     best: list[Window] = Field(default_factory=list)  # best 2–5 s windows inside the shot
     color: tuple[float, float, float] | None = None   # mean RGB 0..1 (colour continuity)
+    phash: str | None = None
+    action_peaks: list[float] = Field(default_factory=list)   # source times of motion peaks
+    static_ratio: float = 0.0          # share of pixels that never change (HUD / screen capture hint)
+    hud: float = 0.0                   # edge density inside the static region (text/HUD overlays)
 
     @property
     def dur(self) -> float:

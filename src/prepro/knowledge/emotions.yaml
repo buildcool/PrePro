@@ -1,0 +1,11 @@
+# Emotion map (inspired by the Navarasa) → what each emotion asks of music, SFX, memes, pacing and captions.
+fun:      {music: [happy, upbeat], sfx: [pop, ding], memes: [relatable, wholesome], pace: 0.65, captions: bold}
+wonder:   {music: [epic, warm, calm], sfx: [riser], memes: [], pace: 0.4, captions: clean}
+hype:     {music: [hype, energetic, epic], sfx: [whoosh, impact], memes: [hype, flex], pace: 0.9, captions: bold}
+calm:     {music: [calm, chill, aesthetic], sfx: [], memes: [], pace: 0.25, captions: clean}
+beauty:   {music: [warm, aesthetic, calm], sfx: [], memes: [], pace: 0.35, captions: clean}
+tension:  {music: [moody, epic], sfx: [riser], memes: [], pace: 0.6, captions: clean}
+sad:      {music: [moody, calm], sfx: [], memes: [], pace: 0.3, captions: clean}
+absurd:   {music: [happy], sfx: [boom, scratch], memes: [shock, fail, irony, awkward], pace: 0.7, captions: bold}
+shock:    {music: [], sfx: [boom, impact], memes: [shock], pace: 0.75, captions: bold}
+gross:    {music: [], sfx: [], memes: [cringe], pace: 0.6, captions: bold}
