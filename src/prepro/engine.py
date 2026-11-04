@@ -160,6 +160,20 @@ def build(root: str | Path, *, direction: str | None = "auto", settings: Setting
         brain.rules = brief.rules
     ds = brain.directions()
     d = choose(ds, direction)
+    from .style import load as load_style
+
+    dna = load_style(root)
+    if dna is not None and dna.enabled and dna.knobs:
+        sk = dict(dna.knobs)
+        if brief.prefs.target_length:                       # the brief's length wins
+            sk.pop("target_length", None)
+        if any(r.kind == "captions" for r in brief.rules):  # so do caption rules
+            sk.pop("captions", None)
+        d.knobs = d.knobs.model_copy(update={k: v for k, v in sk.items() if k in type(d.knobs).model_fields})
+        if sk.get("target_length"):
+            L = float(sk["target_length"])
+            d.target_min, d.target_max = round(L * 0.85, 1), round(L * 1.15, 1)
+        d.why = (d.why + " · " if d.why else "") + "styled like your references"
     if knobs:
         d.knobs = d.knobs.model_copy(update={k: v for k, v in knobs.items() if k in type(d.knobs).model_fields and v is not None})
         if knobs.get("target_length"):

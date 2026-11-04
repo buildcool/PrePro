@@ -29,6 +29,8 @@ class Knobs(BaseModel):
     look: str | None = None           # LUT preset name or asset id
     meme_flavour: str = "global"      # global | indian | genz | mix
     meme_tone: Literal["clean", "edgy"] = "clean"
+    tightness: float | None = None    # speech-cut tightness override (Style DNA); None = playbook
+    shot_len: float | None = None     # typical B-roll shot length override (Style DNA); None = playbook
 
 
 class HookOption(BaseModel):

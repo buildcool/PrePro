@@ -276,6 +276,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
     last_asset, last_src_out, zoom_toggle = None, None, False
     zoom_ok = "zoom" not in no and pb.budget("zoom") > 0
     tight, breath, max_pause = pb.pacing.tightness, pb.pacing.breath, pb.pacing.max_pause
+    if d.knobs.tightness is not None:              # Style DNA: cut speech like the references do
+        tight = d.knobs.tightness
+        max_pause = max(0.25, max_pause * (1.3 - d.knobs.tightness))
+    broll_len = d.knobs.shot_len or float(np.mean(pb.pacing.broll_shot))
     word_zoom = {c.at: c for c in polish.effects if c.type == "zoom" and ".w" in c.at and c.confidence >= applied_conf}
     for k, it in enumerate(story.items):
         sec = it.section
@@ -347,7 +351,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         elif shot is not None:
             asset = pa.asset(shot.asset_id)
             a = it.t0 if it.t0 is not None else shot.t0
-            b = it.t1 if it.t1 is not None else min(shot.t1, a + float(np.mean(pb.pacing.broll_shot)))
+            b = it.t1 if it.t1 is not None else min(shot.t1, a + broll_len)
             speed_cue = next((c for c in cues.get(shot.id, []) if c.type == "speed"), None)
             speed = 1.0
             if speed_cue and speed_cue.confidence >= applied_conf:

@@ -98,3 +98,21 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
 - **Shorts finder on the planted podcast** (3 gold moments between rambling, a greeting and "like I said"
   asides): it picked exactly gold2, gold1 and gold3 (IoU ≈ 1.0). Every pick opens on its own claim or question and
   ends on its lesson.
+
+### v0.5 (Phase 2): packaging and Style DNA
+- **Titles, first pass, read as a creator:**
+  - "000 for 3 full days": the clause split broke "5,000"
+  - "(watch till the end)": clickbait, and it produced garbled titles
+  - "3 Editing Mistakes That Are Killing": cut mid-phrase
+
+  Now: number-safe clause splits, natural rewrites ("The real reason…", "How I lost $10,000…", "Stop making these
+  3 editing mistakes"), journey titles, and no clickbait suffixes.
+- **Thumbnail text** ended on "your?!" and turned "Why do some videos get…" into nothing. Now it is centred on the
+  number ("1M views phone camera?", "$10,000 first channel") and never ends on a function word. "A million"
+  became 1M.
+- **Thumbnails** were three near-identical faces. Now there is one of each kind (face / action / scenery), and the
+  mock-ups were checked visually: bold Anton text, white and yellow with an outline, face kept clear.
+- **Style DNA text detector, first version:** 37 % recall on a 100 %-captioned reference, because short words
+  slipped through. The morphological text-region detector reads 100 % there, 0 % on raw clips, 61 % on our own
+  captioned travel render, and 8 % (one frame) false positives on a scenery montage.
+- **CI had never run the tests** (an import-path problem since M0). Fixed; Linux, Windows and UI are green.

@@ -7,7 +7,7 @@ import json
 import os
 import re
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeVar
 
@@ -77,6 +77,7 @@ class ScanResult:
     brief_files: list[Path]
     notes_files: list[Path]
     sidecars: dict[str, Path]     # media rel path (without ext) → transcript sidecar
+    style_refs: list[Path] = field(default_factory=list)   # videos in style/ or references/: measured, never edited
 
 
 _CACHE_LOCK = threading.Lock()
@@ -85,6 +86,8 @@ _CACHE_DIRS: dict[str, Path] = {}          # resolved cache folder per shoot (ch
 EXPORTS_DIR = "PrePro_exports"
 # our own outputs (and tool clutter) must never be re-ingested as footage
 IGNORED_DIRS = frozenset({EXPORTS_DIR, "node_modules", "__pycache__", "$RECYCLE.BIN", "System Volume Information"})
+# reference videos for Style DNA: measured for their editing style, never cut into the edit
+STYLE_DIRS = frozenset({"style", "styles", "reference", "references", "refs", "inspiration"})
 
 
 class Project:
@@ -133,10 +136,14 @@ class Project:
         brief_files: list[Path] = []
         notes_files: list[Path] = []
         sidecars: dict[str, Path] = {}
+        style_refs: list[Path] = []
         for dirpath, dirnames, filenames in os.walk(self.root):
             dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d not in IGNORED_DIRS)
             dpath = Path(dirpath)
             rel_dir = dpath.relative_to(self.root)
+            if any(part.lower() in STYLE_DIRS for part in rel_dir.parts):
+                style_refs += [dpath / fn for fn in sorted(filenames) if not fn.startswith(".") and Path(fn).suffix.lower() in VIDEO_EXT]
+                continue
             hint = None
             for part in reversed(rel_dir.parts):
                 key = part.lower().replace(" ", "").replace("_", "-")
@@ -171,7 +178,7 @@ class Project:
                     continue
                 tags, _ = filename_tags(fn)
                 files.append(ScannedFile(path=p, rel=rel, media=media, hint=hint, tags=tags))
-        return ScanResult(files=files, brief_files=brief_files, notes_files=notes_files, sidecars=sidecars)
+        return ScanResult(files=files, brief_files=brief_files, notes_files=notes_files, sidecars=sidecars, style_refs=style_refs)
 
     # ---------- persistence ----------
     def save_model(self, name: str, model: BaseModel) -> Path:

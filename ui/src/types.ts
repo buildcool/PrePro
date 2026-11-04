@@ -71,6 +71,8 @@ export interface Summary {
   directions: { directions: Direction[]; notes: string } | null;
   shorts: { directions: Direction[]; notes: string } | null;
   talk_seconds: number;
+  style: StyleDNA | null;
+  style_refs: string[];
   brief: { text: string; parsed: Brief | null };
 }
 
@@ -195,3 +197,10 @@ export interface Brains {
 
 export const itemDur = (i: Item) =>
   ["text", "image", "color"].includes(i.kind) && i.duration != null ? i.duration : Math.max(0, (i.src_out - i.src_in) / Math.max(i.speed || 1, 1e-6));
+
+export interface StyleDNA {
+  refs: { name: string; duration: number; aspect: string; cuts_per_min: number; speech_ratio: number; music_ratio: number; text_ratio: number }[];
+  summary: string[];
+  knobs: Record<string, unknown>;
+  enabled: boolean;
+}

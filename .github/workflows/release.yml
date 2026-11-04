@@ -37,7 +37,9 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: PrePro v${{ steps.v.outputs.version }}
           body_path: docs/releases/v${{ steps.v.outputs.version }}.md
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
   desktop:
     needs: release
     if: needs.release.outputs.created == 'true'

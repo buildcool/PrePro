@@ -18,6 +18,16 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
     intro folds into the first real chapter.
   - **Description and hashtags.**
   - All of it also appears in the editor brief and in `packaging/packaging.md`.
+- **Style DNA** (`prepro style`, Brief step → "Style DNA"). Drop 1–5 videos you like into `style/`; they are
+  measured locally and never edited or uploaded.
+  - **What is measured:** cut rate, shot lengths, talking share, pause lengths, music share, on-screen text share
+    and length.
+  - **What it sets:** pace, B-roll shot length, how tightly speech is cut, captions, effects intensity and
+    target length. The creator's own knobs and brief rules still win.
+  - **Checked against references with known answers:**
+    - a 0.6 s-shot montage measured 95 cuts/min against a true 95
+    - a captioned talking head had text on screen 100 % of the time, against 0 % for the raw clip
+- The scanner keeps `style/` / `references/` videos out of the footage.
 - `words_to_digits` understands "a million" / "two billion" (→ 1M / 2B).
 ### Fixed
 - **CI collection had failed since M0.** The bare `pytest` script couldn't import `tests.conftest`; pytest now

@@ -9,6 +9,8 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 - v0.5.0: Phase 2 has started.
   - `repurpose.py`: Long → Shorts.
   - `packaging.py`: thumbnails, titles, chapters, description.
+  - `style.py`: Style DNA from `style/` reference videos → knobs (pace, `shot_len`, `tightness`, captions,
+    effects, length).
 - v0.4.0: M0–M6 done. The desktop app has three parts:
   - `desktop/`: Electron main/preload/splash + electron-builder config
   - `scripts/build_engine.py`: PyInstaller, one folder → `dist/prepro-engine`
@@ -78,7 +80,6 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Next steps
 1. **Phase 2** by value; see `docs/PLAN.md` §8. Next:
-   - Style DNA: measure reference videos into a playbook overlay
    - AI titles/thumbnail text through the brain, as a `package` pass
    - stock/GIF search
    - VO recording + scratch TTS

@@ -51,6 +51,36 @@ def shorts(
 
 
 @app.command()
+def style(
+    shoot: Path = typer.Argument(..., help="Shoot folder; reference videos go in <shoot>/style/ (or references/)"),
+    refs: list[Path] = typer.Option(None, "--ref", help="Reference video(s) instead of the style/ folder"),
+    off: bool = typer.Option(False, "--off", help="Keep the measurements but stop applying them"),
+) -> None:
+    """Style DNA: measure how reference videos are edited; the next `build` cuts in that style."""
+    from .project import Project
+    from .style import load, measure_shoot
+
+    if off:
+        dna = load(shoot)
+        if dna:
+            dna.enabled = False
+            Project(shoot).save_model("style.json", dna)
+        console.print("Style DNA off.")
+        return
+    with console.status("Measuring the references…"):
+        dna = measure_shoot(shoot, list(refs) if refs else None)
+    if dna is None:
+        console.print("[yellow]No reference videos — put 1–5 videos you like into a style/ folder inside the shoot.")
+        raise typer.Exit(1)
+    for r in dna.refs:
+        console.print(f"  {r.name}: {r.duration:.0f}s {r.aspect} · {r.cuts_per_min:.0f} cuts/min · talking {r.speech_ratio:.0%} · "
+                      f"music {r.music_ratio:.0%} · text {r.text_ratio:.0%}")
+    console.rule("style")
+    for line in dna.summary:
+        console.print(f"  · {line}")
+
+
+@app.command()
 def ui(port: int = typer.Option(8765, help="Local port"), no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser")) -> None:
     """Open the review app (runs on this computer only; footage is never uploaded)."""
     from .server import serve

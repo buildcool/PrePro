@@ -80,6 +80,7 @@ export default function Project({ route, setTitle }: { route: Extract<Route, { p
       <JobBar job={job} />
       {tab === "footage" && <Footage s={s} run={run} busy={!!job} />}
       {tab === "brief" && <BriefTab s={s} onSaved={load} />}
+      {tab === "brief" && <StyleCard s={s} run={run} busy={!!job} reload={load} />}
       {tab === "directions" && <Directions s={s} run={run} busy={!!job} />}
       {tab === "review" &&
         (tid ? (
@@ -362,6 +363,44 @@ function Shorts({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l: 
                 onClick={() => go({ page: "project", pid: s.id, tab: "review", tid: tidOf(d) })}>Review this Short</button>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Style DNA
+function StyleCard({ s, run, busy, reload }: { s: Summary; run: (p: string, b: unknown, l: string) => Promise<any>; busy: boolean; reload: () => void }) {
+  const { say } = useToast();
+  const dna = s.style;
+  const toggle = async (enabled: boolean) => {
+    try {
+      await api(`/projects/${s.id}/style`, { method: "PUT", body: { enabled } });
+      reload();
+    } catch (e: any) {
+      say(e.message, "error");
+    }
+  };
+  return (
+    <div className="card col">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Style DNA (optional)</h2>
+          <div className="small mute">
+            Put 1–5 videos whose editing you like into a <code>style/</code> folder in this shoot. PrePro measures their pace, cut rhythm, captions,
+            music and length — they are never cut into your video or uploaded.
+          </div>
+        </div>
+        <button className="btn" disabled={busy || s.style_refs.length === 0} onClick={() => run(`/projects/${s.id}/style`, {}, "Style DNA")}>
+          {dna ? "Measure again" : `Measure ${s.style_refs.length || ""} reference${s.style_refs.length === 1 ? "" : "s"}`}
+        </button>
+      </div>
+      {s.style_refs.length === 0 && !dna && <div className="small dim">No reference videos found in a style/ folder yet.</div>}
+      {dna && (
+        <div className="col small">
+          <label className="row"><input type="checkbox" checked={dna.enabled} onChange={(e) => toggle(e.target.checked)} /> Cut in this style</label>
+          {dna.summary.map((x, i) => <div key={i}>· {x}</div>)}
+          <div className="dim">{dna.refs.map((r) => r.name).join(", ")}</div>
         </div>
       )}
     </div>

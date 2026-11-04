@@ -157,6 +157,9 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 continue
         ds = proj.load_model("directions.json", DirectionSet)
         shorts = proj.load_model("shorts.json", DirectionSet)
+        from ..style import load as load_style
+
+        dna = load_style(root)
         brief = proj.load_model("brief.json", CreatorBrief)
         bt = proj.cache / "brief_text.md"
         counts: dict[str, int] = {}
@@ -173,6 +176,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "timelines": sorted(tls, key=lambda x: -x["updated"]),
                 "directions": ds.model_dump() if ds else None,
                 "shorts": shorts.model_dump() if shorts else None,
+                "style": dna.model_dump() if dna else None,
+                "style_refs": [str(p.relative_to(root)) for p in proj.scan().style_refs],
                 "talk_seconds": round(sum(a.info.duration for a in pa.assets if a.kind.value == "aroll"), 1) if pa else 0,
                 "brief": {"text": bt.read_text(encoding="utf-8") if bt.exists() else "", "parsed": brief.model_dump() if brief else None},
                 "jobs": [j.public() for j in jobs.jobs.values() if j.project == pid and j.status in ("queued", "running")]}
@@ -294,6 +299,33 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             return {"directions": ds.model_dump(), "brief": brief.model_dump(), "ai_calls": len(calls)}
 
         return jobs.submit("directions", pid, work).public()
+
+    @app.post("/api/projects/{pid}/style")
+    def make_style(pid: str):
+        root = project(pid)
+
+        def work(job: Job):
+            from ..style import measure_shoot
+
+            job.progress("style", 0.1, 1, "measuring the reference videos")
+            dna = measure_shoot(root)
+            if dna is None:
+                raise ValueError("no reference videos: put 1–5 videos you like into a style/ folder inside the shoot")
+            return dna.model_dump()
+
+        return jobs.submit("style", pid, work).public()
+
+    @app.put("/api/projects/{pid}/style")
+    def toggle_style(pid: str, body: dict = Body(...)):
+        root = project(pid)
+        from ..style import load
+
+        dna = load(root)
+        if dna is None:
+            raise HTTPException(404, "no style measured yet")
+        dna.enabled = bool(body.get("enabled", True))
+        Project(root).save_model("style.json", dna)
+        return dna.model_dump()
 
     @app.post("/api/projects/{pid}/shorts")
     def make_shorts(pid: str, body: dict = Body(default={})):

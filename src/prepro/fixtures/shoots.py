@@ -352,3 +352,39 @@ def _build_hindi_vlog(root, truth, *, face, md, quick, sidecars, with_brief):
     _music(root, truth, "desi_upbeat_110", bpm=110, minor=False, mood="happy", seed=15, sections=[("intro", 2, 0.4), ("verse", 8, 0.7), ("outro", 2, 0.4)])
     _memes(root)
     truth["expect"] = {"playbooks": ["story_vlog", "hype_reel"], "caption_lang": "hi", "hinglish_available": True}
+
+
+def style_references(out: Path, *, talking_clip: Path | None = None, seed: int = 0) -> dict[str, Path]:
+    """Two reference videos with known style for Style DNA tests:
+    - fast_montage.mp4: 0.6 s shots of different scenes cut to music, no talking, no text (hype style);
+    - talky_captions.mp4: one talking shot with big burned-in captions, no music (talking-head style)."""
+    from ..config import assets_dir
+    from ..media.ffmpeg import run_ffmpeg
+
+    out.mkdir(parents=True, exist_ok=True)
+    scenes = ["beach", "mountain", "forest", "city", "sunset", "food", "cafe", "market", "room"]
+    parts = []
+    for k in range(20):
+        img = V.scenery(scenes[k % len(scenes)], seed=seed + k)
+        p = out / f"_shot{k}.mp4"
+        V.still_clip(img, p, dur=0.6, move="static", vertical=True)
+        parts.append(p)
+    y, _ = A.procedural_music(bpm=128, sections=[("drop", 8, 1.0)], seed=seed + 3)
+    A.write_wav(out / "_music.wav", y)
+    lst = out / "_list.txt"
+    lst.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
+    fast = out / "fast_montage.mp4"
+    run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(lst), "-i", str(out / "_music.wav"), "-map", "0:v", "-map", "1:a", "-shortest",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30", "-c:a", "aac", str(fast)], timeout=600)
+    refs = {"fast": fast}
+    if talking_clip and talking_clip.exists():
+        font = (assets_dir() / "fonts" / "Anton-Regular.ttf").as_posix().replace(":", "\\:")
+        lines = ["THREE EDITING", "MISTAKES", "KILLING YOUR", "VIEWS", "NUMBER ONE", "SLOW INTRO", "NOBODY WAITS", "FOR YOUR LOGO"]
+        draws = ",".join(f"drawtext=fontfile='{font}':text='{t}':fontsize=h/11:fontcolor=white:borderw=6:bordercolor=black:"
+                         f"x=(w-text_w)/2:y=h*0.72:enable='between(t,{i * 2},{i * 2 + 2})'" for i, t in enumerate(lines))
+        talky = out / "talky_captions.mp4"
+        run_ffmpeg(["-i", str(talking_clip), "-t", "16", "-vf", draws, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(talky)], timeout=600)
+        refs["talky"] = talky
+    for p in [*parts, out / "_music.wav", lst]:
+        p.unlink(missing_ok=True)
+    return refs

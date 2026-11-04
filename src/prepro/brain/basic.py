@@ -425,7 +425,7 @@ class BasicBrain:
             est = sorted([s for s in cs if s.face_ratio < 0.2], key=lambda s: -(s.quality + 0.2 * s.camera_move.startswith("pan")))
             if est:
                 e = est[0]
-                t0, t1 = self._window(e, float(np.mean(pb.pacing.broll_shot)) + 0.8)
+                t0, t1 = self._window(e, (d.knobs.shot_len or float(np.mean(pb.pacing.broll_shot))) + 0.8)
                 items.append(StoryItem(ref=e.id, role="establishing", t0=t0, t1=t1, section=name, note="establishing shot of a new place"))
                 used.add(e.id)
             for s in [s for s in segs if self.cluster_of(s.asset_id) == c and s.id not in used and s not in cta]:
@@ -436,7 +436,7 @@ class BasicBrain:
                 mname = f"{name}_montage"
                 sections.append(StorySection(name=mname, music_mode="front"))
                 for s in mont:
-                    t0, t1 = self._window(s, float(pb.pacing.broll_shot[1]) - 0.6)
+                    t0, t1 = self._window(s, (d.knobs.shot_len or float(pb.pacing.broll_shot[1]) - 0.6))
                     items.append(StoryItem(ref=s.id, role="montage", t0=t0, t1=t1, section=mname))
                     used.add(s.id)
         # payoff + cta at the end
@@ -563,7 +563,7 @@ class BasicBrain:
         target = d.knobs.target_length or 30
         pool = self.good_shots()
         pb = K.playbook("aesthetic")
-        hold = float(np.mean(pb.pacing.broll_shot))
+        hold = d.knobs.shot_len or float(np.mean(pb.pacing.broll_shot))
         if not pool:
             return self._story_story_vlog(d)
         opener = max(pool, key=lambda s: s.quality + 0.3 * bool(s.action_peaks) + 0.2 * (s.camera_move == "push_in"))
