@@ -226,6 +226,18 @@ class BasicBrain:
             seg = self._seg(forced.target)
             opts.append(HookOption(id="h0", kind="from_brief", refs=[forced.target], text_hook=text_hook(seg.text) if seg else None,
                                    why=f"you asked: “{forced.anchor}”", score=1.0))
+        if playbook == "gaming":
+            plays = [(e, a) for a in self.pa.assets if a.kind in (AssetKind.SCREEN, AssetKind.AROLL) for e in self._game_events(a.id)]
+            if plays:
+                e, a = max(plays, key=lambda p: p[0]["score"])
+                sh = next((x for x in self.pa.clips[a.id].shots if x.t0 <= e["t"] <= x.t1), None)
+                r = self._seg(e["reaction"]) if e["reaction"] else None
+                if sh is not None:
+                    opts.append(HookOption(id=f"h{len(opts)}", kind="peak_moment", refs=[sh.id],
+                                           text_hook=" ".join(r.text.split()[:3]).upper().rstrip(",;: ") if r else None,
+                                           why=f"open on the best play ({e['kind'].replace('+', ' + ')} at {e['t']:.1f} s)" +
+                                               (f" — “{r.text.strip()[:40]}”" if r else ""),
+                                           score=round(min(1.0, 0.55 + 0.3 * min(1.0, e["score"] / 1.5)), 3)))
         talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic")
         if talk_ok:
             per_clip = defaultdict(int)
@@ -322,7 +334,21 @@ class BasicBrain:
         elif pbk in ("story_vlog", "talking_head", "podcast_clip"):
             est = speech_ok * 0.98 + (min(broll_ok, speech_ok * 0.5) * 0.35 if pbk == "story_vlog" else 0)
         elif pbk == "gaming":
-            est = speech_ok * 0.9 + 6
+            wins = []
+            for a in self.pa.assets:
+                if a.kind in (AssetKind.SCREEN, AssetKind.AROLL):
+                    for e in self._game_events(a.id):
+                        r = self._seg(e["reaction"]) if e["reaction"] else None
+                        wins.append((max(0.0, e["t"] - 3.0), (r.t1 + 0.5) if r else e["t"] + 1.6))
+            wins.sort()
+            merged: list[list[float]] = []
+            for w0, w1 in wins:
+                if merged and w0 <= merged[-1][1] + 0.5:
+                    merged[-1][1] = max(merged[-1][1], w1)
+                else:
+                    merged.append([w0, w1])
+            # every play + a cold open + a replay; talk-only footage falls back to the speech estimate
+            est = sum(b - a for a, b in merged) + 3.4 if merged else speech_ok * 0.9 + 6
         elif pbk == "travel_film":
             est = broll_ok * 0.55 * (0.5 + 0.5 * getattr(self, "_variety", 1.0))    # few angles → shorter film
         elif pbk == "hype_reel":
@@ -856,19 +882,115 @@ class BasicBrain:
         return StoryPlan(direction_id=d.id, items=items, sections=[StorySection(name="skit", music_mode="light")],
                          why="dialogue in order, pauses tightened except the beat before each punchline, reaction cutaway after it")
 
-    def _story_gaming(self, d: Direction) -> StoryPlan:
-        segs = self.usable_segments()
-        hype = [s for s in segs if s.text.strip().endswith("!") or s.energy > 1.5]
-        items = []
-        if hype:
-            best = max(hype, key=lambda s: s.energy + 2 * ("numbers" in s.tags))
-            items.append(StoryItem(ref=best.id, role="hook", section="cold_open", note="best reaction as the cold open"))
+    REACTION = re.compile(r"\b(let'?s go|no way|oh my god|omg|what|victory|won|win|kill|clutch|headshot|insane|yes|noo+|bro)\b", re.I)
+
+    def _game_events(self, asset_id: str) -> list[dict]:
+        """Highlights in gameplay: an impact (explosion/shot) followed by the streamer's reaction is the classic
+        moment; a big reaction alone or an impact alone count less. Returns dicts sorted by time."""
+        cache = getattr(self, "_events_cache", None)
+        if cache is None:
+            cache = self._events_cache = {}
+        if asset_id in cache:
+            return cache[asset_id]
+        from ..analyze.sound import impacts
+        from ..project import Project
+
+        ca = self.pa.clips[asset_id]
+        segs = sorted(ca.transcript.segments, key=lambda s: s.t0) if ca.transcript else []
+        hits: list[tuple[float, float]] = []
+        try:
+            import soundfile as sf
+
+            wav = Project(self.pa.root).cache / "audio" / f"{asset_id}.wav"
+            if wav.exists():
+                y, sr = sf.read(str(wav), dtype="float32")
+                hits = impacts(y, sr, word_starts=[w.t0 for w in self.pa.words(asset_id)])
+        except Exception:
+            hits = []
+
+        def reaction(s) -> float:
+            return 0.5 * s.text.strip().endswith("!") + 0.4 * bool(self.REACTION.search(s.text)) + 0.2 * min(1.0, max(0.0, s.energy) / 1.5)
+
+        events, used = [], set()
+        for t, strength in hits:
+            r = next((s for s in segs if t - 0.3 <= s.t0 <= t + 2.5 and reaction(s) >= 0.4), None)
+            score = 0.5 + min(0.3, strength / 150) + (reaction(r) if r else 0.0)
+            events.append({"t": t, "score": round(score, 3), "reaction": r.id if r else None, "kind": "impact+reaction" if r else "impact"})
+            if r:
+                used.add(r.id)
         for s in segs:
-            if items and s.id == items[0].ref:
+            if s.id not in used and reaction(s) >= 0.8:
+                events.append({"t": max(0.0, s.t0 - 0.3), "score": round(0.3 + reaction(s) * 0.5, 3), "reaction": s.id, "kind": "reaction"})
+        cache[asset_id] = sorted(events, key=lambda e: e["t"])
+        return cache[asset_id]
+
+    def _story_gaming(self, d: Direction) -> StoryPlan:
+        """Gaming highlight cut: cold open on the best moment → highlights in order, each with a 3 s build-up and
+        the reaction → a slow-mo replay of the best play → the payoff. Dead gameplay in between is cut."""
+        clips = [a for a in self.pa.assets if a.kind in (AssetKind.SCREEN, AssetKind.AROLL) and self.pa.clips[a.id].shots]
+        moments = []
+        for a in clips:
+            ca = self.pa.clips[a.id]
+            for e in self._game_events(a.id):
+                sh = next((x for x in ca.shots if x.t0 <= e["t"] <= x.t1), None)
+                if sh is None:
+                    continue
+                r = self._seg(e["reaction"]) if e["reaction"] else None
+                t0 = max(sh.t0, e["t"] - 3.0)
+                t1 = min(sh.t1, (r.t1 + 0.5) if r else e["t"] + 1.6)
+                if t1 - t0 >= 1.5:
+                    moments.append({**e, "shot": sh, "t0": t0, "t1": t1, "asset": a.id})
+        if not moments:
+            # no detectable plays: fall back to the talking-led cut (best reaction first, lines in order)
+            segs = self.usable_segments()
+            hype = [s for s in segs if s.text.strip().endswith("!") or s.energy > 1.5]
+            items = []
+            if hype:
+                best = max(hype, key=lambda s: s.energy)
+                items.append(StoryItem(ref=best.id, role="hook", section="cold_open", note="best reaction as the cold open"))
+            items += [StoryItem(ref=s.id, role="highlight" if s in hype else "body", section="match") for s in segs if not items or s.id != items[0].ref]
+            return StoryPlan(direction_id=d.id, items=items, sections=[StorySection(name="cold_open"), StorySection(name="match")],
+                             why="best reaction first, dead gameplay cut, highlights in order")
+        # merge overlapping windows on the same clip
+        moments.sort(key=lambda m: (m["asset"], m["t0"]))
+        merged: list[dict] = []
+        for m in moments:
+            if merged and merged[-1]["asset"] == m["asset"] and m["t0"] <= merged[-1]["t1"] + 0.5:
+                last = merged[-1]
+                last["t1"] = max(last["t1"], m["t1"])
+                if m["score"] > last["score"]:
+                    last.update({k: m[k] for k in ("t", "score", "reaction", "kind")})
                 continue
-            items.append(StoryItem(ref=s.id, role="highlight" if s in hype else "body", section="match"))
-        return StoryPlan(direction_id=d.id, items=items, sections=[StorySection(name="cold_open"), StorySection(name="match")],
-                         why="best reaction first, dead gameplay cut, highlights in order")
+            merged.append(dict(m))
+        target = d.knobs.target_length or 45
+        best = max(merged, key=lambda m: m["score"])
+        final = max(merged, key=lambda m: m["t"])          # the last play is the payoff — never cut it
+        chosen, total = [final], 2.4 + (final["t1"] - final["t0"])
+        for m in sorted(merged, key=lambda m: -m["score"]):
+            if m is final:
+                continue
+            if total + (m["t1"] - m["t0"]) > target * 1.2 and chosen:
+                continue
+            chosen.append(m)
+            total += m["t1"] - m["t0"]
+        chosen.sort(key=lambda m: (m["asset"], m["t0"]))
+        items: list[StoryItem] = []
+        sh = best["shot"]
+        h0 = max(sh.t0, best["t"] - 0.4)
+        items.append(StoryItem(ref=sh.id, role="hook", t0=round(h0, 3), t1=round(min(best["t1"], h0 + 2.4), 3), section="cold_open",
+                               note="cold open on the best play"))
+        for k, m in enumerate(chosen):
+            role = "payoff" if k == len(chosen) - 1 and len(chosen) > 1 else "highlight"
+            items.append(StoryItem(ref=m["shot"].id, role=role, t0=round(m["t0"], 3), t1=round(m["t1"], 3), section="match",
+                                   note=f"{m['kind'].replace('+', ' + ')} at {m['t']:.1f}s"))
+            if m is best and "speed" not in self.no:
+                r0 = max(m["shot"].t0, best["t"] - 0.3)
+                items.append(StoryItem(ref=m["shot"].id, role="replay", t0=round(r0, 3), t1=round(min(m["shot"].t1, r0 + 1.0), 3), section="replay",
+                                       note="slow-mo replay of the best play"))
+        return StoryPlan(direction_id=d.id, items=items,
+                         sections=[StorySection(name="cold_open"), StorySection(name="match"), StorySection(name="replay", music_mode="none")],
+                         why="cold open on the best play, highlights in order with a 3 s build-up into each, a slow-mo replay of the best, "
+                             "dead gameplay cut")
 
     # ------------------------------------------------------------ polish
     def polish(self, d: Direction, story: StoryPlan) -> PolishPlan:
@@ -1037,6 +1159,29 @@ class BasicBrain:
                     pp.effects.append(EffectCue(type="transition", at=f"before:{it.ref}", style="fade_black", why="beat of black before the button", confidence=0.7))
         # split edits (J/L cuts): sound leads or trails the picture where the scene or the speaker changes
         self._split_edits(d, story, pp, pb)
+        # gaming: a callout on the best plays in the streamer's own words, a REPLAY label on the slow-mo
+        if d.playbook == "gaming" and "text" not in self.no:
+            if any(sec.name == "replay" for sec in story.sections) and any(it.role == "replay" for it in story.items):
+                pp.effects.append(EffectCue(type="text", at="section:replay", text="REPLAY", style="small", dur=1.4, confidence=0.75,
+                                            why="label the slow-mo replay so it reads as a replay, not a glitch"))
+            last_t = -1e9
+            for it in story.items:
+                if it.role not in ("highlight", "payoff") or "reaction" not in (it.note or ""):
+                    continue
+                inside = [e for a in self.pa.assets if a.kind in (AssetKind.SCREEN, AssetKind.AROLL) for e in self._game_events(a.id)
+                          if e["reaction"] and it.t0 is not None and it.t0 <= e["t"] <= (it.t1 or e["t"])]
+                ev = max(inside, key=lambda e: e["score"]) if inside else None
+                r = self._seg(ev["reaction"]) if ev else None
+                if r is None or ev["t"] - last_t < 20:
+                    continue
+                words = [w for w in self.pa.words(r.asset_id) if w.id in r.word_ids and not w.filler]
+                if not words:
+                    continue
+                first_clause = re.split(r"(?<=[!?.])\s", r.text.strip())[0]
+                call = " ".join(first_clause.split()[:3]).upper().rstrip(",;: ")
+                pp.effects.append(EffectCue(type="text", at=words[0].id, text=call, style="callout", dur=max(1.6, 0.9 + len(call.split()) / 2.5),
+                                            confidence=0.7, why=f"callout on the play, in your words: “{call}”"))
+                last_t = ev["t"]
         # open loop: "later…" on the flash-forward; re-hooks at later parts
         for it in story.items:
             if it.role == "flashforward" and "text" not in self.no:

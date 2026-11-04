@@ -3,6 +3,28 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+Planned for 0.7.0. Committed on `dev`; not released yet.
+
+### Added — gaming pack
+- **Impact detection** (`analyze/sound.impacts`): explosions, shots and hits.
+  - **Booms:** a third or more of the energy under 60 Hz. **Shots:** noise-like with a jump of 15 dB or more.
+  - Voices never qualify; they have no sub-bass, and breathy consonants at word starts are ignored.
+  - Gameplay fixture: exactly the 3 planted explosions. Talking, podcast and comedy clips: zero.
+- **Highlights** = impact + the streamer's reaction ("Double kill! Let's go!"). A big reaction alone or an impact
+  alone counts less.
+- **Gaming cut:**
+  - a cold open on the best play
+  - every play with a 3 s build-up into it, at full volume and captioned
+  - dead gameplay in between is cut
+  - a 0.5× slow-mo replay of the best play, labelled REPLAY
+  - the last play is always kept as the payoff
+  - a callout in the streamer's own words ("DOUBLE KILL!")
+  - "open on the best play" offered as the top hook
+- **Length.** A gaming cut's length now comes from its plays, not its talk.
+### Fixed
+- **Dull-stretch fixes sped up a gameplay cold open,** silently. Speed-ups now only apply to wordless B-roll, and
+  moving content (gameplay, pans, action) is no longer treated as a dead zone.
+- **The cringe guard** no longer flags a cold-open preview or the cuts between plays in screen recordings.
 
 ## [0.6.0] — 2026-11-04
 ### Added — Editor's Craft v2 (what top editors do; every technique is a reasoned, rejectable decision)

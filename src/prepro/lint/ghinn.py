@@ -66,8 +66,8 @@ def checks(tl: Timeline, pa: ProjectAnalysis, d: Direction | None) -> list[Check
     dup = None
     for it in v1:
         for o in seen:
-            if o.asset_id == it.asset_id and min(o.src_out, it.src_out) - max(o.src_in, it.src_in) > 0.25 and it.role not in ("hook", "flashforward") \
-                    and o.role not in ("flashforward",):
+            if o.asset_id == it.asset_id and min(o.src_out, it.src_out) - max(o.src_in, it.src_in) > 0.25 and it.role not in ("hook", "flashforward", "replay") \
+                    and o.role not in ("flashforward", "hook"):
                 dup = it
         seen.append(it)
     out.append(Check("repeated_moment", dup is None, "the same moment appears twice" if dup else "no moment repeats", dup.rec_in if dup else None, 1.5))
@@ -115,7 +115,8 @@ def checks(tl: Timeline, pa: ProjectAnalysis, d: Direction | None) -> list[Check
     # 8. jump cuts with identical framing (the "stitched" look)
     jc = None
     for x, y in zip(v1, v1[1:], strict=False):
-        if x.asset_id == y.asset_id and y.src_in > x.src_out + 0.05 and y.transition_in == "cut":
+        if x.asset_id == y.asset_id and y.src_in > x.src_out + 0.05 and y.transition_in == "cut" and pa.asset(x.asset_id).kind.value != "screen" \
+                and "replay" not in (x.role, y.role):
             zx = x.transform.zoom if x.transform else 1.0
             zy = y.transform.zoom if y.transform else 1.0
             covered = any(o.track == "V2" and o.rec_in <= y.rec_in <= o.rec_out for o in tl.items)

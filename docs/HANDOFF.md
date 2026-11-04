@@ -6,7 +6,13 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- v0.6.0: Editor's Craft v2.
+- **Gaming pack: committed on `dev`, not released.** It is planned for v0.7.0; the version is still 0.6.0.
+  - `analyze/sound.impacts`
+  - `BasicBrain._game_events` / `_story_gaming`: cold open, plays with build-up, replay, payoff
+  - callouts; compiler handles talky shot windows (full volume, captioned) and the `replay` role
+  - **Tested before the commit:** ruff, the unit tests, and every e2e file up to `test_p2_style`, plus
+    `test_p4_gaming` on its own. **Not re-run since the change:** `test_p3_craft` and `test_realmedia`.
+- v0.6.0: Editor's Craft v2 (released).
   - `knowledge/craft.yaml` technique cards
   - J/L splits (`compiler._apply_split_edits`), open loops and re-hooks (`basic._open_loop`/`_rehooks`)
   - dead-zone fixes (`editlint._fix_deadzone`), comedy timing (`speech_pieces` lead/hold) and comedy detection
@@ -47,6 +53,33 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
     needs a real import check, as does the `.kdenlive` file.
   - **MLT files carry their `<profile>`.** Shotcut uses it; the `melt` CLI needs `-profile` (see the M4 test).
 
+## Resume on your own PC
+The cloud session ended here because its credits ran out. Everything is pushed to `dev`.
+1. Get the code and install it. Install the apt packages listed under *How to test* first. On Windows, use
+   `.venv\Scripts\` wherever these steps say `.venv/bin/`.
+   ```bash
+   git clone https://github.com/buildcool/PrePro.git
+   cd PrePro
+   git checkout dev
+   python3 -m venv .venv
+   .venv/bin/pip install -e ".[asr,ai,geo,export,dev]"
+   ```
+2. Finish checking the gaming pack. Run one test file per command, because running them all at once can run out
+   of memory:
+   ```bash
+   .venv/bin/pytest tests/e2e/test_p3_craft.py -q -m "not slow and not realmedia and not live"
+   .venv/bin/pytest tests/e2e/test_p4_gaming.py -q -m "not slow and not realmedia and not live"
+   .venv/bin/prepro testmedia fetch
+   .venv/bin/pytest tests/e2e/test_realmedia.py -q -m realmedia
+   ```
+3. Release v0.7.0:
+   1. Set the version to 0.7.0 in `pyproject.toml`, `src/prepro/__init__.py` and `desktop/package.json`.
+   2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [0.7.0] — <date>` and delete the "not released yet"
+      line under it. The release notes are ready in `docs/releases/v0.7.0.md`.
+   3. Commit and push `dev`, and wait for CI to pass.
+   4. Run `git push origin dev:main`. The `release` workflow then tags v0.7.0 and builds the wheel, sdist and
+      installers.
+
 ## How to test
 - `uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"`; apt `espeak-ng melt sox fonts-noto-core`.
 - UI: `npm --prefix ui install && npm --prefix ui run build`. The browser test (`tests/ui`, slow) needs node +
@@ -85,9 +118,8 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   review is still needed before commercial distribution.
 
 ## Next steps
-1. **Genre packs (v0.7):**
-   - gaming event detection: game-audio transients, HUD flashes, facecam box, reaction loudness, with a fixture of
-     planted events
+1. **Genre packs, more:**
+   - gaming: HUD/kill-feed flashes, facecam enlarge on big reactions, fail memes
    - lifestyle "satisfying moment" detection
    - talking-head/podcast speaker switching
 2. **Phase 2**, more:

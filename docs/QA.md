@@ -153,3 +153,17 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
   - Vertical montages end on the opening image.
 - **Re-hook text**, first version: "Every viral video studied had", which was clipped and too short to read (the
   cringe guard caught it). It is now number-centred ("3 parts") and on screen long enough to read.
+
+### v0.7 (gaming pack)
+- **Impact detection.** Bass under 250 Hz fired on every voiced syllable, because voices have their fundamental
+  there. Measured: explosions carry ~70 % of their energy under 60 Hz, speech onsets ~0 %. Sub-bass is now the boom
+  test. Breathy consonants looked noise-like, so noise-like impacts must be ≥ 15 dB and not at a word start. Result:
+  3/3 planted explosions, 0 false hits on talking, podcast and comedy clips.
+- **Gaming storyboard review:**
+  1. The victory payoff was dropped, because the target came from speech length.
+  2. The cold open played at 1.5× and silent: the new dull-stretch fix thought gameplay was dull and sped it up.
+  3. The callout used the first reaction in the window ("OH MY GOD,") instead of the best ("DOUBLE KILL!").
+  4. "REPLAY" was squeezed at the very end.
+
+  All fixed. The plays set the target, the last play is always kept, speed-ups are for wordless B-roll only, and
+  moving content is never a dead zone.

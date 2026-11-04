@@ -83,6 +83,11 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
     for a, b in zip(events, events[1:], strict=False):
         # slow push-ins count as change
         moving = any(i.transform and any(k.zoom > 1.01 for k in i.transform.keys) and i.rec_in <= a < i.rec_out for i in v1)
+        for i in v1:                       # the picture itself changes: gameplay, pans, action — not dead air
+            if i.asset_id and i.rec_in <= (a + b) / 2 < i.rec_out and i.asset_id in pa.clips:
+                sh = next((x for x in pa.clips[i.asset_id].shots if x.t0 - 1e-3 <= i.src_in <= x.t1), None)
+                if sh is not None and (sh.motion > 0.15 or pa.asset(i.asset_id).kind == AssetKind.SCREEN or sh.camera_move not in ("static", "")):
+                    moving = True
         if b - a > pb.pacing.dead_zone and not moving:
             mid = (a + b) / 2
             on = next((i for i in v1 if i.rec_in <= mid < i.rec_out and i.ref), None)
@@ -359,5 +364,7 @@ def _fix_deadzone(ref: str, p: PolishPlan, s: StoryPlan, pa: ProjectAnalysis) ->
             p.effects.append(EffectCue(type="zoom", at=w.id, value=1.14, confidence=0.7, why=f"break a dull stretch: punch in on “{w.text}”"))
         return
     shot = next((x for x in pa.all_shots() if x.id == ref), None)
-    if shot is not None and not any(c.type == "speed" and c.at == ref for c in p.effects):
+    wordless = shot is not None and pa.asset(shot.asset_id).kind == AssetKind.BROLL and not any(
+        shot.t0 <= w.t0 <= shot.t1 for w in pa.words(shot.asset_id))
+    if wordless and not any(c.type == "speed" and c.at == ref for c in p.effects):
         p.effects.append(EffectCue(type="speed", at=ref, value=1.5, confidence=0.65, why="break a dull stretch: speed up a long wordless shot"))

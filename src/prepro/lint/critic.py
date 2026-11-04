@@ -46,6 +46,12 @@ def rules_critic(tl: Timeline, pa: ProjectAnalysis, d: Direction, findings) -> C
         present |= {"meme_after_joke", "meme_after_reaction"}
     if d.playbook == "aesthetic" and v1 and min(i.rec_dur for i in v1) >= 1.8:
         present |= {"hold_satisfying_actions"}
+    if d.playbook == "gaming":
+        src = sum(pa.asset(a).info.duration for a in {i.asset_id for i in v1 if i.asset_id and pa.asset(i.asset_id).kind.value == "screen"})
+        if src and tl.duration < 0.85 * src:
+            present.add("cut_dead_gameplay")
+        if any(i.kind == "text" and i.style == "callout" for i in tl.items):
+            present.add("text_callouts")
     if any(s.type == "split" and s.status == "applied" for s in tl.suggestions):
         present |= {"jcut_new_place", "split_edits"}
     fit = 6 + 4 * (len(sig & present) / max(1, len(sig)))

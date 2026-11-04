@@ -216,3 +216,47 @@ def musicality(y: np.ndarray, sr: int) -> float:
     rhythm = float(np.max(ac[lags])) if ac.size > lags.stop else 0.0
     flat = float(np.mean(librosa.feature.spectral_flatness(y=seg)))
     return float(np.clip(rhythm * 1.2 + (0.3 - flat) * 0.8, 0, 1))
+
+
+def impacts(y: np.ndarray, sr: int, *, min_gap: float = 0.8, word_starts: list[float] | None = None) -> list[tuple[float, float]]:
+    """Game/action impacts — explosions, gunshots, hits — as (time, strength in dB above the recent level).
+
+    A sharp jump in level that is either sub-bass heavy (booms: a third or more of the energy under 60 Hz) or noise-like and very sharp
+    (shots: high spectral flatness, ≥ 15 dB jump). Speech onsets are tonal with little bass; breathy consonants look
+    noise-like for a moment, so a noise-like jump right at a transcribed word start is not an impact."""
+    starts = np.array(sorted(word_starts or []), dtype=float)
+    if y.ndim > 1:
+        y = y.mean(axis=1)
+    hop = max(1, sr // 50)                       # 20 ms
+    n = len(y) // hop
+    if n < 30:
+        return []
+    fr = y[: n * hop].reshape(n, hop)
+    db = 20 * np.log10(np.sqrt((fr ** 2).mean(axis=1)) + 1e-9)
+    win = 2 * hop
+    hann = np.hanning(win)
+    freqs = np.fft.rfftfreq(win, 1 / sr)
+    out: list[tuple[float, float]] = []
+    for i in range(25, n):
+        jump = db[i] - float(np.median(db[i - 25: i]))
+        if jump < 9 or db[i] < -32:
+            continue
+        seg = y[i * hop: i * hop + win]
+        if len(seg) < win:
+            break
+        sp = np.abs(np.fft.rfft(seg * hann)) ** 2 + 1e-12
+        low = float(sp[freqs < 60].sum() / sp.sum())      # sub-bass: booms live here, voices (≥ 85 Hz) don't
+        flat = float(np.exp(np.mean(np.log(sp))) / np.mean(sp))
+        t = i * hop / sr
+        boom = low >= 0.3
+        shot = flat >= 0.35 and jump >= 15
+        if not boom and not shot:
+            continue
+        if not boom and starts.size and np.min(np.abs(starts - t)) < 0.2:
+            continue                                  # a voice starting, not a gunshot
+        if out and t - out[-1][0] < min_gap:
+            if jump > out[-1][1]:
+                out[-1] = (out[-1][0], round(float(jump), 1))
+            continue
+        out.append((round(t, 3), round(float(jump), 1)))
+    return out

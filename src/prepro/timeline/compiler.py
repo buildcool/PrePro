@@ -380,8 +380,11 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                     and not any(a - 0.3 <= p <= b + 0.3 for p in shot.action_peaks) and speed_cue.confidence < 1.0):
                 speed_cue = None             # slow-mo belongs on the moment with the action, not on an empty stretch
             speed = 1.0
+            if it.role == "replay" and "speed" not in no:
+                speed_cue = EffectCue(type="speed", at=shot.id, value=0.5, why="slow-mo replay of the best play", confidence=0.8)
             if speed_cue and speed_cue.confidence >= applied_conf:
-                ctx.speed_done.add(shot.id)
+                if it.role != "replay":
+                    ctx.speed_done.add(shot.id)
                 speed = float(speed_cue.value or 1.0)
                 if speed < 1:   # slow-mo: centre the source window on the action inside this moment, keep the rec length
                     rec_len = b - a
@@ -414,10 +417,25 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 v.rec_in = t = max(0.0, t - dur)
                 ctx.suggest("transition", trans.why, conf=trans.confidence, t=t, items=[v.id], payload={"key": f"fx:transition:{trans.at}"})
             ctx.items.append(v)
+            talky = asset.kind in (AssetKind.SCREEN, AssetKind.AROLL) and bool(ctx.pa.words(asset.id))
             if asset.info.has_audio and speed == 1.0:
-                gain = {"aesthetic": 0.0}.get(d.playbook, -14.0 if sec in music_front else -9.0)
-                ctx.items.append(Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
-                                      link=v.id, gain_db=gain, fade_in=0.08, fade_out=0.08, role="natural", section=sec, ref=it.ref))
+                if talky:
+                    # a gameplay / talking window: its sound IS the content (commentary + game) — full level, captioned
+                    ctx.items.append(Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
+                                          link=v.id, gain_db=0.0, fade_in=0.03, fade_out=0.05, role=it.role, section=sec, ref=it.ref))
+                    for w in ctx.pa.words(asset.id):
+                        if a - 0.01 <= w.t0 and w.t1 <= b + 0.05 and not w.filler and not w.text.startswith("["):
+                            tt = t + (w.t0 - a)
+                            ctx.word_t[w.id] = tt
+                            ctx.caption_words.append(CaptionWord(text=w.text, t0=round(tt, 3), t1=round(t + (min(w.t1, b) - a), 3)))
+                    for sp in (ctx.pa.clips[asset.id].speech or []):
+                        lo, hi = max(a, sp.t0), min(b, sp.t1)
+                        if hi > lo:
+                            ctx.speech_spans.append((t + lo - a, t + hi - a))
+                else:
+                    gain = {"aesthetic": 0.0}.get(d.playbook, -14.0 if sec in music_front else -9.0)
+                    ctx.items.append(Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
+                                          link=v.id, gain_db=gain, fade_in=0.08, fade_out=0.08, role="natural", section=sec, ref=it.ref))
             ctx.spans.setdefault(it.ref, []).append((t, t + v.rec_dur))
             t += v.rec_dur
             last_asset, last_src_out = asset.id, b
