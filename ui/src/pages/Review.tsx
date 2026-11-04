@@ -11,8 +11,8 @@ const ROLE_COLOR: Record<string, string> = {
   natural: "var(--r-broll)", meme: "var(--r-meme)", text: "var(--r-text)", music: "var(--r-music)", sfx: "var(--r-sfx)",
 };
 const LANES: [string, string][] = [["T1", "TEXT"], ["V2", "OVER"], ["V1", "PIC"], ["A1", "VOICE"], ["A2", "MUSIC"], ["A3", "SFX"]];
-const TYPES = ["all", "cut", "hook", "open_loop", "split", "timing", "loop", "broll", "speed", "zoom", "meme", "sfx", "text", "music", "transition",
-  "caption", "filler"];
+const TYPES = ["all", "cut", "hook", "open_loop", "split", "timing", "loop", "framing", "broll", "speed", "zoom", "meme", "sfx", "text", "music",
+  "transition", "caption", "filler"];
 
 export default function Review({ pid, tid, timelines, run, busy }: {
   pid: string; tid: string; timelines: { id: string; name: string }[]; run: Run; busy: boolean;
