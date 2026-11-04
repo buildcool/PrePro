@@ -2,9 +2,7 @@
 
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
-## [Unreleased]
-Planned for 0.8.0.
-
+## [0.8.0] — 2026-11-05
 ### Added — podcast and interview two-shots
 - **Who is talking.** In a shot with two or more people sitting still (one wide camera on a podcast), PrePro finds
   each person's seat. It then works out who says each line from whose mouth moves, with nodding and bobbing

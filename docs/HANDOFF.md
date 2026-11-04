@@ -6,7 +6,7 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **On `dev`, planned for v0.8.0 (see CHANGELOG [Unreleased], QA "v0.8"):**
+- **v0.8.0 (released 2026-11-05; CHANGELOG [0.8.0], QA "v0.8"):**
   - GPU video encoding (`media/encoders.py`):
     - candidates NVENC → Quick Sync → AMF, each after a real test encode
     - "auto" times a grainy render-like encode once per PC/size (`<data>/encoders.json`) and uses a GPU only when
