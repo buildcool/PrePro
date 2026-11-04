@@ -336,12 +336,15 @@ def duo_clip(audio_wav: Path, out: Path, envelopes: tuple[np.ndarray, np.ndarray
 def screen_clip(out: Path, *, dur: float, audio: Path | None = None, facecam: Path | None = None, size=(1280, 720),
                 fps: int = 30, events: list[tuple[float, str]] | None = None) -> Path:
     """Gameplay-like screen capture: moving synthetic world + HUD + optional facecam PiP + event banners."""
+    from ..config import assets_dir
+
     w, h = size
     events = events or []
-    hud = ("drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='HP 100  AMMO 30':x=30:y=h-60:"
+    font = (assets_dir() / "fonts" / "Anton-Regular.ttf").as_posix().replace(":", "\\:")     # bundled: same look on every OS
+    hud = (f"drawtext=fontfile='{font}':text='HP 100  AMMO 30':x=30:y=h-60:"
            "fontsize=34:fontcolor=white:box=1:boxcolor=black@0.4")
     banners = ",".join(
-        f"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='{txt}':x=(w-tw)/2:y=h*0.18:"
+        f"drawtext=fontfile='{font}':text='{txt}':x=(w-tw)/2:y=h*0.18:"
         f"fontsize=72:fontcolor=yellow:borderw=4:enable='between(t,{t0},{t0 + 1.6})'" for t0, txt in events
     )
     chain = f"[0:v]scale={w}:{h},{hud}" + ("," + banners if banners else "") + "[g]"
@@ -350,7 +353,7 @@ def screen_clip(out: Path, *, dur: float, audio: Path | None = None, facecam: Pa
         inputs += ["-stream_loop", "-1", "-i", str(facecam)]
         chain += ";[1:v]scale=320:-2,format=yuv420p[fc];[g][fc]overlay=W-w-24:24,format=yuv420p[v]"
     else:
-        chain += ";[g]drawbox=x=w-344:y=24:w=320:h=180:color=0x3060A0:t=fill,format=yuv420p[v]"
+        chain += ";[g]drawbox=x=iw-344:y=24:w=320:h=180:color=0x3060A0:t=fill,format=yuv420p[v]"   # top-right (w = the box's width)
     args = inputs[:]
     a_idx = 1 + (1 if facecam and facecam.exists() else 0)
     if audio:

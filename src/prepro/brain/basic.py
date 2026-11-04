@@ -79,18 +79,65 @@ def words_to_digits(text: str) -> str:
     return " ".join(out)
 
 
+CONTRACT = [(r"\bdid not\b", "didn't"), (r"\bdo not\b", "don't"), (r"\bdoes not\b", "doesn't"), (r"\bis not\b", "isn't"),
+            (r"\bwas not\b", "wasn't"), (r"\bcan ?not\b", "can't"), (r"\bwill not\b", "won't"), (r"\bhave not\b", "haven't")]
+NEGATION = {"not", "never", "no", "nobody", "nothing", "didn't", "don't", "doesn't", "isn't", "wasn't", "can't", "won't", "haven't"}
+BAD_END = {"a", "an", "the", "to", "of", "in", "on", "at", "for", "with", "from", "by", "as", "than", "and", "or", "but", "so",
+           "did", "do", "does", "was", "were", "is", "are", "be", "been", "has", "have", "had", "will", "would", "could", "should",
+           "can", "my", "your", "our", "their", "his", "her", "its", "that", "which", "who", "i", "you", "we", "they", "he", "she",
+           "it", "almost", "just", "only", "really", "very", "not", "never", "no", "every", "each", "some", "any", "all", "this",
+           "these", "those", "more", "most", "how", "what", "why", "when", "where"}
+BAD_START = {"and", "or", "but", "so", "to", "of", "with", "for", "from", "by", "as", "than", "that", "which", "who", "because",
+             "did", "was", "were", "is", "are", "in", "on", "at"}
+LEADING_ONLY = {"i", "we", "today", "now", "here", "there"}   # dropped as an opener, kept inside a phrase ("1 video I almost…")
+
+
+def _phrase(words: list[str], max_words: int) -> list[str]:
+    """The best few words of a clause for on-screen text: never cut mid-thought (ending on "did", "with", "almost"),
+    never cut just before a "not" (which flips the meaning), keep the number, and prefer reaching the clause's end —
+    up to two words over the limit when that is what it takes."""
+    n = len(words)
+    if n <= max_words:
+        return words
+    low = [re.sub(r"[^\w']", "", w.lower()) for w in words]
+    digit = [bool(re.search(r"\d", w)) for w in words]
+    best, best_key = None, None
+    for i in range(n):
+        if low[i] in BAD_START:
+            continue
+        for j in range(i + 1, n + 1):
+            if j - i > max_words + (2 if j == n else 0):
+                break
+            if low[j - 1] in BAD_END or (j < n and low[j] in NEGATION):
+                continue
+            has = any(digit[i:j])
+            # with a number: run to the clause's end ("…0 to 1M subscribers in 1 year"); without: keep its start,
+            # where the subject is ("Yeh vada pav…", not "Pav sirf…")
+            key = (has, (j == n) if has else (i == 0), -abs((j - i) - max_words), -i)
+            if best_key is None or key > best_key:
+                best, best_key = words[i:j], key
+    return best or words[:max_words]
+
+
 def text_hook(seg_text: str, max_words: int = 6) -> str:
-    """'So today we are in Goa and I spent only five thousand rupees for three full days.' → '₹5000 for 3 days?!'"""
+    """'So today we are in Goa and I spent only five thousand rupees for three full days.' → '₹5000 for 3 days?!'
+    'Honestly, it started with one video I almost did not upload.' → '1 video I almost didn't upload?!'"""
     t = words_to_digits(seg_text)
     t = re.sub(r"[\"“”]", "", t)
+    for pat, rep in CONTRACT:
+        t = re.sub(pat, rep, t, flags=re.I)
     clauses = re.split(r"[,.;!?]|\band\b|\bbut\b", t)
     clauses = [c.strip() for c in clauses if c.strip()]
-    best = max(clauses, key=lambda c: (bool(re.search(r"\d", c)), len(c.split()) <= 9, -abs(len(c.split()) - 6))) if clauses else t
+    def content(c: str) -> int:        # "the lesson is" (1) sets up "show the payoff first" (3): the payload wins
+        return sum(1 for w in c.split() if re.sub(r"[^\w']", "", w.lower()) not in STOP | BAD_END)
+
+    best = max(clauses, key=lambda c: (bool(re.search(r"\d", c)), len(c.split()) <= 9, min(content(c), 4),
+                                       -abs(len(c.split()) - 6))) if clauses else t
     words = []
     toks = best.split()
     for k, w in enumerate(toks):
-        lw = re.sub(r"[^\w]", "", w.lower())
-        if lw in STOP or lw in ("only", "full", "spent", "i", "me", "my", "for") and not words:
+        lw = re.sub(r"[^\w']", "", w.lower())
+        if (lw in STOP and lw not in LEADING_ONLY) or (lw in LEADING_ONLY | {"only", "full", "spent", "me", "my", "for", "it"} and not words):
             continue
         if lw in CURRENCY and words and re.match(r"^\d+$", words[-1]):
             words[-1] = CURRENCY[lw] + words[-1]
@@ -98,7 +145,7 @@ def text_hook(seg_text: str, max_words: int = 6) -> str:
         if lw in ("full", "only") and k + 1 < len(toks):
             continue
         words.append(w.strip(",.;"))
-    words = words[:max_words]
+    words = _phrase(words, max_words)
     if not words:
         return ""
     s = " ".join(words)
@@ -865,15 +912,15 @@ class BasicBrain:
     _story_podcast_clip = _story_talking_head
 
     RESPONSE = re.compile(r"^\s*(wait|really|right|exactly|yeah|yes|yep|no|nope|true|totally|wow|oh|ha+|okay|ok|hmm+|what)\b", re.I)
-    STOP = frozenset(["a", "an", "the", "and", "or", "but", "so", "to", "of", "in", "on", "at", "for", "with", "is", "it", "this", "that", "i", "you", "we", "they", "he", "she", "me", "my", "your", "our", "was", "were", "be", "been", "am", "are", "do", "did", "not", "no", "yes", "just", "very", "really", "what", "wait"])
+    ECHO_STOP = frozenset(["a", "an", "the", "and", "or", "but", "so", "to", "of", "in", "on", "at", "for", "with", "is", "it", "this", "that", "i", "you", "we", "they", "he", "she", "me", "my", "your", "our", "was", "were", "be", "been", "am", "are", "do", "did", "not", "no", "yes", "just", "very", "really", "what", "wait"])
 
     def responds(self, s: Segment, prev: Segment | None) -> bool:
         """`s` answers or echoes the line before it, said by someone else ("Wait, you almost did not upload it?",
         "Eleven times!", "Right."): without that line it makes no sense, so it can't open a clip or survive alone."""
         if prev is None or s.speaker is None or prev.speaker is None or s.speaker == prev.speaker:
             return False
-        content = {w for w in re.findall(r"[a-z0-9']+", s.text.lower()) if w not in self.STOP}
-        before = {w for w in re.findall(r"[a-z0-9']+", prev.text.lower()) if w not in self.STOP}
+        content = {w for w in re.findall(r"[a-z0-9']+", s.text.lower()) if w not in self.ECHO_STOP}
+        before = {w for w in re.findall(r"[a-z0-9']+", prev.text.lower()) if w not in self.ECHO_STOP}
         echo = len(content & before)
         short = len(s.text.split()) <= 6
         return (short and (echo >= 1 or bool(self.RESPONSE.match(s.text)))) or (s.text.strip().endswith("?") and echo >= 1)
@@ -1265,6 +1312,9 @@ class BasicBrain:
             if sec.card and d.playbook in ("story_vlog", "travel_film") and len([s for s in story.sections if s.card]) > 1:
                 pp.effects.append(EffectCue(type="text", at=f"section:{sec.name}", text=sec.card, style="card", dur=2.4, why="location/day card at a new place", confidence=0.75))
         hook_text = d.hooks[0].text_hook if d.hooks else None
+        opener = self._seg(story.items[0].ref) if story.items else None
+        if opener is not None and d.hooks and opener.id not in d.hooks[0].refs and d.playbook != "comedy":
+            hook_text = text_hook(opener.text) or hook_text      # the words on screen tease the line that actually opens it
         if d.playbook == "comedy":
             # comedy: tease the premise — putting the punchline on screen first kills the joke
             premise = next((self._seg(it.ref) for it in story.items if self._seg(it.ref)), None)
@@ -1274,7 +1324,8 @@ class BasicBrain:
             if hook_text and set(re.findall(r"[a-z]{4,}", hook_text.lower())) & punch_words - set(re.findall(r"[a-z]{4,}", premise.text.lower())):
                 hook_text = None
         if d.aspect == "9:16" and hook_text:
-            pp.effects.append(EffectCue(type="text", at="start", text=hook_text, style="hook", dur=2.6, why="on-screen text hook (works on mute)", confidence=0.7))
+            read = round(max(2.6, 0.8 + len(hook_text.split()) / 3.0), 1)      # long enough to read (≈ 3 words/s)
+            pp.effects.append(EffectCue(type="text", at="start", text=hook_text, style="hook", dur=read, why="on-screen text hook (works on mute)", confidence=0.7))
         for r in self.rules:
             if r.kind == "add_text" and r.target:
                 pp.effects.append(EffectCue(type="text", at=r.anchor or "end", text=r.target, style="cta" if (r.anchor or "end") == "end" else "title",

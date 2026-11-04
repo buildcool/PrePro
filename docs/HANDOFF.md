@@ -6,7 +6,24 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **v0.7.0: the gaming pack + Windows fixes.** The first full run on a Windows PC; see QA "v0.7 on Windows".
+- **On `dev`, planned for v0.8.0 (see CHANGELOG [Unreleased], QA "v0.8"):**
+  - GPU video encoding (`media/encoders.py`):
+    - candidates NVENC → Quick Sync → AMF, each after a real test encode
+    - "auto" times a grainy render-like encode once per PC/size (`<data>/encoders.json`) and uses a GPU only when
+      it is ≥ 15 % faster than x264
+    - a mid-render GPU failure is redone on the CPU
+    - `Settings.render.encoder` / `PREPRO_ENCODER`
+  - Podcast two-shots:
+    - seats + mouth movement (`analyze/visual._seats/_mouth_series`), a speaker per line
+      (`analyze/speakers.assign_speakers`), cross-speaker "retakes" undone
+    - `BasicBrain._story_dialogue` cuts conversations in order; `responds()` finds replies/echoes
+    - `compiler.speaker_frame` frames the speaker in 9:16 crops (turn-based hold 1.2 s, 0.8 s reaction shots for
+      exclamations); `speaker:<line>` rejection keeps the current framing
+    - cringe guard `framing_gap`
+  - Captions: one position per video against the face on screen (`compiler._face_lookup` in output coordinates,
+    `captions._place`).
+  - Fixture `podcast_duo`; FIXTURE_VERSION 5; ANALYSIS_VERSION 10.
+- **v0.7.0 (released): the gaming pack + Windows fixes.** The first full run on a Windows PC; see QA "v0.7 on Windows".
   - Gaming: `analyze/sound.impacts`, `BasicBrain._game_events` / `_story_gaming` (cold open, plays with build-up,
     replay, payoff), callouts; the compiler handles talky shot windows (full volume, captioned) and the `replay` role.
   - Windows fixes:
@@ -22,9 +39,6 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
     - Real footage passed with PocketSphinx and with Whisper.
     - `scripts/check_asr.py`: Whisper small 0 % WER on JFK, PocketSphinx 50 %.
     - Not run on Windows: the browser UI test (needs Playwright) and the desktop smoke test (Linux/Xvfb).
-- **In progress (branch `v0.8-wip`, merged into `dev` after the v0.7.0 release): GPU video encoding.**
-  `media/encoders.py` picks NVENC → Quick Sync → AMF after a real test encode, else x264; a GPU failure mid-render
-  redoes that piece on the CPU. `Settings.render.encoder` / `PREPRO_ENCODER` = auto|cpu|nvenc|qsv|amf.
 - v0.6.0: Editor's Craft v2 (released).
   - `knowledge/craft.yaml` technique cards
   - J/L splits (`compiler._apply_split_edits`), open loops and re-hooks (`basic._open_loop`/`_rehooks`)
@@ -148,13 +162,11 @@ uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
   review is still needed before commercial distribution.
 
 ## Next steps
-0. **v0.8.0 in progress:** GPU video encoding (branch `v0.8-wip`), then podcast/talking-head speaker switching
-   (a 9:16 crop that follows whoever is talking, switching at sentence ends with a minimum hold, so Shorts cut from
-   a two-person podcast never sit on the empty gap between the speakers).
+0. Two-shots, later: multi-camera podcasts (one camera per person, synced by audio), a stacked split-screen
+   layout for rapid back-and-forth, and 16:9 "virtual multicam" (wide ↔ punch-in on the speaker).
 1. **Genre packs, more:**
    - gaming: HUD/kill-feed flashes, facecam enlarge on big reactions, fail memes
    - lifestyle "satisfying moment" detection
-   - talking-head/podcast speaker switching
 2. **Phase 2**, more:
    - AI titles/thumbnail text through the brain, as a `package` pass
    - stock/GIF search

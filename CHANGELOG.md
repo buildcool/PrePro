@@ -2,6 +2,50 @@
 
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
+## [Unreleased]
+Planned for 0.8.0.
+
+### Added — podcast and interview two-shots
+- **Who is talking.** In a shot with two or more people sitting still (one wide camera on a podcast), PrePro finds
+  each person's seat. It then works out who says each line from whose mouth moves, with nodding and bobbing
+  subtracted. Unclear lines get no speaker rather than a guess. 11/11 lines right on the two-person test podcast.
+- **9:16 Shorts from a two-shot follow the conversation:**
+  - The frame is on whoever is talking, and the cut lands at the end of a line.
+  - A quick "yeah" doesn't trigger a cut.
+  - An exclamation ("Eleven times!") gets a short reaction shot.
+  - The frame never sits on the empty gap between the people.
+  - Each cut is a decision with its reason. Reject it and the frame stays on who was on screen.
+- **Conversations are cut in the order they were said:**
+  - one stretch, opening on a line that stands on its own (never on a reply)
+  - every answer stays with its question
+  - it ends on a landing, not on a hanging question
+- **Faster renders with your GPU when it helps.** NVIDIA NVENC, Intel Quick Sync and AMD AMF are used only when a
+  one-time test on your PC shows they are clearly faster than the CPU; otherwise the CPU is used. If the GPU fails
+  mid-render, the CPU finishes the job. `prepro doctor` shows the choice and the measured times.
+- Review app: a "framing" filter for the speaker cuts.
+### Fixed
+- **Captions hopped above and below the face** from cut to cut. Placement looked at the biggest face anywhere in the
+  source, often the person not on screen, and ignored the crop and punch-ins. Now it uses the face actually on
+  screen, keeps one position for the whole video, and moves a caption only where it would cover the mouth.
+- **A reply that echoes the other person** ("…one video I almost did not upload." → "Wait, you almost did not upload
+  it?") was treated as a retake of the same line, and the setup was cut.
+- **A greeting sentence took its whole line with it.** "Welcome back. Today I have a creator who…" was cut entirely;
+  now only "Welcome back." goes. "Thanks for having me" counts as a greeting.
+- **Seat detection is not limited to the faces the detector finds easily.** In our test podcast it found the
+  darker-skinned guest in far fewer frames, so seats now use lower-confidence detections at a consistent position.
+- **On-screen hook text could garble the line it came from.** "It started with one video I almost did not upload"
+  became "Started with 1 video almost did?!": it was cut at 6 words mid-phrase and lost the "not" that carried the
+  meaning. Now:
+  - a phrase never ends on a word like "did", "with" or "every", and is never cut just before a "not"
+  - it keeps the number and runs to the clause's end ("Zero to 1M subscribers in 1 year?!")
+  - "did not" becomes "didn't"
+  - the text stays up long enough to read
+  - in a conversation it teases the line that actually opens the cut
+- **GPU renders without overlays weren't exactly constant frame rate.** NVENC pieces end a timestamp tick short, and
+  joining them by stream copy carried that into the file (30.0006 fps), which phone editors reject. GPU pieces are
+  now joined with one more GPU encode.
+- Test fixture: the gaming facecam placeholder was drawn top-left instead of top-right.
+
 ## [0.7.0] — 2026-11-04
 ### Added — gaming pack
 - **Impact detection** (`analyze/sound.impacts`): explosions, shots and hits.

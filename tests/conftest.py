@@ -13,7 +13,7 @@ import pytest
 from prepro.fixtures import realmedia, shoots
 
 CACHE = Path(os.environ.get("PREPRO_TEST_SHOOTS") or Path(tempfile.gettempdir()) / "prepro-test-shoots")
-FIXTURE_VERSION = "4"     # 4: TTS text goes to espeak-ng as a UTF-8 file (Hindi lines were noise on Windows)
+FIXTURE_VERSION = "5"     # 4: TTS via a UTF-8 file (Hindi was noise on Windows); 5: gaming facecam top-right, bundled font
 
 
 def have(exe: str) -> bool:

@@ -122,10 +122,11 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
     return out, used.name
 
 
-def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, preset: str, *, mixed: bool = False,
+def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, preset: str, *, reencode: bool = False,
              encoder: enc.Encoder = enc.CPU) -> str:
-    """Join the V1 pieces (stream copy when every cut is hard and all came from one encoder). Returns the encoder."""
-    if not mixed and not any(it.transition_in != "cut" and it.transition_dur > 0 for it, _ in segs[1:]):
+    """Join the V1 pieces: a stream copy when every cut is hard and the pieces are x264's, else one more encode.
+    Returns the encoder ("copy" for a stream copy)."""
+    if not reencode and not any(it.transition_in != "cut" and it.transition_dur > 0 for it, _ in segs[1:]):
         lst = out.with_suffix(".txt")
         lst.write_text("".join(f"file '{p.as_posix()}'\n" for _, p in segs), encoding="utf-8")
         run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(out)], timeout=1800)
@@ -367,7 +368,11 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
         raise ValueError("timeline has no picture")
     out.parent.mkdir(parents=True, exist_ok=True)
     base = out.with_name(out.stem + ".base.mp4")
-    joined = _combine(segs, base, tl.fps, crf, preset, mixed=len(set(made_by)) > 1, encoder=encoder)
+    # Pieces from different encoders can't be stream-copied together, and GPU pieces end a timestamp tick short
+    # (NVENC: 3.233008 s for 97 frames at 30 fps), which a copy-join turns into a not-quite-constant frame rate that
+    # phone editors reject. So those are joined with one more (GPU) encode; x264 pieces keep the free copy-join.
+    joined = _combine(segs, base, tl.fps, crf, preset, reencode=len(set(made_by)) > 1 or any(m != "cpu" for m in made_by),
+                      encoder=encoder)
     scaled = tl.model_copy(deep=True)
     scaled.width, scaled.height = W, H
     if not captions:

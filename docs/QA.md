@@ -193,3 +193,49 @@ engine test had been skipped on Windows, not passed.
 - **Release pipeline.** The v0.6.0 release run had failed on Linux (the johnvansickle.com download), so v0.6.0 has
   no AppImage/.deb. Nobody had noticed because the job logs need admin rights; the public API only showed
   "failure". The build now retries and falls back to BtbN's static build.
+
+### v0.8 (GPU encoding + podcast two-shots), reviewed as an editor
+- **GPU encoding, measured instead of assumed.** "Always use the GPU" would have been wrong here:
+  - On a 540p preview of a 32 s cut, the GPU encoders were slower than x264 (NVENC 12.3 s, Quick Sync 17.1 s, CPU
+    10.7 s), because a preview is many short pieces and starting a GPU encoder costs more than encoding a small piece.
+  - NVENC at x264's numbers made files 3.5× bigger. Matching by SSIM gives NVENC crf+6 and Quick Sync crf+1.
+  - A clean test pattern made x264 look fastest even at 1080p (it compresses trivially). With sensor-like grain,
+    x264 needed 13.8 s for 8 s of 1080p, Quick Sync 3.2 s and NVENC 1.2 s.
+  - So "auto" times a grainy, render-like encode once per PC and picks a GPU only when it is ≥ 15 % faster. Here it
+    chose the CPU for previews (10.8 s) and NVENC for 1080p (18.1 s, against 21.8 s on the CPU). GPU renders match
+    the CPU's picture: SSIM 0.993 (NVENC) and 0.992 (Quick Sync).
+  - A first benchmark that ran next to a background test had blamed x264 2× too much; only quiet-machine numbers
+    are kept.
+- **Podcast two-shot (new `podcast_duo` fixture: two drawn people, each mouth driven only by that person's voice):**
+  1. No seats were found at first. The face detector saw the darker-skinned guest in far fewer frames than the
+     host, so the 40 % presence rule dropped them and the shot looked like one person. Seats now use
+     lower-confidence detections (0.35) seen in ≥ 25 % of frames at a steady position: 2 seats, the guest at 87 %.
+  2. Speaker per line: 11/11 right, including a 0.4 s "Right." and a 1 s "Eleven times!".
+  3. The first cut was edited like a monologue. The guest's best line became the hook, then the host's "Wait, you
+     almost did not upload it?" played after it, answering a line that had been cut. A viewer hears a question about
+     something they never heard. Conversations are now one stretch in the order said, never opening on a reply.
+  4. The setup line was still missing. "…it started with one video I almost did not upload." and the host's echo
+     had been grouped as retakes of each other, so the earlier one was cut. Retakes by different speakers are
+     replies now.
+  5. "Welcome back. Today I have a creator who went from zero to a million…" was cut whole as a greeting. The
+     greeting sentence is its own line now, and the rest opens the clip.
+  6. The minimum hold kept the host on screen for the guest's "Right.", although the guest kept talking, so the cut
+     came half a second late. Holds are measured per turn now. "Eleven times!" (1 s) became a reaction shot, which
+     is how podcast editors use short exclamations.
+  7. Storyboard: captions hopped above the head and below the chin from cut to cut. They were placed against the
+     biggest face in the source (often the person off screen), ignoring the crop and punch-ins, from a face list
+     cut off at 24 entries. Now they use the face on screen and one position: 40/40 captions under the chin,
+     none over a mouth.
+
+  Result: a 33 s Short in conversation order, always framing the speaker, 10/10 on the cringe guard.
+- **Review app, driven in the built-in browser** (Footage → Review on the two-shot):
+  - The decisions list reads well, and the "framing" chip filters the 8 speaker cuts.
+  - The on-screen hook said **"Started with 1 video almost did?!"**. It was cut at 6 words mid-phrase, the "not"
+    that carried the meaning was lost, and it teased the guest's line while the cut opens on the host's. Phrases are
+    now picked whole (never ending on "did/with/every", never cut before a "not"); the result is "Zero to 1M
+    subscribers in 1 year?!", with a unit test of garbled cases.
+  - The longer hook then failed the cringe guard's reading-time check (7 words in 2.6 s). The hook's time on screen
+    now follows its length.
+- **Phone pack on the GPU** failed the constant-frame-rate check: 30.0006 fps. The NVENC pieces were 1 timestamp tick
+  short each (3.233008 s for 97 frames), and the stream-copy join of the clean version carried that over. GPU pieces
+  are joined with one more GPU encode now.
