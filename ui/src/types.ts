@@ -171,6 +171,17 @@ export interface View {
   paper_edit: string;
   render: string | null;
   render_stale: boolean;
+  packaging: Packaging | null;
+}
+
+export interface Packaging {
+  titles: string[];
+  chapters: [number, string][];
+  chapters_note: string;
+  description: string;
+  hashtags: string[];
+  thumbs: { path: string; frame: string; asset_id: string; t: number; why: string; score: number }[];
+  text_on_thumb: string;
 }
 
 export interface Brains {

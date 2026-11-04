@@ -386,6 +386,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "revision": load_revision(root, tid).model_dump(),
                 "direction": d.model_dump() if d else None,
                 "attention": attention_curve(tl), "paper_edit": paper_edit(tl, pa) if pa else "",
+                "packaging": json.loads((proj.cache / "timelines" / f"{tid}.package.json").read_text(encoding="utf-8"))
+                if (proj.cache / "timelines" / f"{tid}.package.json").exists() else None,
                 "render": render, "render_stale": stale or (render is None and not renders)}
 
     @app.get("/api/projects/{pid}/timelines/{tid}")
@@ -469,6 +471,23 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             return {"video": _render(root, tid, quality)}
 
         return jobs.submit("render", pid, work).public()
+
+    @app.post("/api/projects/{pid}/timelines/{tid}/package")
+    def do_package(pid: str, tid: str):
+        root = project(pid)
+
+        def work(job: Job):
+            from ..analyze.pipeline import load_analysis
+            from ..packaging import package
+            from ..project import EXPORTS_DIR
+            from ..schema.timeline import Timeline
+
+            job.progress("package", 0.1, 1, "thumbnails, titles, chapters")
+            tl = Timeline.model_validate_json((Project(root).cache / "timelines" / f"{tid}.json").read_text(encoding="utf-8"))
+            pk = package(tl, load_analysis(root), root / EXPORTS_DIR / tid / "packaging", project_root=root)
+            return pk.model_dump()
+
+        return jobs.submit("package", pid, work).public()
 
     @app.post("/api/projects/{pid}/timelines/{tid}/export")
     def do_export(pid: str, tid: str, body: dict = Body(default={})):

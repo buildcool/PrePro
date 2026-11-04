@@ -4,6 +4,25 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-04
+### Added
+- **Packaging** (Export → "Packaging", Review → More → "Make thumbnails & titles", `--formats package`):
+  - **Thumbnails.** Three thumbnail picks of different kinds: a big clear face, the peak action moment, a striking
+    shot. Each has a text mock-up at 1280×720 or 1080×1920. The text is centred on the number ("₹5000 for 3
+    days", "1M views phone camera?") and never ends on "your" or "the".
+  - **Titles.** Up to 5 options, at most 70 characters, built from the hook's own promise:
+    - natural rewrites: "The real reason …", "How I lost $10,000 …", "Stop making these 3 editing mistakes"
+    - journey titles: "Calangute → Jaipur on ₹5,000?"
+    - no "(watch till the end)" clickbait
+  - **YouTube chapters.** First at 0:00, 3 or more, each at least 10 s; otherwise none, with the reason. A short
+    intro folds into the first real chapter.
+  - **Description and hashtags.**
+  - All of it also appears in the editor brief and in `packaging/packaging.md`.
+- `words_to_digits` understands "a million" / "two billion" (→ 1M / 2B).
+### Fixed
+- **CI collection had failed since M0.** The bare `pytest` script couldn't import `tests.conftest`; pytest now
+  sets `pythonpath`. CI status is now checked from the public API every release.
+
 ## [0.4.0] — 2026-11-04
 ### Added
 - **Desktop app** (`desktop/`): an Electron shell for Linux and Windows that runs the frozen engine on a free

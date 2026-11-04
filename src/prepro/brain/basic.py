@@ -47,11 +47,16 @@ LOOK_BY_PLAYBOOK = {"story_vlog": "warm", "travel_film": "teal_orange", "hype_re
 
 
 def words_to_digits(text: str) -> str:
+    text = re.sub(r"\b(a|one)\s+(million|billion)\b", lambda m: "1" + ("M" if m.group(2).lower() == "million" else "B"), text, flags=re.I)
     toks = text.split()
     out = []
     i = 0
     while i < len(toks):
         w = re.sub(r"[^\w]", "", toks[i].lower())
+        if w in NUMS and i + 1 < len(toks) and re.sub(r"[^\w]", "", toks[i + 1].lower()) in ("million", "billion"):
+            out.append(f"{NUMS[w]}{'M' if 'million' in toks[i + 1].lower() else 'B'}")
+            i += 2
+            continue
         if w in NUMS:
             val = NUMS[w]
             j = i + 1

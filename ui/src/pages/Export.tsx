@@ -7,13 +7,14 @@ const FORMATS: [string, string, string][] = [
   ["otio", "OpenTimelineIO", "for any OTIO-aware editor"],
   ["mlt", "Shotcut", "MLT project"],
   ["phone", "Phone apps (InShot, VN, KineMaster, Edits)", "captioned + clean + no-music MP4s, stems, cue sheet, beat plan — takes a few minutes"],
+  ["package", "Packaging", "3 thumbnail mock-ups, title options, YouTube chapters, description + hashtags"],
   ["srt", "Captions", "SRT + VTT"],
   ["overlay", "Caption overlay", "transparent ProRes 4444 to drop on top of any timeline"],
   ["report", "Editor brief", "one HTML page with every decision and what's missing"],
 ];
 
 export default function Export({ pid, tid, run, busy }: { pid: string; tid: string; run: (p: string, b: unknown, l: string) => Promise<any>; busy: boolean }) {
-  const [pick, setPick] = useState<Record<string, boolean>>({ fcp7: true, kdenlive: true, otio: false, mlt: true, phone: false, srt: true, overlay: true, report: true });
+  const [pick, setPick] = useState<Record<string, boolean>>({ fcp7: true, kdenlive: true, otio: false, mlt: true, phone: false, package: true, srt: true, overlay: true, report: true });
   const [res, setRes] = useState<{ folder: string; files: Record<string, string> } | null>(null);
   const go = async () => {
     const formats = Object.entries(pick).filter(([, on]) => on).map(([k]) => k);

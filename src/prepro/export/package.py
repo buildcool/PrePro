@@ -13,7 +13,7 @@ from ..schema.analysis import ProjectAnalysis
 from ..schema.timeline import Timeline
 from . import nle
 
-FORMATS = ("fcp7", "otio", "kdenlive", "mlt", "srt", "overlay", "phone", "report")
+FORMATS = ("fcp7", "otio", "kdenlive", "mlt", "srt", "overlay", "phone", "package", "report")
 
 
 def export_all(tl: Timeline, pa: ProjectAnalysis, out_dir: Path, *, formats=FORMATS, project_root=None, render_result=None,
@@ -45,9 +45,17 @@ def export_all(tl: Timeline, pa: ProjectAnalysis, out_dir: Path, *, formats=FORM
         made["lut"] = lut
     if "phone" in formats:
         made.update(phone_pack(tl, pa, out_dir / "phone_pack", project_root=root))
+    packaging = None
+    if "package" in formats:
+        from ..packaging import package as make_package
+
+        packaging = make_package(tl, pa, out_dir / "packaging", project_root=root)
+        made["packaging"] = out_dir / "packaging" / "packaging.md"
+        for k, th in enumerate(packaging.thumbs, start=1):
+            made[f"thumbnail_{k}"] = Path(root) / th.path
     if "report" in formats:
         made["report"] = editor_brief(tl, pa, out_dir / f"{base}_editor_brief.html", render_result=render_result, critic=critic, lint=lint,
-                                      direction=direction, brief=brief, files=made)
+                                      direction=direction, brief=brief, files=made, packaging=packaging)
     return made
 
 
@@ -137,7 +145,7 @@ def _beat_plan(tl: Timeline, pa: ProjectAnalysis, path: Path) -> Path:
 
 
 def editor_brief(tl: Timeline, pa: ProjectAnalysis, path: Path, *, render_result=None, critic=None, lint=None, direction=None, brief=None,
-                 files: dict | None = None) -> Path:
+                 files: dict | None = None, packaging=None) -> Path:
     """Self-contained HTML hand-off for a human editor: story, every decision with its reason, what is missing."""
     from ..brain.ai import paper_edit
 
@@ -186,6 +194,25 @@ def editor_brief(tl: Timeline, pa: ProjectAnalysis, path: Path, *, render_result
         metrics = (f"<span class=chip>{render_result.duration:.1f}s</span><span class=chip>{render_result.lufs} LUFS</span>"
                    f"<span class=chip>TP {render_result.true_peak_db} dBTP</span><span class=chip>voice/music {render_result.speech_to_music_db} dB</span>")
     pe = e(paper_edit(tl, pa))
+    pack_html = ""
+    if packaging is not None:
+        thumbs = ""
+        for th in packaging.thumbs:
+            p = Path(pa.root) / th.path
+            if p.exists():
+                from PIL import Image
+
+                im = Image.open(p)
+                im.thumbnail((360, 360))
+                import io
+
+                buf = io.BytesIO()
+                im.convert("RGB").save(buf, "JPEG", quality=80)
+                thumbs += (f'<figure style="display:inline-block;margin:4px"><img alt="" style="max-height:220px;border-radius:6px" '
+                           f'src="data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"><figcaption class=mute>{e(th.why)}</figcaption></figure>')
+        chap = "<br>".join(e(f"{_mmss(t)[:-3]} {n}") for t, n in packaging.chapters) or e(packaging.chapters_note)
+        pack_html = ("<h2>Packaging</h2><h3>Title options</h3><ol>" + "".join(f"<li>{e(t)}</li>" for t in packaging.titles) + "</ol>"
+                     + f"<h3>Thumbnails</h3>{thumbs}<h3>Chapters</h3><p>{chap}</p><h3>Description</h3><pre>{e(packaging.description)}</pre>")
     doc = f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Editor brief — {e(tl.name)}</title>
 <style>
@@ -209,6 +236,7 @@ pre{{background:var(--card);padding:10px;border-radius:8px;overflow:auto;font-si
 <h2>Music</h2><ul>{music}</ul>
 <h2>Missing material</h2><ul>{(gaps + bgaps) or '<li class=mute>nothing — the footage covers the story</li>'}</ul>{('<h3>Suggested voice-over</h3><ul>' + vo + '</ul>') if vo else ''}
 <h2>EditLint</h2><ul>{lint_html or '<li>clean</li>'}</ul>
+{pack_html}
 <h2>Paper edit</h2><pre>{pe}</pre>
 <h2>Files</h2><ul>{filelist}</ul>
 <p class=mute>Made with PrePro. Footage never left this computer.</p>

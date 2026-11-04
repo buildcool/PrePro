@@ -196,7 +196,10 @@ export default function Review({ pid, tid, timelines, run, busy }: {
 
           {side === "score" && <Score v={v} seek={seek} />}
           {side === "hooks" && <HookKnobs v={v} pid={pid} busy={busy} pick={(id) => mutate(() => api<View>(`/projects/${pid}/timelines/${tid}/hook`, { body: { hook_id: id } }))} rebuild={rebuild} />}
-          {side === "more" && <More v={v} />}
+          {side === "more" && <More v={v} pid={pid} busy={busy} makePackage={async () => {
+            const r = await run(`/projects/${pid}/timelines/${tid}/package`, {}, "Packaging");
+            if (r) load();
+          }} />}
         </div>
       </div>
     </div>
@@ -419,11 +422,41 @@ function HookKnobs({ v, pid, busy, pick, rebuild }: { v: View; pid: string; busy
   );
 }
 
-function More({ v }: { v: View }) {
+function More({ v, pid, busy, makePackage }: { v: View; pid: string; busy: boolean; makePackage: () => void }) {
   const m = v.timeline.meta;
+  const pk = v.packaging;
+  const copy = (t: string) => navigator.clipboard?.writeText(t).catch(() => {});
   return (
     <div className="card col small">
-      <h3 style={{ marginTop: 0 }}>Music plan</h3>
+      <h3 style={{ marginTop: 0 }}>Packaging</h3>
+      {!pk ? (
+        <div className="col">
+          <span className="mute">Thumbnail picks with text, title options, YouTube chapters and a description.</span>
+          <button className="btn small primary" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={makePackage}>Make thumbnails &amp; titles</button>
+        </div>
+      ) : (
+        <div className="col">
+          <div className="row" style={{ alignItems: "flex-start" }}>
+            {pk.thumbs.map((th) => (
+              <a key={th.path} href={mediaUrl(pid, th.path, th.t)} target="_blank" rel="noreferrer" title={th.why}>
+                <img src={mediaUrl(pid, th.path, th.t)} alt={th.why} style={{ height: 120, borderRadius: 6, display: "block" }} />
+              </a>
+            ))}
+          </div>
+          <b>Titles</b>
+          {pk.titles.map((t) => (
+            <div key={t} className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
+              <span>{t}</span><button className="btn small ghost" onClick={() => copy(t)} title="Copy">⧉</button>
+            </div>
+          ))}
+          <b>Chapters</b>
+          {pk.chapters.length ? pk.chapters.map(([t, n]) => <div key={t}>{mmss(t, 0)} {n}</div>) : <div className="dim">{pk.chapters_note}</div>}
+          <div className="row" style={{ justifyContent: "space-between" }}><b>Description</b><button className="btn small ghost" onClick={() => copy(pk.description)}>Copy</button></div>
+          <div className="pe" style={{ maxHeight: 160 }}>{pk.description}</div>
+          <button className="btn small" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={makePackage}>Remake</button>
+        </div>
+      )}
+      <h3>Music plan</h3>
       {(m.music ?? []).map((x: any, i: number) => (
         <div key={i}><b>{x.section}</b>: {x.mode} {x.track_id ? <code>{v.assets[x.track_id] ?? x.track_id}</code> : <span className="dim">no track</span>} <span className="dim">— {x.why}</span>
           {!x.track_id && x.mode !== "none" && x.brief?.search_terms?.length ? <div className="dim">search: {x.brief.search_terms.slice(0, 3).join(", ")}</div> : null}
