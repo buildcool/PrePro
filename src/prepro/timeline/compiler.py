@@ -258,7 +258,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         for s in pa.clips[a.id].transcript.segments:
             why = bb.is_cut_candidate(s)
             if why and s.id not in used_refs:
-                ctx.suggest("cut", f"Cut “{s.text[:60]}” — {why}", conf=0.85, payload={"asset": a.id, "t0": s.t0, "t1": s.t1, "segment": s.id,
+                ctx.suggest("cut", f"Cut “{_clip(s.text, 64)}” — {why}", conf=0.85, payload={"asset": a.id, "t0": s.t0, "t1": s.t1, "segment": s.id,
                                                                                     "key": f"seg:{s.id}"})
     for a in pa.assets:
         if a.kind != AssetKind.BROLL:
@@ -342,7 +342,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 t += b - a
                 last_asset, last_src_out = asset.id, b
             if it.role == "hook":
-                ctx.suggest("hook", f"Hook first: “{seg.text[:70]}”" + (f" ({it.note})" if it.note else ""), conf=0.9, t=0.0,
+                ctx.suggest("hook", f"Hook first: “{_clip(seg.text, 80)}”" + (f" ({it.note})" if it.note else ""), conf=0.9, t=0.0,
                             payload={"key": "hook", "ref": it.ref})
         elif shot is not None:
             asset = pa.asset(shot.asset_id)
@@ -580,6 +580,15 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                         "word_t": {k: round(v, 3) for k, v in ctx.word_t.items()}})
     tl.music_spans = getattr(ctx, "_music_spans", [])
     return tl
+
+
+def _clip(text: str, n: int) -> str:
+    """Shorten at a word boundary with an ellipsis (no "for thre" stubs in the UI)."""
+    text = text.strip()
+    if len(text) <= n:
+        return text
+    cut = text[:n].rsplit(" ", 1)[0].rstrip(",;:—-")
+    return cut + "…"
 
 
 def _try(fn, key):

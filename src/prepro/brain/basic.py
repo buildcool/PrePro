@@ -198,6 +198,21 @@ class BasicBrain:
             sc += 0.12
         return round(sc, 3)
 
+    def shot_hook_why(self, s: Shot, kind: str) -> str:
+        """Why a shot could open the video, in words (asset ids only — never file names, this can reach an AI prompt)."""
+        a = self.pa.asset(s.asset_id)
+        ca = self.pa.clips[s.asset_id]
+        what = s.desc or (" / ".join(s.tags[:2]) if s.tags else None)
+        move = {"pan_right": "a pan", "pan_left": "a pan", "tilt_up": "a tilt up", "tilt_down": "a tilt down", "push_in": "a push-in",
+                "static": "a steady frame", "shaky": "a handheld shot", "whip_out": "a whip pan"}.get(s.camera_move, "a shot")
+        where = f" at {ca.place}" if ca.place else ""
+        fps = a.info.fps or 30
+        if kind == "peak_moment" and s.action_peaks:
+            t = s.action_peaks[0]
+            extra = f", {fps:.0f} fps so it can go real slow-mo" if fps >= 48 else ""
+            return f"open on the action{where}: {what or move} ({a.id} at {t:.1f} s{extra}) — movement in frame 1 stops the scroll"
+        return f"open on the most striking frame{where}: {what or move} ({a.id}) — a strong image before any words"
+
     def hook_options(self, playbook: str) -> list[HookOption]:
         pb = K.playbook(playbook)
         opts: list[HookOption] = []
@@ -225,7 +240,7 @@ class BasicBrain:
                                             * (1.0 if (self.assets[s.asset_id].info.fps or 30) >= 48 else 0.6)))
         for s in vis[:2]:
             kind = "peak_moment" if s.action_peaks else "visual_spectacle"
-            opts.append(HookOption(id=f"h{len(opts)}", kind=kind, refs=[s.id], why=f"{kind.replace('_', ' ')}: {s.camera_move} shot, quality {s.quality:.1f}",
+            opts.append(HookOption(id=f"h{len(opts)}", kind=kind, refs=[s.id], why=self.shot_hook_why(s, kind),
                                    score=round(0.3 + 0.25 * s.quality + 0.15 * bool(s.action_peaks) + (0.2 if not talk_ok else 0), 3)))
         allowed = set(pb.hooks) | {"from_brief"}
         opts.sort(key=lambda o: (-(o.score + (0.1 if o.kind in allowed else 0))))

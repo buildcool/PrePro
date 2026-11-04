@@ -86,3 +86,19 @@ def test_scan_never_ingests_our_own_exports(tmp_path):
     (out.parent / "sfx" / "pop.wav").write_bytes(b"\0" * 64)
     rels = {f.rel for f in Project(tmp_path).scan().files}
     assert rels == {"footage/a.mp4"}
+
+
+def test_project_cache_is_stable_under_concurrency(tmp_path):
+    """Server threads open the same project at once; none may fall back to another cache folder."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    import prepro.project as P
+
+    P._CACHE_DIRS.clear()
+    with ThreadPoolExecutor(16) as ex:
+        caches = set(ex.map(lambda _: str(Project(tmp_path).cache), range(64)))
+    assert caches == {str(tmp_path.resolve() / ".prepro")}
+    import shutil
+
+    shutil.rmtree(tmp_path / ".prepro")               # "delete analysis cache" → recreated, same place
+    assert (Project(tmp_path).cache / "frames").is_dir()

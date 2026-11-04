@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import secrets
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -28,22 +30,34 @@ STATIC = Path(__file__).parent / "static"
 
 
 # ------------------------------------------------------------------ project registry
+_REG_LOCK = threading.Lock()
+_REG: dict[str, dict[str, dict]] = {}          # data dir → registry (in memory; the file is only the persistent copy)
+
+
 def _registry_path() -> Path:
     return data_dir() / "projects.json"
 
 
 def _load_registry() -> dict[str, dict]:
     p = _registry_path()
-    try:
-        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
-    except Exception:
-        return {}
+    with _REG_LOCK:
+        if str(p) not in _REG:
+            try:
+                _REG[str(p)] = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+            except Exception:
+                _REG[str(p)] = {}
+        return {k: dict(v) for k, v in _REG[str(p)].items()}
 
 
 def _save_registry(reg: dict[str, dict]) -> None:
+    """Atomic write (temp file + replace) so concurrent requests never read half a file."""
     p = _registry_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(reg, indent=1), encoding="utf-8")
+    with _REG_LOCK:
+        _REG[str(p)] = {k: dict(v) for k, v in reg.items()}
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(reg, indent=1), encoding="utf-8")
+        os.replace(tmp, p)
 
 
 def _pid(path: Path) -> str:
@@ -149,8 +163,9 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             for a in pa.assets:
                 counts[a.kind.value] = counts.get(a.kind.value, 0) + 1
         reg = _load_registry()
-        reg[pid]["opened"] = time.time()
-        _save_registry(reg)
+        if time.time() - reg[pid].get("opened", 0) > 60:      # "recent" ordering; no write on every poll
+            reg[pid]["opened"] = time.time()
+            _save_registry(reg)
         return {"id": pid, "path": str(root), "name": reg[pid]["name"], "analysed": pa is not None,
                 "counts": counts, "stats": pa.stats if pa else {}, "warnings": pa.warnings if pa else [],
                 "genres": [g.model_dump() for g in pa.genres] if pa else [],

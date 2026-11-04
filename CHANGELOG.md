@@ -4,6 +4,37 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-04
+### Added
+- **Review app** (`prepro ui`): a React app served by a local FastAPI server on 127.0.0.1 only.
+  - Steps: Footage (analysis progress, asset grid, search), Brief (live parse into rules), Directions
+    (cards with hook thumbnails and shoot-next-time gaps), Review, Export.
+  - Review step: player, timeline lanes, decision dots, retention heat strip, ✓/✕ on every decision, notes at
+    the playhead, hook picker, knobs, scorecard, brief checklist, lint, music plan, paper edit.
+- **Revise layer** (`prepro.revise`): every decision carries a stable key.
+  - Accepting or rejecting a decision recompiles the cut in about a second with no AI call. Rejected
+    decisions stay listed so they can be turned back on.
+  - Timeline notes become edit ops from rules (English and Hinglish). Examples: "remove zoom",
+    "big/small text: …", "meme here", "whoosh", "faster/slower", "cut this", "change song", "music
+    quieter", "another hook", "keep the pauses".
+  - Unclear notes go to an AI "revise" pass when one is connected; otherwise they are reported as not
+    understood rather than guessed.
+  - Notes that override the brief say so. Your choices survive a rebuild.
+- Server security:
+  - per-launch token
+  - Host-header check against DNS rebinding
+  - media served only from inside opened shoot folders (path traversal tested)
+  - no CORS
+- Retention heat strip (`timeline/attention.py`); `engine.directions()` (Director pass only); knob
+  overrides on `build`.
+- Hook and direction explanations in plain words ("open on the action at Calangute … 60 fps so it can go
+  real slow-mo").
+- Browser end-to-end test (`tests/ui`) that drives the real UI through the whole flow in Chromium.
+### Fixed
+- **`Project()` race.** Concurrent `Project()` calls could delete each other's write-probe and silently move the
+  cache to another folder. Server threads hit this; it showed up as missing thumbnails.
+- **Project registry.** It is now held in memory and saved atomically.
+
 ## [0.2.0] — 2026-11-04
 ### Added
 - M4 exports (`prepro export <shoot> --formats all`):

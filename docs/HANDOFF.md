@@ -6,7 +6,11 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- v0.2.0: M0–M4 done.
+- v0.3.0: M0–M5 done. The review app is `prepro ui`:
+  - `server/app.py`: FastAPI with jobs + SSE, token, Host guard
+  - `ui/`: React + Vite + TS; the build goes to `src/prepro/server/static` and is committed
+  - `revise.py`: suggestion keys, ops replay, comment rules, AI revise pass
+- v0.2.0: M0–M4.
   - `prepro demo|testmedia|analyze|directions|build|export|brains|doctor` work end to end.
   - Basic (rules) brain, or an AI brain through any connector: Claude Code CLI, Codex CLI, Anthropic, OpenAI,
     xAI, OpenRouter, Gemini, Ollama.
@@ -22,7 +26,6 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   - `engine.py` (high-level API)
   - `knowledge/` (playbooks, memes, hooks, emotions, sfx, broll concepts, constitution)
 - Known gaps:
-  - **Revise pass not built:** timeline comments → edit ops for that region.
   - **Story re-ordering from the AI critic is not auto-applied.** It is only reported.
   - **FCP7 Basic Motion centre values** follow the Premiere convention (offset ÷ sequence size, per axis). This
     needs a real import check, as does the `.kdenlive` file.
@@ -30,6 +33,8 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## How to test
 - `uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"`; apt `espeak-ng melt sox fonts-noto-core`.
+- UI: `npm --prefix ui install && npm --prefix ui run build`. The browser test (`tests/ui`, slow) needs node +
+  playwright.
 - Run tests with `.venv/bin/python -m pytest` (not the bare `pytest` script; `tests.conftest` imports need the
   repo root on `sys.path`). `-m "not slow"` skips the final-quality renders (phone pack, preview render).
 - `.venv/bin/prepro testmedia fetch` (real media into ~/.cache/prepro/testmedia), then
@@ -45,13 +50,15 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   releases are created by the tag-triggered workflow.
 
 ## Next steps
-1. **M5 review UI (v0.3).**
-   - FastAPI server (`src/prepro/server/`): jobs + SSE progress, range-request media streaming.
-   - React/Vite/TS app (`ui/`):
-     - wizard + brief step, brains settings, direction cards + hook picker
-     - player + timeline lanes + suggestions (accept/reject), knobs, music/meme panels, heat strip, search
-     - comments → revise pass, critic/lint/brief checklist, export dialog
-   - Playwright tests with screenshots.
-2. **M6 desktop (v0.4).** Electron shell, PyInstaller engine, bundled ffmpeg, first-run model download,
+1. **M6 desktop (v0.4).** Electron shell, PyInstaller engine, bundled ffmpeg, first-run model download,
    AppImage/.deb here, Windows NSIS in CI.
-3. **Phase 2** by value; see `docs/PLAN.md` §8.
+2. **Phase 2** by value; see `docs/PLAN.md` §8. Start with:
+   - long → Shorts repurposing
+   - packaging: thumbnails, titles, chapters
+   - Style DNA
+3. UI ideas not done yet:
+   - drag-to-trim on the timeline
+   - a waveform in the voice lane
+   - a meme/music browser with alternatives
+   - saved brief templates
+   - a creative-freedom slider in the brief step

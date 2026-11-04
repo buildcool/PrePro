@@ -1,0 +1,322 @@
+import { useEffect, useState } from "react";
+import { api, followJob, frameUrl, type Job, mmss } from "../api";
+import { go, type Route, useToast } from "../App";
+import { refThumb, type Asset, type Brief, type Direction, type Summary } from "../types";
+import Export from "./Export";
+import Review from "./Review";
+
+const TABS: [string, string][] = [
+  ["footage", "1 · Footage"],
+  ["brief", "2 · Brief"],
+  ["directions", "3 · Directions"],
+  ["review", "4 · Review"],
+  ["export", "5 · Export"],
+];
+
+export function JobBar({ job }: { job: Job | null }) {
+  if (!job) return null;
+  return (
+    <div className="card col" style={{ gap: 6 }}>
+      <div className="row small">
+        <b>{job.kind}</b>
+        <span className="mute">{job.stage}</span>
+        <span className="dim" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>{job.message}</span>
+      </div>
+      <div className="progress"><div style={{ width: `${Math.round((job.frac || 0.03) * 100)}%` }} /></div>
+    </div>
+  );
+}
+
+export default function Project({ route, setTitle }: { route: Extract<Route, { page: "project" }>; setTitle: (s: string) => void }) {
+  const { pid, tab } = route;
+  const [s, setS] = useState<Summary | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const { say } = useToast();
+
+  const load = () =>
+    api<Summary>(`/projects/${pid}`)
+      .then((x) => {
+        setS(x);
+        setTitle(x.name);
+        return x;
+      })
+      .catch((e) => {
+        say(e.message, "error");
+        return null;
+      });
+  useEffect(() => {
+    load();
+  }, [pid]);
+
+  const run = async (path: string, body: unknown, label: string) => {
+    try {
+      const j = await api<Job>(path, { body: body ?? {} });
+      setJob(j);
+      const done = await followJob(j, setJob);
+      setJob(null);
+      await load();
+      return done.result;
+    } catch (e: any) {
+      setJob(null);
+      say(`${label} failed: ${e.message}`, "error");
+      return null;
+    }
+  };
+
+  if (!s) return <p className="mute">Loading…</p>;
+  const tid = route.tid || s.timelines[0]?.id;
+  const count = (k: string) => (k === "review" ? s.timelines.length : k === "directions" ? s.directions?.directions.length ?? 0 : 0);
+
+  return (
+    <div className="col" style={{ gap: 12 }}>
+      <nav className="tabs" aria-label="Steps">
+        {TABS.map(([k, label]) => (
+          <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => go({ page: "project", pid, tab: k, tid })}>
+            {label}
+            {count(k) > 0 && <span className="n">{count(k)}</span>}
+          </button>
+        ))}
+      </nav>
+      <JobBar job={job} />
+      {tab === "footage" && <Footage s={s} run={run} busy={!!job} />}
+      {tab === "brief" && <BriefTab s={s} onSaved={load} />}
+      {tab === "directions" && <Directions s={s} run={run} busy={!!job} />}
+      {tab === "review" &&
+        (tid ? (
+          <Review pid={pid} tid={tid} timelines={s.timelines} run={run} busy={!!job} />
+        ) : (
+          <div className="card empty-state">No cut yet — pick a direction in step 3.</div>
+        ))}
+      {tab === "export" && (tid ? <Export pid={pid} tid={tid} run={run} busy={!!job} /> : <div className="card empty-state">Build a cut first.</div>)}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- 1 · footage
+function Footage({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l: string) => Promise<any>; busy: boolean }) {
+  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<any[] | null>(null);
+  const pid = s.id;
+  useEffect(() => {
+    if (s.analysed) api<Asset[]>(`/projects/${pid}/assets`).then(setAssets).catch(() => setAssets([]));
+  }, [s.analysed, pid]);
+  const search = async () => setHits(q.trim() ? await api<any[]>(`/projects/${pid}/search?q=${encodeURIComponent(q)}`) : null);
+
+  return (
+    <div className="col" style={{ gap: 12 }}>
+      <div className="card row" style={{ justifyContent: "space-between" }}>
+        <div className="col" style={{ gap: 2 }}>
+          <b>{s.path}</b>
+          <div className="row small mute">
+            {Object.entries(s.counts).map(([k, n]) => (
+              <span key={k} className="chip">{n} {k.replace("_", " ")}</span>
+            ))}
+            {s.stats.days ? <span className="chip">{s.stats.days} day(s)</span> : null}
+            {s.stats.places ? <span className="chip">{s.stats.places} place(s)</span> : null}
+          </div>
+        </div>
+        <div className="row">
+          <button className="btn" disabled={busy} onClick={() => run(`/projects/${pid}/analyze`, { force: true }, "Analysis")}>Re-analyse</button>
+          {!s.analysed ? (
+            <button className="btn primary" disabled={busy} onClick={() => run(`/projects/${pid}/analyze`, {}, "Analysis")}>Analyse footage</button>
+          ) : (
+            <button className="btn primary" onClick={() => go({ page: "project", pid, tab: "brief" })}>Next: brief →</button>
+          )}
+        </div>
+      </div>
+      {s.warnings.length > 0 && (
+        <div className="card small">{s.warnings.map((w, i) => <div key={i} className="gap">⚠ {w}</div>)}</div>
+      )}
+      {s.genres.length > 0 && (
+        <div className="row small mute">Looks like: {s.genres.slice(0, 3).map((g) => <span key={g.playbook} className="chip">{g.playbook.replace("_", " ")} {Math.round(g.score * 100)}%</span>)}</div>
+      )}
+      {s.analysed && (
+        <div className="row" style={{ flexWrap: "nowrap" }}>
+          <input type="text" placeholder='Search what was said or shown — "kachori", "beach", "laughing"' value={q}
+            onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} aria-label="Search footage" />
+          <button className="btn" onClick={search}>Search</button>
+        </div>
+      )}
+      {hits && (
+        <div className="card col">
+          <b className="small">{hits.length} result(s)</b>
+          {hits.map((h) => (
+            <div key={h.type + h.id} className="row small">
+              {h.thumb && <img src={frameUrl(pid, h.thumb)} alt="" style={{ width: 64, borderRadius: 4 }} />}
+              <span className="chip">{h.type}</span> <code>{h.id}</code> <span className="dim">{mmss(h.t)}</span> {h.text}
+            </div>
+          ))}
+        </div>
+      )}
+      {assets && (
+        <div className="grid assets">
+          {assets.map((a) => {
+            const bad = a.shots.flatMap((x) => x.flags).filter((f) => ["dark", "blurry", "shaky", "pocket"].includes(f));
+            return (
+              <div key={a.id} className="card asset" title={a.path}>
+                <div className={`thumb ${a.thumb ? "" : "audio"}`} style={{ backgroundImage: a.thumb ? `url(${frameUrl(pid, a.thumb)})` : undefined }}>
+                  {!a.thumb && <span className="glyph" aria-hidden>{a.kind === "music" ? "♪" : a.kind === "sfx" ? "✶" : "▶"}</span>}
+                  <span className="chip kind" style={{ background: "rgba(0,0,0,.6)", color: "#fff", borderColor: "transparent" }}>{a.kind.replace("_", " ")}</span>
+                </div>
+                <div className="body">
+                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><code>{a.id}</code> {a.name}</div>
+                  <div className="dim">
+                    {a.duration.toFixed(1)}s{a.fps ? ` · ${Math.round(a.fps)} fps` : ""}{a.place ? ` · ${a.place}` : ""}{a.day ? ` · day ${a.day}` : ""}
+                  </div>
+                  {a.music && <div className="dim">{Math.round(a.music.bpm)} BPM · {a.music.mood.join(", ")}</div>}
+                  {bad.length > 0 && <div style={{ color: "var(--warn)" }}>⚠ {[...new Set(bad)].join(", ")}</div>}
+                  {a.segments.length > 0 && <div className="mute" style={{ marginTop: 4 }}>“{a.segments.map((x) => x.text).join(" ").slice(0, 90)}…”</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- 2 · brief
+const QUICK = [
+  "Insta Reel, about 30 seconds.",
+  "Hook: use the line where I say …",
+  "No music while I talk.",
+  "Use the … song for the montage.",
+  "Add text at the end: Follow for part 2",
+  "Add a meme after I say …",
+  "Slow-mo on the jump.",
+  "No zooms.",
+  "Don't use the dark night clip.",
+  "Captions in Hinglish.",
+];
+
+function BriefTab({ s, onSaved }: { s: Summary; onSaved: () => void }) {
+  const [text, setText] = useState(s.brief.text || "");
+  const [parsed, setParsed] = useState<Brief | null>(s.brief.parsed);
+  const { say } = useToast();
+  const save = async () => {
+    try {
+      setParsed(await api<Brief>(`/projects/${s.id}/brief`, { method: "PUT", body: { text } }));
+      onSaved();
+      say("Brief saved — it will be followed in every direction.");
+    } catch (e: any) {
+      say(e.message, "error");
+    }
+  };
+  return (
+    <div className="review" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(280px, 380px)" }}>
+      <div className="card col">
+        <h2>Tell PrePro about this video (optional)</h2>
+        <p className="small mute" style={{ marginTop: -6 }}>
+          Write it like a note to your editor — English, Hindi or Hinglish. Anything you leave out is decided automatically. Files in the shoot folder
+          (brief.md, notes.yaml, HOOK_/MUST_/SKIP_ file names) are read too.
+        </p>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={"Reel, 30 sec. Hook: the line where I say five thousand rupees.\nNo music while I talk. Meme after I say Twenty!\nEnd text: Follow for part 2"} aria-label="Brief" />
+        <div className="row">
+          {QUICK.map((q) => (
+            <button key={q} className="chip click" onClick={() => setText((t) => (t.trim() ? t.trim() + "\n" : "") + q)}>+ {q}</button>
+          ))}
+        </div>
+        <div className="row">
+          <button className="btn primary" onClick={save}>Save brief</button>
+          <button className="btn" onClick={() => go({ page: "project", pid: s.id, tab: "directions" })}>Next: directions →</button>
+        </div>
+      </div>
+      <div className="card">
+        <h2>What PrePro understood</h2>
+        {!parsed || (parsed.rules.length === 0 && parsed.questions.length === 0) ? (
+          <p className="small mute">Nothing yet — Auto mode decides everything.</p>
+        ) : (
+          <div className="col small">
+            {parsed.rules.map((r, i) => (
+              <div key={i} className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
+                <span title={r.resolved ? "found in the footage" : "not found yet"}>{r.resolved ? "✅" : "❔"}</span>
+                <div>
+                  <b>{r.kind.replace(/_/g, " ")}</b> {r.target ? <code>{r.target}</code> : null}
+                  <div className="dim">“{r.source.trim().slice(0, 90)}”</div>
+                </div>
+              </div>
+            ))}
+            {parsed.questions.map((q, i) => <div key={i} className="gap">❓ {q.text}</div>)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- 3 · directions
+function Directions({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l: string) => Promise<any>; busy: boolean }) {
+  const ds = s.directions?.directions ?? [];
+  const build = async (d: Direction) => {
+    const r = await run(`/projects/${s.id}/build`, { direction: d.id, render: true }, "Build");
+    if (r?.timeline) go({ page: "project", pid: s.id, tab: "review", tid: r.timeline });
+  };
+  return (
+    <div className="col" style={{ gap: 12 }}>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <p className="mute" style={{ margin: 0 }}>
+          Different ways to cut this footage. Each has 3 hook options and tells you what's missing for next time. Pick one (or several — each becomes its own cut).
+        </p>
+        <button className="btn" disabled={busy || !s.analysed} onClick={() => run(`/projects/${s.id}/directions`, {}, "Directions")}>
+          {ds.length ? "Suggest again" : "Suggest directions"}
+        </button>
+      </div>
+      {!s.analysed && <div className="card empty-state">Analyse the footage first (step 1).</div>}
+      <div className="grid directions">
+        {ds.map((d) => (
+          <div key={d.id} className="card direction col">
+            <h2>
+              <span>{d.name}</span>
+              <span className="fit">fit {Math.round(d.fit_score * 100)}%</span>
+            </h2>
+            <div className="row small">
+              <span className="chip">{d.playbook.replace("_", " ")}</span>
+              <span className="chip">{d.aspect}</span>
+              <span className="chip">~{Math.round(d.knobs.target_length ?? d.target_max)} s</span>
+              {d.from_brief && <span className="chip acc">from your brief</span>}
+            </div>
+            <div className="small mute">{d.why}</div>
+            <h3>Hooks</h3>
+            {d.hooks.map((h) => (
+              <div key={h.id} className="hook small row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
+                {h.refs[0] && <img src={frameUrl(s.id, refThumb(h.refs[0]))} alt="" style={{ width: 56, borderRadius: 5, flex: "none" }}
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />}
+                <div style={{ minWidth: 0 }}>
+                  <b>{h.kind.replace(/_/g, " ")}</b> {h.text_hook && <span className="chip">“{h.text_hook}”</span>}
+                  <div className="dim">{h.why}</div>
+                </div>
+              </div>
+            ))}
+            {d.outline.length > 0 && (
+              <>
+                <h3>Outline</h3>
+                <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{d.outline.map((o, i) => <li key={i}>{o}</li>)}</ul>
+              </>
+            )}
+            {d.coverage_gaps.length > 0 && (
+              <>
+                <h3>Shoot next time</h3>
+                <ul className="small gap" style={{ margin: 0, paddingLeft: 18 }}>{d.coverage_gaps.map((g, i) => <li key={i}>{g}</li>)}</ul>
+              </>
+            )}
+            <div className="spacer" />
+            <button className="btn primary" disabled={busy} onClick={() => build(d)}>Build this cut</button>
+          </div>
+        ))}
+      </div>
+      {s.timelines.length > 0 && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Your cuts</h3>
+          {s.timelines.map((t) => (
+            <div key={t.id} className="row small" style={{ justifyContent: "space-between" }}>
+              <span>{t.name} <span className="dim">· {t.aspect} · {mmss(t.duration, 0)}</span></span>
+              <button className="btn small" onClick={() => go({ page: "project", pid: s.id, tab: "review", tid: t.id })}>Review</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

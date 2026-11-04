@@ -27,3 +27,14 @@ jobs:
         run: uv run --python .venv ruff check src tests
       - name: Tests
         run: uv run --python .venv pytest -m "not slow and not realmedia and not live" -x
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the review app (type-check + bundle)
+        run: |
+          npm --prefix ui ci
+          npm --prefix ui run build

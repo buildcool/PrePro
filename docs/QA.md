@@ -62,3 +62,23 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
 - **Re-ingest bug.** After an export into `<shoot>/PrePro_exports/`, the next build analysed our own rendered MP4s
   and SFX as new footage, and a phone-pack file became the hook. The scanner now ignores `PrePro_exports/` (and
   OS clutter folders). There is a regression test.
+
+### v0.3 (M5): review app, driven in Chromium and reviewed from screenshots
+1. **Thumbnails missing at random.** Concurrent requests built `Project()` at the same time, deleted each other's
+   `.write-test` probe and silently fell back to a different cache folder. Fixed: unique probe per thread,
+   resolved once per process, plus a regression test. The project registry also moved to memory with atomic
+   writes.
+2. **The voice lane was blank.** Caption text is a model property and is not serialised. The UI now builds it
+   from the words.
+3. **Hooks read like debug output** ("peak moment: static shot, quality 1.0"). They are now plain words with
+   a thumbnail: "open on the action at Calangute: a steady frame (C06 at 0.2 s, 60 fps so it can go real
+   slow-mo) — movement in frame 1 stops the scroll". Genre reasons were rewritten too: "mostly calm shots in
+   the B-roll — a hype cut would be a stretch".
+4. **Decisions were listed by type.** They are now in timeline order, with what was left out at the end.
+   Audio assets get a glyph instead of a black box. Ruler ticks no longer collide at phone width. Hook
+   quotes are clipped at a word boundary, so no more "for thre".
+5. **Hook swap lost material.** "Another hook" dropped the promise line and ping-ponged between two options.
+   Now the old hook line stays in as setup, the latest choice wins, and options rotate through all hooks and
+   back to the original.
+6. **"Keep this line" on a lone "uh" produced nothing.** Lines brought back by the creator are now kept as
+   spoken.

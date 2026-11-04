@@ -27,7 +27,7 @@ was made, so you (or your editor) can review it in minutes instead of building i
 
 ```bash
 uv venv --python 3.12 .venv
-uv pip install --python .venv -e ".[asr,ai,geo,dev]"
+uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
 .venv/bin/prepro doctor
 .venv/bin/prepro demo travel_vlog --out demo-shoots      # synthetic shoot with ground truth
 .venv/bin/prepro analyze demo-shoots/travel_vlog
@@ -37,6 +37,24 @@ uv pip install --python .venv -e ".[asr,ai,geo,dev]"
 
 Requirements: Python 3.11–3.13, ffmpeg/ffprobe on `PATH` (or `PREPRO_FFMPEG`). Optional: NVIDIA GPU for
 faster transcription.
+
+## The review app
+
+```bash
+.venv/bin/prepro ui          # opens http://127.0.0.1:8765 — runs on this computer only
+```
+
+Five steps:
+1. **Footage.** Open the shoot folder, analyse it, and search what was said or shown.
+2. **Brief.** Optional, in English, Hindi or Hinglish.
+3. **Directions.** Pick one of 2–4 directions, each with hooks shown as thumbnails and what to shoot next time.
+4. **Review.** A player and timeline lanes with a retention heat strip. Every decision has its reason and an ✓/✕
+   toggle. Leave notes at the playhead ("remove zoom", "big text: ₹500 only", "meme here", "faster", "change
+   song") and they become edits instantly; delete a note to undo it. The tab also has a hook picker, knobs,
+   the scorecard and the brief checklist.
+5. **Export.** Premiere/Resolve, Kdenlive, Shotcut, phone apps, captions, and an editor brief.
+
+UI development: `npm --prefix ui install && npm --prefix ui run build` (output goes to `src/prepro/server/static`).
 
 ## How it works
 

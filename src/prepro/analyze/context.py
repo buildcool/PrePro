@@ -147,13 +147,14 @@ def guess_genres(pa: ProjectAnalysis) -> list[GenreGuess]:
     if broll_t / video_t > 0.3 and music:
         talk = aroll_t / video_t   # a wordless film throws away the creator's narration
         add("travel_film", 0.45 + 0.25 * (broll_t / video_t) + 0.1 * (places > 1) + 0.05 * (days > 1) + 0.1 * has_cine - 0.3 * talk,
-            f"{broll_t:.0f}s of B-roll + music" + (f" across {places} places" if places > 1 else ""))
+            f"{broll_t:.0f} s of B-roll and music" + (f" across {places} places" if places > 1 else "") + " — a wordless film cut to the music")
+        energy = "lots of movement" if mean_motion > 0.2 else ("some movement" if mean_motion > 0.08 else "mostly calm shots")
         add("hype_reel", 0.45 + min(0.35, mean_motion * 0.6) + 0.15 * has_hype + 0.1 * (broll_t < 60) - 0.15 * (aroll_t / video_t),
-            f"motion {mean_motion:.2f}" + (", high-energy track available" if has_hype else ""))
+            f"{energy} in the B-roll" + (", and a high-energy track" if has_hype else "") + ("" if mean_motion > 0.08 else " — a hype cut would be a stretch"))
     if broll_t / video_t > 0.5 and (food_hint or (mean_motion < 0.25 and vertical)):
         add("aesthetic", 0.6 + 0.25 * food_hint, "calm close-ups / routine footage" + (" with food" if food_hint else ""))
     if video_t > 45 and broll_t > 10:
-        add("teaser", 0.4, "enough material for a 15–30 s teaser")
+        add("teaser", 0.4, "enough strong moments for a 15–30 s teaser that sells the full video")
     if not out:
         add("story_vlog", 0.4, "default")
     out.sort(key=lambda g: -g.score)

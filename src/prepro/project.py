@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
@@ -78,6 +79,9 @@ class ScanResult:
     sidecars: dict[str, Path]     # media rel path (without ext) → transcript sidecar
 
 
+_CACHE_LOCK = threading.Lock()
+_CACHE_DIRS: dict[str, Path] = {}          # resolved cache folder per shoot (checked once per process)
+
 EXPORTS_DIR = "PrePro_exports"
 # our own outputs (and tool clutter) must never be re-ingested as footage
 IGNORED_DIRS = frozenset({EXPORTS_DIR, "node_modules", "__pycache__", "$RECYCLE.BIN", "System Volume Information"})
@@ -90,19 +94,29 @@ class Project:
         self.root = Path(root).expanduser().resolve()
         if not self.root.is_dir():
             raise FileNotFoundError(f"Shoot folder not found: {self.root}")
-        self.cache = Path(cache_dir).resolve() if cache_dir else self.root / ".prepro"
+        want = Path(cache_dir).resolve() if cache_dir else self.root / ".prepro"
+        key = str(want)
+        with _CACHE_LOCK:
+            known = _CACHE_DIRS.get(key)
+        if known is not None and (known / "timelines").is_dir():     # still there (the user may have deleted the cache)
+            self.cache = known
+            return
         try:
-            self.cache.mkdir(parents=True, exist_ok=True)
-            probe = self.cache / ".write-test"
+            want.mkdir(parents=True, exist_ok=True)
+            # unique probe name: concurrent Project() calls (server threads) must not delete each other's probe
+            probe = want / f".write-test-{os.getpid()}-{threading.get_ident()}"
             probe.write_text("ok")
-            probe.unlink()
-        except OSError:
+            probe.unlink(missing_ok=True)
+            self.cache = want
+        except OSError:                     # read-only shoot folder (card reader, network share) → per-user cache
             from platformdirs import user_cache_dir
 
             self.cache = Path(user_cache_dir("prepro")) / "projects" / hashlib.sha1(str(self.root).encode()).hexdigest()[:12]
             self.cache.mkdir(parents=True, exist_ok=True)
         for sub in ("proxies", "audio", "frames", "analysis", "renders", "exports", "logs", "sent", "timelines", "qa"):
             (self.cache / sub).mkdir(exist_ok=True)
+        with _CACHE_LOCK:
+            _CACHE_DIRS[key] = self.cache
 
     # ---------- paths ----------
     def path(self, rel: str) -> Path:
