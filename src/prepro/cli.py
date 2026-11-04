@@ -28,6 +28,14 @@ def version() -> None:
 
 
 @app.command()
+def ui(port: int = typer.Option(8765, help="Local port"), no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser")) -> None:
+    """Open the review app (runs on this computer only; footage is never uploaded)."""
+    from .server import serve
+
+    serve(port=port, open_browser=not no_browser)
+
+
+@app.command()
 def doctor() -> None:
     """Check the local toolchain (ffmpeg, recognisers, models, AI connectors)."""
     from .config import Settings, ensure_model

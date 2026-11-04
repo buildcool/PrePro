@@ -115,6 +115,24 @@ def brief_for(root: str | Path, pa: ProjectAnalysis, *, extra_text: str | None =
     return b
 
 
+def directions(root: str | Path, *, settings: Settings | None = None, brief_text: str | None = None, routing: dict | None = None,
+               progress=None) -> tuple[DirectionSet, CreatorBrief, list]:
+    """Only the Director pass (cheap): direction cards + hooks + coverage gaps, so quality can be judged before a build."""
+    settings = settings or Settings.load()
+    pa = analysis(root, settings=settings, progress=progress)
+    brief = brief_for(root, pa, extra_text=brief_text, settings=settings)
+    brain = make_brain(pa, brief, settings, root, overrides=routing)
+    if hasattr(brain, "parse_brief") and brief.raw_text and brain.providers.get("brief"):
+        brief = brain.parse_brief(brief.raw_text)
+        resolve(brief, pa)
+        brain.brief, brain.rules = brief, brief.rules
+    ds = brain.directions()
+    proj = Project(root)
+    proj.save_model("directions.json", ds)
+    proj.save_model("brief.json", brief)
+    return ds, brief, getattr(brain, "calls", [])
+
+
 def choose(ds: DirectionSet, which: str | None) -> Direction:
     if not which or which == "auto":
         return ds.directions[0]
@@ -126,7 +144,7 @@ def choose(ds: DirectionSet, which: str | None) -> Direction:
 
 def build(root: str | Path, *, direction: str | None = "auto", settings: Settings | None = None, brief_text: str | None = None,
           render: bool = True, quality: str = "preview", lint: bool = True, progress=None, extra_playbook: str | None = None,
-          routing: dict | None = None) -> BuildResult:
+          routing: dict | None = None, knobs: dict | None = None) -> BuildResult:
     settings = settings or Settings.load()
     pa = analysis(root, settings=settings, progress=progress)
     brief = brief_for(root, pa, extra_text=brief_text, settings=settings)
@@ -142,6 +160,11 @@ def build(root: str | Path, *, direction: str | None = "auto", settings: Setting
         brain.rules = brief.rules
     ds = brain.directions()
     d = choose(ds, direction)
+    if knobs:
+        d.knobs = d.knobs.model_copy(update={k: v for k, v in knobs.items() if k in type(d.knobs).model_fields and v is not None})
+        if knobs.get("target_length"):
+            L = float(knobs["target_length"])
+            d.target_min, d.target_max = round(L * 0.85, 1), round(L * 1.15, 1)
     story = brain.story(d)
     polish = brain.polish(d, story)
     tl = compile_timeline(pa, d, story, polish, brief, project_root=root)

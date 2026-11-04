@@ -407,6 +407,58 @@ class AIBrain(BasicBrain):
                 continue
         return rep
 
+    def revise(self, text: str, t: float, tl, pa: ProjectAnalysis) -> tuple[list, str]:
+        """A timeline note the rules couldn't parse → validated revision ops (see prepro.revise)."""
+        from ..revise import Op
+
+        if self.providers.get("revise") is None:
+            return [], ""
+        pe = [ln for ln in paper_edit(tl, pa).splitlines() if abs(float(ln[:6]) - t) <= 15]
+        wt = tl.meta.get("word_t") or {}
+        wtext = {w.id: w.text for a in {i.asset_id for i in tl.items if i.track == "A1" and i.asset_id} for w in pa.words(a)}
+        words = [f"{wid}@{tt:.1f}s “{wtext.get(wid, '')}”" for wid, tt in sorted(wt.items(), key=lambda kv: kv[1]) if abs(tt - t) <= 4]
+        keys = {s.payload["key"]: s for s in tl.suggestions if s.payload.get("key") and s.status == "applied"}
+        fx = [f"{k} ({s.type}: {s.reason[:50]})" for k, s in keys.items() if s.t is not None and abs(s.t - t) <= 8]
+        on_tl = {i.ref for i in tl.items if i.ref}
+        data = self._call("revise", f"TASK: the creator left a note on the timeline at {t:.1f}s: “{text}”. Turn it into edit ops. "
+                          "drop_effect: at = an EFFECT key below. drop_item: at = a segment/shot id on the timeline. trim_item: at = shot id, "
+                          "value = length factor 0.3–2. set_speed: at = shot id, value 0.25–4. add_effect: type zoom|sfx|emphasis (at = word id) "
+                          "or meme|broll (at = segment id), asset = library id or sfx:name. add_text: at = word id, text, type = style "
+                          "(big|small|callout|card). swap_track: at = section names, asset = music id. Return no ops if the note can't be "
+                          "done with these.\nWORDS NEAR THE NOTE: " + "; ".join(words) + "\nEFFECTS NEAR THE NOTE:\n" + "\n".join(fx) +
+                          "\nPAPER EDIT AROUND THE NOTE:\n" + "\n".join(pe), effort="medium")
+        if not data:
+            return [], ""
+        ops: list[Op] = []
+        segs_on = {i.ref for i in tl.items if i.track == "A1" and i.ref}
+        for o in data.get("ops", [])[:6]:
+            kind, at, why = o.get("op"), str(o.get("at") or ""), str(o.get("why") or text)[:120]
+            asset = o.get("asset")
+            if kind == "drop_effect" and at in keys:
+                ops.append(Op(op="reject", key=at, why=why))
+            elif kind == "drop_item" and at in on_tl and not at.startswith("fx:"):
+                ops.append(Op(op="drop", ref=at, why=why))
+            elif kind == "trim_item" and self._shot(at) and isinstance(o.get("value"), (int, float)):
+                ops.append(Op(op="trim", ref=at, value=max(0.3, min(2.0, float(o["value"]))), why=why))
+            elif kind == "set_speed" and self._shot(at) and isinstance(o.get("value"), (int, float)):
+                ops.append(Op(op="add", cue=EffectCue(type="speed", at=at, value=max(0.25, min(4.0, float(o["value"]))), why=why), why=why))
+            elif kind == "add_effect" and o.get("type") in ("zoom", "sfx", "emphasis") and at in wt:
+                if o["type"] == "sfx" and not (isinstance(asset, str) and (asset.startswith("sfx:") or any(a.id == asset for a in pa.assets))):
+                    asset = "sfx:pop"
+                ops.append(Op(op="add", cue=EffectCue(type=o["type"], at=at, asset=asset if o["type"] == "sfx" else None,
+                                                      value=1.16 if o["type"] == "zoom" else None, style="big" if o["type"] == "emphasis" else None,
+                                                      why=why), why=why))
+            elif kind == "add_effect" and o.get("type") in ("meme", "broll") and at in segs_on and isinstance(asset, str):
+                ok = any(a.id == asset for a in pa.assets) if o["type"] == "meme" else self._shot(asset) is not None
+                if ok:
+                    ops.append(Op(op="add", cue=EffectCue(type=o["type"], at=at, asset=asset, dur=2.5 if o["type"] == "broll" else None, why=why), why=why))
+            elif kind == "add_text" and (at in wt or at in segs_on) and o.get("text"):
+                style = o.get("type") if o.get("type") in ("big", "small", "callout", "card") else "callout"
+                ops.append(Op(op="add", cue=EffectCue(type="text", at=at, text=str(o["text"])[:60], style=style, dur=2.2, why=why), why=why))
+            elif kind == "swap_track" and isinstance(asset, str) and any(a.id == asset and a.kind == AssetKind.MUSIC for a in pa.assets):
+                ops.append(Op(op="swap_track", ref=at, value=asset, why=why))
+        return ops, ("AI: " + "; ".join(o.why for o in ops)) if ops else ""
+
     def parse_brief(self, text: str) -> CreatorBrief:
         data = self._call("brief", "TASK: turn this creator brief into hard rules and preferences. Anchors are the creator's own words "
                           "(we resolve them). Brief:\n" + text, effort="low", dossier=False)

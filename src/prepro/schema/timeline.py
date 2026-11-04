@@ -37,6 +37,7 @@ class Transform(BaseModel):
 
 class Item(BaseModel):
     id: str
+    ref: str | None = None            # story ref (segment/shot id) or effect key this item came from
     track: str
     kind: ItemKind
     asset_id: str | None = None

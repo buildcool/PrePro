@@ -68,6 +68,7 @@ class StoryItem(BaseModel):
     t1: float | None = None
     section: str = "main"
     note: str = ""
+    whole: bool = False               # keep the line exactly as spoken (no filler/pause removal, no hook trim)
 
 
 class StorySection(BaseModel):
@@ -104,6 +105,7 @@ class MusicCue(BaseModel):
     alternatives: list[str] = Field(default_factory=list)
     brief: MusicBrief = Field(default_factory=MusicBrief)
     why: str = ""
+    gain_db: float = 0.0              # creator's "music louder/quieter" on top of the playbook level
 
 
 class EffectCue(BaseModel):

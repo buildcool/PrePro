@@ -111,11 +111,14 @@ def snap(ctx: Ctx, asset_id: str, t: float, lo: float, hi: float) -> float:
 
 
 # ------------------------------------------------------------------ speech pieces
-def speech_pieces(ctx: Ctx, seg: Segment, *, tightness: float, breath: float, max_pause: float) -> tuple[list[tuple[float, float]], list[Word], int]:
+def speech_pieces(ctx: Ctx, seg: Segment, *, tightness: float, breath: float, max_pause: float,
+                  whole: bool = False) -> tuple[list[tuple[float, float]], list[Word], int]:
     words = {w.id: w for w in ctx.pa.words(seg.asset_id)}
     seq = [words[w] for w in seg.word_ids if w in words]
     all_words = sorted(ctx.pa.words(seg.asset_id), key=lambda w: w.t0)
-    kept = [w for w in seq if not w.filler and not w.text.startswith("[")]
+    if whole:
+        tightness, max_pause = 0.0, 1e9
+    kept = list(seq) if whole else [w for w in seq if not w.filler and not w.text.startswith("[")]
     removed = len(seq) - len(kept)
     if not kept:
         return [], [], removed
@@ -255,16 +258,18 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         for s in pa.clips[a.id].transcript.segments:
             why = bb.is_cut_candidate(s)
             if why and s.id not in used_refs:
-                ctx.suggest("cut", f"Cut “{s.text[:60]}” — {why}", conf=0.85, payload={"asset": a.id, "t0": s.t0, "t1": s.t1, "segment": s.id})
+                ctx.suggest("cut", f"Cut “{s.text[:60]}” — {why}", conf=0.85, payload={"asset": a.id, "t0": s.t0, "t1": s.t1, "segment": s.id,
+                                                                                    "key": f"seg:{s.id}"})
     for a in pa.assets:
         if a.kind != AssetKind.BROLL:
             continue
         for sh in pa.clips[a.id].shots:
             bad = set(sh.flags) & {"dark", "blurry", "shaky", "pocket"}
             if bad and sh.id not in used_refs:
-                ctx.suggest("cut", f"Left out {a.name} — {', '.join(sorted(bad))}", conf=0.8, payload={"asset": a.id, "shot": sh.id})
+                ctx.suggest("cut", f"Left out {a.name} — {', '.join(sorted(bad))}", conf=0.8, payload={"asset": a.id, "shot": sh.id, "key": f"shot:{sh.id}"})
             elif sh.dup_group and sh.dup_rank > 0 and sh.id not in used_refs:
-                ctx.suggest("cut", f"Left out {a.name} — near-duplicate of a better take", conf=0.75, payload={"asset": a.id, "shot": sh.id})
+                ctx.suggest("cut", f"Left out {a.name} — near-duplicate of a better take", conf=0.75, payload={"asset": a.id, "shot": sh.id,
+                                                                                                                  "key": f"shot:{sh.id}"})
 
     # ---- main assembly (V1/A1)
     t = 0.0
@@ -279,13 +284,15 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         seg = _try(pa.segment, it.ref)
         shot = _try(pa.shot, it.ref)
         if seg is not None:
-            pieces, kept, removed = speech_pieces(ctx, seg, tightness=tight, breath=breath, max_pause=max_pause)
-            if it.role == "hook" and pieces:
+            pieces, kept, removed = speech_pieces(ctx, seg, tightness=tight, breath=breath, max_pause=max_pause, whole=it.whole)
+            if it.role == "hook" and pieces and not it.whole:
                 pieces, kept, trimmed = tighten_hook(ctx, seg, pieces, kept)
                 if trimmed:
-                    ctx.suggest("hook", f"Hook enters late: starts at “{trimmed}” so the promise lands in the first seconds", conf=0.8, t=0.0)
+                    ctx.suggest("hook", f"Hook enters late: starts at “{trimmed}” so the promise lands in the first seconds", conf=0.8, t=0.0,
+                                payload={"key": f"whole:{seg.id}"})
             if removed:
-                ctx.suggest("filler", f"Removed {removed} filler word(s)/pause(s) inside “{seg.text[:40]}”", conf=0.9, t=t)
+                ctx.suggest("filler", f"Removed {removed} filler word(s)/pause(s) inside “{seg.text[:40]}”", conf=0.9, t=t,
+                            payload={"key": f"whole:{seg.id}"})
             asset = pa.asset(seg.asset_id)
             # split pieces at punch-in words
             split: list[tuple[float, float, float]] = []   # (a, b, zoom)
@@ -297,7 +304,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                     if wt - a > 0.6 and b - wt > 0.4:
                         split.append((a, wt, 1.0))
                         split.append((wt, b, w0.value or 1.16))
-                        ctx.suggest("zoom", w0.why or "punch-in", conf=w0.confidence, t=t + (wt - a))
+                        ctx.suggest("zoom", w0.why or "punch-in", conf=w0.confidence, t=t + (wt - a), payload={"key": f"fx:zoom:{w0.at}"})
                         continue
                 split.append((a, b, 1.0))
             jump_cue = next((c for c in cues.get(seg.id, []) if c.type == "zoom" and c.intent == "jumpcut"), None)
@@ -309,21 +316,21 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                         zoom_toggle = not zoom_toggle
                         z = (jump_cue.value or 1.12) if zoom_toggle else 1.0
                         if zoom_toggle:
-                            ctx.suggest("zoom", "Alternate framing to hide a jump cut", conf=0.8, t=t)
+                            ctx.suggest("zoom", "Alternate framing to hide a jump cut", conf=0.8, t=t, payload={"key": f"fx:zoom:{jump_cue.at}"})
                     base_tf.zoom = z
                     v = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
-                             transform=base_tf if not base_tf.is_identity else None, role=it.role, section=sec)
+                             transform=base_tf if not base_tf.is_identity else None, role=it.role, section=sec, ref=it.ref)
                     if trans and j == 0 and ctx.items:
                         dur = TRANS_DUR.get(trans.style or "dissolve", 0.4)
                         v.transition_in, v.transition_dur = trans.style or "dissolve", dur
                         v.rec_in = t = max(0.0, t - dur)
-                        ctx.suggest("transition", trans.why, conf=trans.confidence, t=t, items=[v.id])
+                        ctx.suggest("transition", trans.why, conf=trans.confidence, t=t, items=[v.id], payload={"key": f"fx:transition:{trans.at}"})
                     ctx.items.append(v)
                     link = v.id
                 else:
                     link = None
                 au = Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t, link=link,
-                          fade_in=0.01, fade_out=0.015, role=it.role, section=sec)
+                          fade_in=0.01, fade_out=0.015, role=it.role, section=sec, ref=it.ref)
                 ctx.items.append(au)
                 for w in kept:
                     if a - 0.01 <= w.t0 and w.t1 <= b + 0.05:
@@ -335,7 +342,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 t += b - a
                 last_asset, last_src_out = asset.id, b
             if it.role == "hook":
-                ctx.suggest("hook", f"Hook first: “{seg.text[:70]}”" + (f" ({it.note})" if it.note else ""), conf=0.9, t=0.0)
+                ctx.suggest("hook", f"Hook first: “{seg.text[:70]}”" + (f" ({it.note})" if it.note else ""), conf=0.9, t=0.0,
+                            payload={"key": "hook", "ref": it.ref})
         elif shot is not None:
             asset = pa.asset(shot.asset_id)
             a = it.t0 if it.t0 is not None else shot.t0
@@ -350,18 +358,20 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                     centre = shot.action_peaks[0] if shot.action_peaks else (a + b) / 2
                     a = max(shot.t0, min(centre - src_len / 2, shot.t1 - src_len))
                     b = a + src_len
-                ctx.suggest("speed", speed_cue.why, conf=speed_cue.confidence, t=t, payload={"speed": speed})
+                ctx.suggest("speed", speed_cue.why, conf=speed_cue.confidence, t=t, payload={"speed": speed, "key": f"fx:speed:{speed_cue.at}"})
             elif speed_cue:
-                ctx.suggest("speed", speed_cue.why, conf=speed_cue.confidence, t=t, payload={"speed": speed_cue.value}, status="optional")
+                ctx.suggest("speed", speed_cue.why, conf=speed_cue.confidence, t=t, payload={"speed": speed_cue.value, "key": f"fx:speed:{speed_cue.at}",
+                                                                                         "acceptable": True}, status="optional")
             tf = frame_for(ctx, asset.id, a, b)
             if tf.keys and abs(speed - 1) > 1e-3:
                 for kf in tf.keys:
                     kf.t = kf.t / speed
             if asset.info.is_image or asset.kind in (AssetKind.IMAGE, AssetKind.MEME_IMAGE):
-                v = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=asset.id, rec_in=t, duration=b - a, role=it.role, section=sec)
+                v = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=asset.id, rec_in=t, duration=b - a, role=it.role, section=sec,
+                         ref=it.ref)
             else:
                 v = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=asset.id, src_in=a, src_out=b, rec_in=t, speed=speed,
-                         transform=tf if not tf.is_identity else None, role=it.role, section=sec)
+                         transform=tf if not tf.is_identity else None, role=it.role, section=sec, ref=it.ref)
                 if d.playbook == "aesthetic" and shot.camera_move == "static" and zoom_ok:
                     v.transform = v.transform or Transform()
                     v.transform.keys = [TransformKey(t=0, cx=v.transform.cx, cy=v.transform.cy, zoom=1.0),
@@ -370,17 +380,18 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 dur = TRANS_DUR.get(trans.style or "dissolve", 0.4)
                 v.transition_in, v.transition_dur = trans.style or "dissolve", dur
                 v.rec_in = t = max(0.0, t - dur)
-                ctx.suggest("transition", trans.why, conf=trans.confidence, t=t, items=[v.id])
+                ctx.suggest("transition", trans.why, conf=trans.confidence, t=t, items=[v.id], payload={"key": f"fx:transition:{trans.at}"})
             ctx.items.append(v)
             if asset.info.has_audio and speed == 1.0:
                 gain = {"aesthetic": 0.0}.get(d.playbook, -14.0 if sec in music_front else -9.0)
                 ctx.items.append(Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
-                                      link=v.id, gain_db=gain, fade_in=0.08, fade_out=0.08, role="natural", section=sec))
+                                      link=v.id, gain_db=gain, fade_in=0.08, fade_out=0.08, role="natural", section=sec, ref=it.ref))
             ctx.spans.setdefault(it.ref, []).append((t, t + v.rec_dur))
             t += v.rec_dur
             last_asset, last_src_out = asset.id, b
             if it.role in ("hook", "establishing"):
-                ctx.suggest(it.role if it.role == "hook" else "broll", it.note or it.role, conf=0.85, t=v.rec_in, items=[v.id])
+                ctx.suggest(it.role if it.role == "hook" else "broll", it.note or it.role, conf=0.85, t=v.rec_in, items=[v.id],
+                            payload={"key": "hook" if it.role == "hook" else f"item:{it.ref}", "ref": it.ref})
         else:
             continue
         ctx.section_t[sec][1] = t
@@ -392,21 +403,25 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 m = K.memes()
                 cat = next((x for x in m if c.asset and x.id == c.asset.split(":", 1)[1]), None) if c.asset and c.asset.startswith("meme:") else None
                 ctx.suggest("meme", (c.why or "meme moment") + (f" — try “{cat.name}” (search: {cat.search[0]})" if cat else ""), conf=min(c.confidence, 0.45),
-                            t=t, status="optional", payload={"catalogue": c.asset, "search": cat.search if cat else []})
+                            t=t, status="optional", payload={"catalogue": c.asset, "search": cat.search if cat else [], "key": f"fx:meme:{c.at}",
+                                                             "acceptable": bool(c.asset and not c.asset.startswith("meme:") and "meme" not in no)})
                 continue
             ma = pa.asset(c.asset)
             mdur = min(1.6, ma.info.duration) if ma.info.has_video and not ma.info.is_image and ma.info.duration > 0.3 else 1.2
             if ma.kind == AssetKind.MEME_IMAGE or ma.info.is_image:
-                mv = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=ma.id, rec_in=t, duration=mdur, role="meme", section=sec)
+                mv = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=ma.id, rec_in=t, duration=mdur, role="meme", section=sec,
+                          ref=f"fx:meme:{c.at}")
             else:
-                mv = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=ma.id, src_in=0.0, src_out=mdur, rec_in=t, role="meme", section=sec)
+                mv = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=ma.id, src_in=0.0, src_out=mdur, rec_in=t, role="meme", section=sec,
+                          ref=f"fx:meme:{c.at}")
             ctx.items.append(mv)
             if ma.info.has_audio and not ma.info.is_image:
                 ctx.items.append(Item(id=ctx.iid("a"), track="A4", kind="audio", asset_id=ma.id, src_in=0.0, src_out=mdur, rec_in=t, link=mv.id,
                                       gain_db=-4.0, fade_out=0.05, role="meme"))
             elif "sfx" not in no:
                 ctx.items.append(_sfx_item(ctx, "boom", t, gain=-9.0))
-            ctx.suggest("meme", c.why, conf=c.confidence, t=t, items=[mv.id], source="brief" if c.intent == "brief" else "rules")
+            ctx.suggest("meme", c.why, conf=c.confidence, t=t, items=[mv.id], source="brief" if c.intent == "brief" else "rules",
+                        payload={"key": f"fx:meme:{c.at}"})
             t += mdur
             ctx.section_t[sec][1] = t
     total = t
@@ -436,10 +451,12 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         ov = Item(id=ctx.iid("v"), track="V2", kind="video", asset_id=sh.asset_id, src_in=a, src_out=b, rec_in=start,
                   transform=tf if not tf.is_identity else None, role="broll", fade_in=0.0, fade_out=0.0)
         if c.confidence >= applied_conf:
+            ov.ref = f"fx:broll:{c.at}"
             ctx.items.append(ov)
-            ctx.suggest("broll", c.why, conf=c.confidence, t=start, items=[ov.id], payload={"shot": sh.id})
+            ctx.suggest("broll", c.why, conf=c.confidence, t=start, items=[ov.id], payload={"shot": sh.id, "key": f"fx:broll:{c.at}"})
         else:
-            ctx.suggest("broll", c.why, conf=c.confidence, t=start, status="optional", payload={"shot": sh.id})
+            ctx.suggest("broll", c.why, conf=c.confidence, t=start, status="optional", payload={"shot": sh.id, "key": f"fx:broll:{c.at}",
+                                                                                                "acceptable": True})
 
     # ---- text (T1)
     for c in polish.effects:
@@ -462,10 +479,15 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         else:
             continue
         dur = min(dur, max(0.8, total - t0))
-        txt = Item(id=ctx.iid("t"), track="T1", kind="text", text=c.text, style=c.style or "title", rec_in=round(t0, 3), duration=round(dur, 3), role="text")
-        if c.confidence >= applied_conf:
+        key = f"fx:text:{c.at}|{c.text[:24]}"
+        txt = Item(id=ctx.iid("t"), track="T1", kind="text", text=c.text, style=c.style or "title", rec_in=round(t0, 3), duration=round(dur, 3), role="text",
+                   ref=key)
+        if c.confidence < applied_conf:
+            ctx.suggest("text", f"{c.why}: “{c.text}”", conf=c.confidence, t=t0, status="optional", payload={"key": key, "acceptable": True})
+        else:
             ctx.items.append(txt)
-            ctx.suggest("text", f"{c.why}: “{c.text}”", conf=c.confidence, t=t0, items=[txt.id], source="brief" if c.confidence >= 1.0 else "rules")
+            ctx.suggest("text", f"{c.why}: “{c.text}”", conf=c.confidence, t=t0, items=[txt.id],
+                        source="user" if c.intent == "user" else ("brief" if c.confidence >= 1.0 else "rules"), payload={"key": key})
             if "sfx" not in no and c.style in ("hook", "card") and pb.budget("sfx") > 0 and d.playbook not in ("aesthetic",):
                 ctx.items.append(_sfx_item(ctx, "pop", t0, gain=-12.0))
 
@@ -497,15 +519,19 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 continue
             if c.confidence >= applied_conf:
                 item = _sfx_item(ctx, c.asset, t0, gain=-8.0)
+                item.ref = f"fx:sfx:{c.at}"
                 ctx.items.append(item)
-                ctx.suggest("sfx", c.why, conf=c.confidence, t=t0, items=[item.id])
+                ctx.suggest("sfx", c.why, conf=c.confidence, t=t0, items=[item.id], payload={"key": f"fx:sfx:{c.at}"},
+                            source="user" if c.intent == "user" else "rules")
+            else:
+                ctx.suggest("sfx", c.why, conf=c.confidence, t=t0, status="optional", payload={"key": f"fx:sfx:{c.at}", "acceptable": True})
 
     # ---- bleeps
     for c in polish.effects:
         if c.type == "bleep" and c.at in ctx.word_t:
             t0 = ctx.word_t[c.at]
             ctx.items.append(_sfx_item(ctx, "bleep", t0, gain=-10.0))
-            ctx.suggest("bleep", c.why, conf=1.0, t=t0, payload={"word": c.at})
+            ctx.suggest("bleep", c.why, conf=1.0, t=t0, payload={"word": c.at, "key": f"fx:bleep:{c.at}"})
 
     # ---- music (A2) per section with ducking
     _lay_music(ctx, total)
@@ -542,14 +568,16 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         if tw and len(tw & said) >= max(1, int(len(tw) * 0.6)):
             caps = [c for c in caps if c not in overlapping]   # don't show the same words twice
     if caps:
-        ctx.suggest("caption", f"{len(caps)} caption chunks ({style}); {sum(1 for c in caps for w in c.words if w.emph)} emphasised words", conf=0.9)
+        ctx.suggest("caption", f"{len(caps)} caption chunks ({style}); {sum(1 for c in caps for w in c.words if w.emph)} emphasised words", conf=0.9,
+                    payload={"key": "captions"})
 
     tl = Timeline(id=f"{d.id}-{d.playbook}", name=d.name, direction_id=d.id, playbook=d.playbook, fps=fps, width=W, height=H,
                   items=sorted(ctx.items, key=lambda i: (i.rec_in, i.track)), captions=caps, markers=ctx.markers, suggestions=ctx.sugg,
                   look=polish.look,
                   meta={"target": d.knobs.target_length, "hook": d.hooks[0].model_dump() if d.hooks else None, "story_why": story.why,
                         "vo_script": polish.vo_script, "broll_gaps": [g.model_dump() for g in polish.broll_gaps],
-                        "music": [c.model_dump() for c in polish.music]})
+                        "music": [c.model_dump() for c in polish.music],
+                        "word_t": {k: round(v, 3) for k, v in ctx.word_t.items()}})
     tl.music_spans = getattr(ctx, "_music_spans", [])
     return tl
 
@@ -627,7 +655,8 @@ def _lay_music(ctx: Ctx, total: float) -> None:
         def levels(cue):
             free = front_db if cue.mode == "front" else (bed_db + 6 if cue.mode == "bed" else bed_db + 2)
             sp = -80.0 if mute_speech else (bed_db if cue.mode in ("bed", "light") else bed_db + 2)
-            return free, sp
+            g = max(-12.0, min(6.0, cue.gain_db))
+            return min(-1.0, free + g), (sp if sp <= -80 else min(-12.0, sp + g))
 
         merged: list[list[float]] = []
         for s0, s1 in sorted(ctx.speech_spans):
@@ -679,13 +708,15 @@ def _lay_music(ctx: Ctx, total: float) -> None:
             cur_off = 0.0
         modes = "/".join(sorted({p[2].mode for p in parts}))
         ctx.suggest("music", f"{a.name} as {modes} ({parts[0][2].why}); {why}", conf=0.8, t=g0,
-                    alts=parts[0][2].alternatives, payload={"track": a.id, "offset": off})
+                    alts=parts[0][2].alternatives, payload={"track": a.id, "offset": off, "key": "music:" + ",".join(p[2].section for p in parts),
+                                                            "sections": [p[2].section for p in parts]})
     for cue in ctx.polish.music:
         if cue.mode == "none" or cue.track_id:
             continue
         if cue.section in ctx.section_t:
             ctx.suggest("music", f"No suitable track for “{cue.section}” in your music folder — search: {', '.join(cue.brief.search_terms[:2])}",
-                        conf=0.4, t=ctx.section_t[cue.section][0], status="optional", payload={"search": cue.brief.search_terms})
+                        conf=0.4, t=ctx.section_t[cue.section][0], status="optional",
+                        payload={"search": cue.brief.search_terms, "key": f"music:{cue.section}", "acceptable": False})
 
 
 def story_items_text(pa: ProjectAnalysis, items: list[StoryItem]) -> str:
