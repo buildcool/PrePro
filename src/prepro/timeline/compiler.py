@@ -54,6 +54,8 @@ class Ctx:
     spans: dict[str, list[tuple[float, float]]] = field(default_factory=dict)      # ref → timeline spans
     word_t: dict[str, float] = field(default_factory=dict)                         # word id → timeline time
     speed_done: set = field(default_factory=set)                                   # shots that already got their slow-mo
+    on_screen: dict = field(default_factory=dict)                                  # two-shots: asset → seat framed now
+    turns: dict = field(default_factory=dict)                                      # line → length of that speaker's turn
     caption_words: list[CaptionWord] = field(default_factory=list)
     section_t: dict[str, list[float]] = field(default_factory=dict)
     speech_spans: list[tuple[float, float]] = field(default_factory=list)
@@ -235,6 +237,75 @@ def frame_for(ctx: Ctx, asset_id: str, src_t0: float, src_t1: float) -> Transfor
     return tf
 
 
+MIN_SPEAKER_HOLD = 1.2      # never cut to someone for less than this: a quick "yeah" stays on the current speaker
+REACTION_HOLD = 0.8         # …except an exclamation: a short reaction shot is the spice of a podcast edit
+
+
+def _turn_lengths(pa: ProjectAnalysis, story: StoryPlan) -> dict[str, float]:
+    """For each line in the cut: how long its speaker keeps talking from there on (consecutive lines by the same
+    person). "Right." followed by a long answer starts a long turn, so the cut to that person happens on "Right."."""
+    segs = []
+    for it in story.items:
+        try:
+            segs.append(pa.segment(it.ref))
+        except KeyError:
+            segs.append(None)
+    out: dict[str, float] = {}
+    run = 0.0
+    for k in range(len(segs) - 1, -1, -1):
+        s = segs[k]
+        if s is None or s.speaker is None:
+            run = 0.0
+            continue
+        nxt = segs[k + 1] if k + 1 < len(segs) else None
+        same = nxt is not None and nxt.speaker == s.speaker and nxt.asset_id == s.asset_id
+        run = (s.t1 - s.t0) + (run if same else 0.0)
+        out[s.id] = run
+    return out
+
+
+def speaker_frame(ctx: Ctx, seg, a: float, b: float, *, note: str = "", t: float = 0.0) -> Transform | None:
+    """Two-shot cropped to a narrower frame (a 9:16 Short from a 16:9 podcast): frame the person talking, like a
+    podcast clipper — cut at the end of a line, hold the current speaker through short interjections and unclear
+    lines, and never centre on the empty gap between people. None when this doesn't apply (one person, or everyone
+    fits in the frame anyway)."""
+    asset = ctx.pa.asset(seg.asset_id)
+    ds = asset.info.display_size or (ctx.W, ctx.H)
+    src_ar, out_ar = ds[0] / ds[1], ctx.W / ctx.H
+    if out_ar >= src_ar - 0.02:
+        return None
+    mid = (a + b) / 2
+    sh = next((s for s in ctx.pa.clips[asset.id].shots if s.t0 <= mid <= s.t1 and len(s.seats) >= 2), None)
+    if sh is None:
+        return None
+    crop_w = out_ar / src_ar
+    xs = [s.x for s in sh.seats]
+    if max(xs) - min(xs) + max(s.w for s in sh.seats) <= crop_w * 0.9:
+        return None                                       # everyone fits: no need to choose
+    held = ctx.on_screen.get(asset.id)
+    seat = seg.speaker
+    why = ""
+    turn = ctx.turns.get(seg.id, b - a)
+    # an exclamation ("Eleven times!") is a reaction worth seeing even when short; a plain "yeah" is not
+    hold_min = REACTION_HOLD if seg.text.strip().endswith("!") else MIN_SPEAKER_HOLD
+    if "nospeaker" in note or seat is None or (held is not None and seat != held and turn < hold_min):
+        seat = held if held is not None else seat         # stay on who is on screen (rejected cut, unclear or a quick "yeah")
+    if seat is None:
+        seat = 0
+    if seat != held:
+        side = "left" if seat == 0 else "right" if seat == len(sh.seats) - 1 else f"seat {seat + 1}"
+        if held is None:
+            why = f"Opens on the person talking ({side}); the frame follows the conversation"
+        elif turn < MIN_SPEAKER_HOLD:
+            why = f"Reaction shot ({side}): “{_clip(seg.text, 30)}” is worth seeing"
+        else:
+            why = f"Framed on the person talking ({side}) — the cut to them lands at the end of the line"
+        ctx.suggest("framing", why, conf=0.8, t=t, payload={"key": f"speaker:{seg.id}", "seat": seat})
+    ctx.on_screen[asset.id] = seat
+    cx = min(max(sh.seats[seat].x, crop_w / 2), 1 - crop_w / 2)
+    return Transform(cx=round(cx, 4), cy=0.5)
+
+
 def _cue_index(polish: PolishPlan) -> dict[str, list[EffectCue]]:
     idx: dict[str, list[EffectCue]] = {}
     for c in polish.effects:
@@ -248,6 +319,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
     W, H = SIZES.get(d.aspect, (1920, 1080))
     proj = Project(project_root or pa.root) if (project_root or pa.root) else None
     ctx = Ctx(pa=pa, proj=proj, d=d, story=story, polish=polish, brief=brief or CreatorBrief(), W=W, H=H, fps=fps)
+    ctx.turns = _turn_lengths(pa, story)
     pb = K.playbook(d.playbook)
     cues = _cue_index(polish)
     no = {r.target for r in ctx.brief.rules if r.kind == "no_effect"}
@@ -326,12 +398,15 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 split.append((a, b, 1.0))
             jump_cue = next((c for c in cues.get(seg.id, []) if c.type == "zoom" and c.intent == "jumpcut"), None)
             for j, (a, b, z) in enumerate(split):
-                base_tf = frame_for(ctx, asset.id, a, b)
+                sp = speaker_frame(ctx, seg, a, b, note=it.note, t=t) if asset.info.has_video else None
+                base_tf = sp if sp is not None else frame_for(ctx, asset.id, a, b)
                 if asset.info.has_video:
                     is_jump = last_asset == asset.id and last_src_out is not None and a > last_src_out + 0.05
                     reframe = False
+                    prev_v = next((x for x in reversed(ctx.items) if x.track == "V1"), None)
+                    if sp is not None and prev_v is not None and prev_v.transform and abs(prev_v.transform.cx - sp.cx) > 0.05:
+                        is_jump = False               # a cut to the other person is a real cut, not a jump cut to hide
                     if is_jump and z == 1.0 and jump_cue and zoom_ok:
-                        prev_v = next((x for x in reversed(ctx.items) if x.track == "V1"), None)
                         prev_zoom = prev_v.transform.zoom if prev_v is not None and prev_v.transform else 1.0
                         zoom_toggle = prev_zoom < 1.01      # alternate against the framing actually on screen
                         z = (jump_cue.value or 1.12) if zoom_toggle else 1.0
@@ -707,16 +782,37 @@ def _shift_keys(it: Item, dt: float) -> None:
 
 
 def _face_lookup(ctx: Ctx):
+    """t → the face on screen at timeline time t, as (x, y, w, h) in *output* coordinates (after the crop and any
+    punch-in), or None. In a two-shot that is the person in the frame, not simply the biggest face in the source."""
     v1 = [i for i in ctx.items if i.track == "V1" and i.kind == "video"]
 
     def at(t: float):
         for it in v1:
-            if it.rec_in <= t < it.rec_out:
-                st = it.src_in + (t - it.rec_in) * it.speed
-                faces = [f for s in ctx.pa.clips[it.asset_id].shots for f in s.faces if abs(f.t - st) <= 1.0]
-                if faces:
-                    f = max(faces, key=lambda f: f.w * f.h)
-                    return (f.x, f.y, f.w, f.h)
+            if not (it.rec_in <= t < it.rec_out):
+                continue
+            st = it.src_in + (t - it.rec_in) * it.speed
+            sh = next((s for s in ctx.pa.clips[it.asset_id].shots if s.t0 - 1e-3 <= st <= s.t1 + 1e-3), None)
+            if sh is None:
+                return None
+            if sh.seats:
+                boxes = [(s.x, s.y, s.w, s.h) for s in sh.seats]
+            else:
+                near = [f for f in sh.faces if abs(f.t - st) <= 1.0]
+                if near:
+                    boxes = [(f.x, f.y, f.w, f.h) for f in near]
+                elif sh.faces and sh.track:            # between face samples: the tracked position, the usual face size
+                    p = min(sh.track, key=lambda p: abs(p[0] - st))
+                    boxes = [(p[1], p[2], float(np.median([f.w for f in sh.faces])), float(np.median([f.h for f in sh.faces])))]
+                else:
+                    return None
+            ds = ctx.pa.asset(it.asset_id).info.display_size or (ctx.W, ctx.H)
+            src_ar, out_ar = ds[0] / ds[1], ctx.W / ctx.H
+            z = max(1.0, it.transform.zoom if it.transform else 1.0)
+            cw, ch = ((out_ar / src_ar) / z, 1.0 / z) if src_ar > out_ar else (1.0 / z, (src_ar / out_ar) / z)
+            cx, cy = (it.transform.cx, it.transform.cy) if it.transform else (0.5, 0.5)
+            left, top = min(max(cx - cw / 2, 0.0), 1 - cw), min(max(cy - ch / 2, 0.0), 1 - ch)
+            shown = [((x - left) / cw, (y - top) / ch, w / cw, h / ch) for x, y, w, h in boxes if left <= x <= left + cw]
+            return min(shown, key=lambda b: abs(b[0] - 0.5)) if shown else None
         return None
 
     return at

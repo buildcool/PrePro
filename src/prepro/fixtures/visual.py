@@ -255,36 +255,81 @@ def presenter_clip(audio_wav: Path, out: Path, *, size=(1280, 720), fps: int = 3
          "veryfast", "-crf", "24", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", *meta, str(out)],
         stdin=subprocess.PIPE,
     )
+    base = _room(w, h, bg, seed)
+    fw = int(min(w, h) * 0.42)
+    cx, cy = w // 2, int(h * 0.48)
+    for i in range(len(env)):
+        fr = base.copy()
+        _draw_person(ImageDraw.Draw(fr), cx, cy, fw, h, mouth=min(1.0, env[i]), bob=int(6 * math.sin(i / fps * 2.1)),
+                     blink=(i % 97) < 3)
+        proc.stdin.write(fr.tobytes())
+    proc.stdin.close()
+    if proc.wait() != 0:
+        raise RuntimeError("presenter render failed")
+    return out
+
+
+def _room(w: int, h: int, bg, seed: int) -> Image.Image:
     rng = np.random.default_rng(seed)
     base = Image.new("RGB", (w, h), bg)
     bd = ImageDraw.Draw(base)
     for _ in range(12):
         x, yy = rng.random() * w, rng.random() * h * 0.6
         bd.rectangle([x, yy, x + 120, yy + 80], fill=tuple(int(c * 0.8) for c in bg))
-    fw = int(min(w, h) * 0.42)
-    cx, cy = w // 2, int(h * 0.48)
-    for i in range(len(env)):
+    return base
+
+
+def _draw_person(d: ImageDraw.ImageDraw, cx: float, cy: float, fw: float, h: int, *, mouth: float, bob: int, blink: bool,
+                 skin=(225, 185, 150), hair=(50, 35, 25), shirt=(40, 40, 50)) -> None:
+    """A drawn presenter: head, hair, eyes (with blinks) and a mouth that opens with `mouth` (0..1)."""
+    s = fw / 302.0                                   # features were drawn for a 302 px face
+    d.rectangle([cx - fw * 0.7, cy + fw * 0.45, cx + fw * 0.7, h], fill=shirt)                                  # shoulders
+    d.ellipse([cx - fw / 2, cy - fw / 2 + bob, cx + fw / 2, cy + fw * 0.6 + bob], fill=skin)                   # head
+    d.ellipse([cx - fw / 2, cy - fw / 2 - 20 * s + bob, cx + fw / 2, cy - fw * 0.05 + bob], fill=hair)         # hair
+    for ex in (-0.18, 0.18):
+        ey = cy + fw * 0.08 + bob
+        if blink:
+            d.line([cx + ex * fw - 18 * s, ey, cx + ex * fw + 18 * s, ey], fill=(30, 30, 30), width=max(2, int(5 * s)))
+        else:
+            d.ellipse([cx + ex * fw - 16 * s, ey - 12 * s, cx + ex * fw + 16 * s, ey + 12 * s], fill=(255, 255, 255))
+            d.ellipse([cx + ex * fw - 7 * s, ey - 7 * s, cx + ex * fw + 7 * s, ey + 7 * s], fill=(40, 30, 20))
+    mh = (6 + 46 * mouth) * s
+    d.ellipse([cx - fw * 0.13, cy + fw * 0.33 - mh / 2 + bob, cx + fw * 0.13, cy + fw * 0.33 + mh / 2 + bob], fill=(120, 40, 50))
+
+
+def duo_clip(audio_wav: Path, out: Path, envelopes: tuple[np.ndarray, np.ndarray], *, size=(1280, 720), fps: int = 30,
+             seats=(0.3, 0.7), creation_time: str | None = None, seed: int = 0) -> Path:
+    """A podcast two-shot: two drawn people side by side, each mouth moving only with that person's own voice
+    (``envelopes`` at `fps`). Both bob and blink on their own rhythm, as people do while listening."""
+    import soundfile as sf
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    y, sr = sf.read(str(audio_wav), dtype="float32")
+    n = int(len(y) / sr * fps)
+    w, h = size
+    meta = ["-metadata", f"creation_time={creation_time}"] if creation_time else []
+    proc = subprocess.Popen(
+        [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}",
+         "-r", str(fps), "-i", "-", "-i", str(audio_wav), "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset",
+         "veryfast", "-crf", "24", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", *meta, str(out)],
+        stdin=subprocess.PIPE,
+    )
+    base = _room(w, h, (70, 80, 100), seed)
+    fw = int(h * 0.30)
+    looks = [dict(skin=(225, 185, 150), hair=(50, 35, 25), shirt=(40, 40, 50)),
+             dict(skin=(190, 140, 105), hair=(25, 20, 18), shirt=(120, 50, 50))]
+    for i in range(n):
         fr = base.copy()
         d = ImageDraw.Draw(fr)
-        bob = int(6 * math.sin(i / fps * 2.1))
-        d.rectangle([cx - fw * 0.7, cy + fw * 0.45, cx + fw * 0.7, h], fill=(40, 40, 50))          # shoulders
-        d.ellipse([cx - fw / 2, cy - fw / 2 + bob, cx + fw / 2, cy + fw * 0.6 + bob], fill=(225, 185, 150))  # head
-        d.ellipse([cx - fw / 2, cy - fw / 2 - 20 + bob, cx + fw / 2, cy - fw * 0.05 + bob], fill=(50, 35, 25))  # hair
-        blink = (i % 97) < 3
-        for ex in (-0.18, 0.18):
-            ey = cy + fw * 0.08 + bob
-            if blink:
-                d.line([cx + ex * fw - 18, ey, cx + ex * fw + 18, ey], fill=(30, 30, 30), width=5)
-            else:
-                d.ellipse([cx + ex * fw - 16, ey - 12, cx + ex * fw + 16, ey + 12], fill=(255, 255, 255))
-                d.ellipse([cx + ex * fw - 7, ey - 7, cx + ex * fw + 7, ey + 7], fill=(40, 30, 20))
-        m = min(1.0, env[i])
-        mh = 6 + 46 * m
-        d.ellipse([cx - fw * 0.13, cy + fw * 0.33 - mh / 2 + bob, cx + fw * 0.13, cy + fw * 0.33 + mh / 2 + bob], fill=(120, 40, 50))
+        for k, sx in enumerate(seats):
+            env = envelopes[k]
+            m = min(1.0, float(env[i])) if i < len(env) else 0.0
+            _draw_person(d, sx * w, h * 0.50, fw, h, mouth=m, bob=int(4 * math.sin(i / fps * (1.7 + 0.6 * k) + k)),
+                         blink=((i + 41 * k) % (89 + 12 * k)) < 3, **looks[k % 2])
         proc.stdin.write(fr.tobytes())
     proc.stdin.close()
     if proc.wait() != 0:
-        raise RuntimeError("presenter render failed")
+        raise RuntimeError("duo render failed")
     return out
 
 

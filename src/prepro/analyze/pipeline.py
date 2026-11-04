@@ -17,10 +17,11 @@ from ..schema.media import Asset, AssetKind, MediaInfo
 from . import context
 from .asr import can_improve, failed_note, invert, load_wav16, transcribe, vad
 from .sound import audio_report, music_info, musicality
+from .speakers import assign_speakers
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
 
-ANALYSIS_VERSION = 9
+ANALYSIS_VERSION = 10          # 10: seats + mouth movement in multi-person shots, a speaker per line
 Progress = Callable[[str, int, int, str], None]
 
 
@@ -84,6 +85,8 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
             ca.shots, meta = analyse_video(a.id, src, fdir, duration=a.info.duration, fps=a.info.fps, faces=faces and kind != AssetKind.MEME_VIDEO)
             if "error" in meta:
                 ca.errors.append(meta["error"])
+            if ca.transcript and any(s.seats for s in ca.shots):
+                assign_speakers(ca)          # two-shots: who says each line (for framing on the speaker)
             if kind in (AssetKind.MEME_VIDEO, AssetKind.MEME_IMAGE):
                 for sh in ca.shots:
                     sh.flags = []      # memes are designed that way (dark/blurry is intentional)

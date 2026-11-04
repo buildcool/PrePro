@@ -119,12 +119,30 @@ def checks(tl: Timeline, pa: ProjectAnalysis, d: Direction | None) -> list[Check
                 and "replay" not in (x.role, y.role):
             zx = x.transform.zoom if x.transform else 1.0
             zy = y.transform.zoom if y.transform else 1.0
+            moved = abs((x.transform.cx if x.transform else 0.5) - (y.transform.cx if y.transform else 0.5)) > 0.05   # cut to the other person
             covered = any(o.track == "V2" and o.rec_in <= y.rec_in <= o.rec_out for o in tl.items)
-            if abs(zx - zy) < 0.03 and not covered:
+            if abs(zx - zy) < 0.03 and not moved and not covered:
                 jc = y
                 break
     out.append(Check("jump_cut_framing", jc is None, "a jump cut with the same framing on both sides" if jc else "jump cuts are reframed or covered",
                      jc.rec_in if jc else None, 0.8))
+
+    # 10. a narrow crop of a two-shot that frames the empty gap between the people instead of one of them
+    gap = None
+    out_ar = tl.width / tl.height
+    for it in v1:
+        a = pa.asset(it.asset_id)
+        ds = a.info.display_size
+        sh = _shot_at(pa, it.asset_id, (it.src_in + it.src_out) / 2)
+        if not ds or sh is None or len(sh.seats) < 2 or out_ar >= ds[0] / ds[1] - 0.02:
+            continue
+        half = out_ar / (ds[0] / ds[1]) / 2 / (it.transform.zoom if it.transform else 1.0)
+        cx = it.transform.cx if it.transform else 0.5
+        if not any(abs(s.x - cx) + s.w * 0.3 <= half for s in sh.seats):       # nobody's face fully in the frame
+            gap = it
+            break
+    out.append(Check("framing_gap", gap is None, "the frame sits between the people, nobody is fully in it" if gap
+                     else "two-shots always frame a person", gap.rec_in if gap else None, 1.5))
 
     # 9. a meme in a serious / sad / sponsor moment
     memes = [i for i in tl.items if i.track == "V1" and i.role == "meme"]

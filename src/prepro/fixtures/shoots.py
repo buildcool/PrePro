@@ -12,10 +12,13 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+import numpy as np
+
 from . import audio as A
 from . import visual as V
 
-KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog", "podcast_long"]
+KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog", "podcast_long",
+         "podcast_duo"]
 
 GOA = "+15.5527+073.7517/"
 JAIPUR = "+26.9124+075.7873/"
@@ -352,6 +355,49 @@ def _build_hindi_vlog(root, truth, *, face, md, quick, sidecars, with_brief):
     _music(root, truth, "desi_upbeat_110", bpm=110, minor=False, mood="happy", seed=15, sections=[("intro", 2, 0.4), ("verse", 8, 0.7), ("outro", 2, 0.4)])
     _memes(root)
     truth["expect"] = {"playbooks": ["story_vlog", "hype_reel"], "caption_lang": "hi", "hinglish_available": True}
+
+
+def _build_podcast_duo(root, truth, *, face, md, quick, sidecars, with_brief):
+    """A two-person podcast on one wide camera: host on the left, guest on the right, each mouth moving only with
+    that person's voice. Ground truth: who says each line (seat 0 = left, 1 = right)."""
+    host, guest = dict(lang="en-us", pitch=38, speed=160), dict(lang="en-us+f3", pitch=62, speed=165)
+    convo = [
+        (0, "Welcome back. Today I have a creator who went from zero to a million subscribers in one year.", 0.5),
+        (1, "Thanks for having me. Honestly, it started with one video I almost did not upload.", 0.4),
+        (0, "Wait, you almost did not upload it?", 0.35),
+        (1, "Right.", 0.3),
+        (1, "I thought the hook was boring, so I recut the first three seconds eleven times.", 0.4),
+        (0, "Eleven times!", 0.35),
+        (1, "Eleven. And the version that worked opened on the result, not on me saying hello.", 0.45),
+        (0, "So the lesson is, show the payoff first.", 0.4),
+        (1, "Exactly. People decide in one second whether they stay.", 0.4),
+        (1, "And the second lesson is to cut every pause that does not carry a feeling.", 0.5),
+        (0, "That is a great place to stop. Thank you so much for coming on.", 0.8),
+    ]
+    lines = [A.Line(text, pause_after=p, **(host if seat == 0 else guest)) for seat, text, p in convo]
+    y, spoken = A.build_speech(lines, seed=21)
+    wav = root / "footage/.duo.wav"
+    A.write_wav(wav, y)
+    fps, hop = 30, A.SR // 30
+    n = int(len(y) / A.SR * fps)
+    rms = np.array([float(np.sqrt(np.mean(y[i * hop:(i + 1) * hop] ** 2) + 1e-12)) for i in range(n)])
+    rms = rms / max(1e-6, float(np.percentile(rms, 95)))
+    t = np.arange(n) / fps
+    envs = []
+    for seat in (0, 1):
+        mine = np.zeros(n, dtype=bool)
+        for (s, _txt, _p), ln in zip(convo, spoken, strict=True):
+            if s == seat:
+                mine |= (t >= ln.t0) & (t <= ln.t1)
+        envs.append(np.where(mine, rms, 0.0))
+    rel = "footage/podcast_ep12.mp4"
+    V.duo_clip(wav, root / rel, (envs[0], envs[1]), creation_time="2026-10-20T15:00:00Z", seed=21)
+    wav.unlink(missing_ok=True)
+    if sidecars:
+        write_sidecar(root / rel, spoken, "en")
+    truth["clips"][rel] = {"kind": "aroll", "lines": [asdict(s) for s in spoken]}
+    truth["expect"] = {"playbooks": ["talking_head"], "seats": [0.3, 0.7],
+                       "speakers": [{"t0": ln.t0, "t1": ln.t1, "seat": s, "text": ln.text} for (s, _t, _p), ln in zip(convo, spoken, strict=True)]}
 
 
 def style_references(out: Path, *, talking_clip: Path | None = None, seed: int = 0) -> dict[str, Path]:

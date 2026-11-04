@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 from ..media.proxy import grab_frame, iter_frames
-from ..schema.analysis import FaceBox, Shot, Window
+from ..schema.analysis import FaceBox, Seat, Shot, Window
 
 FPS = 4.0          # analysis sampling rate
 WIDTH = 320        # analysis width (pixels)
@@ -35,6 +35,8 @@ class FrameStats:
     cx: float | None = None  # centroid of local change (moving subject), normalised
     cy: float | None = None
     faces: list[FaceBox] = field(default_factory=list)
+    faces_lo: list[FaceBox] = field(default_factory=list)   # incl. lower-confidence boxes: only used to find seats
+    grid: np.ndarray | None = None   # change since the previous frame on a coarse grid (who is moving their mouth)
 
 
 class FaceDetector:
@@ -229,6 +231,60 @@ def _track(fr: list[FrameStats]) -> list[tuple[float, float, float]]:
     return out
 
 
+GRID_W = 96        # change-grid columns (≈3 px per cell at the analysis width: a two-shot mouth spans a few cells)
+SEAT_CONF = 0.35   # face confidence for finding seats. Lower than elsewhere on purpose: the detector finds some faces
+                   # (in our two-shot fixture, the darker-skinned guest) less often, and nobody may be left out of the edit
+SEAT_SEEN = 0.25   # a seat must be seen in this share of the face-sampled frames, at a consistent position
+
+
+def _seats(sampled: list[FrameStats]) -> list[Seat]:
+    """People sitting still in a shot: face positions clustered left to right. Two or more stable clusters make a
+    multi-person shot; anything else has no seats."""
+    boxes = sorted((b for f in sampled for b in f.faces_lo), key=lambda b: b.x)
+    if len(sampled) < 3 or len(boxes) < 4:
+        return []
+    groups: list[list[FaceBox]] = [[boxes[0]]]
+    for b in boxes[1:]:
+        if b.x - groups[-1][-1].x > max(0.06, 0.5 * float(np.median([g.w for g in groups[-1]]))):
+            groups.append([b])
+        else:
+            groups[-1].append(b)
+    seats = []
+    for g in groups:
+        lo, hi = g[0].x - 1e-6, g[-1].x + 1e-6
+        seen = sum(1 for f in sampled if any(lo <= b.x <= hi for b in f.faces_lo)) / len(sampled)
+        steady = float(np.std([b.x for b in g])) < 0.04 and float(np.std([b.y for b in g])) < 0.05
+        if seen >= SEAT_SEEN and steady:
+            seats.append(Seat(x=round(float(np.median([b.x for b in g])), 4), y=round(float(np.median([b.y for b in g])), 4),
+                              w=round(float(np.median([b.w for b in g])), 4), h=round(float(np.median([b.h for b in g])), 4),
+                              presence=round(seen, 3)))
+    return seats if len(seats) >= 2 else []
+
+
+def _mouth_series(fr: list[FrameStats], seats: list[Seat]) -> list[list[float]]:
+    """Per seat: change in the mouth area minus change around the eyes (so nodding, bobbing and leaning don't count),
+    one value per analysis frame."""
+    out = []
+    for s in seats:
+        vals = []
+        for f in fr:
+            g = f.grid
+            if g is None:
+                vals.append(0.0)
+                continue
+            gh, gw = g.shape
+
+            def box(y0, y1, s=s, gw=gw, gh=gh, g=g):
+                xa, xb = int((s.x - 0.24 * s.w) * gw), int(np.ceil((s.x + 0.24 * s.w) * gw))
+                ya, yb = int((s.y + y0 * s.h) * gh), int(np.ceil((s.y + y1 * s.h) * gh))
+                cell = g[max(0, ya): max(ya + 1, min(gh, yb)), max(0, xa): max(xa + 1, min(gw, xb))]
+                return float(cell.mean()) if cell.size else 0.0
+
+            vals.append(round(max(0.0, box(0.10, 0.45) - box(-0.38, -0.02)), 2))
+        out.append(vals)
+    return out
+
+
 def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float, fps: float | None, faces: bool = True) -> tuple[list[Shot], dict]:
     stats: list[FrameStats] = []
     prev_gray = None
@@ -241,8 +297,12 @@ def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float
             _flow(prev_gray, gray, fs)
             diff = (np.abs(gray.astype(np.int16) - prev_gray.astype(np.int16)) < 3)
             acc_static = diff if acc_static is None else (acc_static & diff)
+            if det is not None:
+                gh = max(4, int(round(GRID_W * gray.shape[0] / gray.shape[1])))
+                fs.grid = cv2.resize(cv2.absdiff(gray, prev_gray), (GRID_W, gh), interpolation=cv2.INTER_AREA)
         if det is not None and i % int(FPS) == 0:
-            fs.faces = det(rgb, t)
+            fs.faces_lo = det(rgb, t, conf=SEAT_CONF)
+            fs.faces = [b for b in fs.faces_lo if b.conf >= 0.6]
         stats.append(fs)
         prev_gray = gray
     if not stats:
@@ -273,6 +333,7 @@ def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float
         face_frames = [f for f in fr if f.faces]
         sampled = [f for i, f in enumerate(fr) if (cuts[k] + i) % int(FPS) == 0] or fr
         face_ratio = len([f for f in sampled if f.faces]) / max(1, len(sampled))
+        seats = _seats(sampled) if det is not None else []
         rgb = tuple(float(np.mean([f.rgb[c] for f in fr])) for c in range(3))
         flags = []
         if bright < 0.17:
@@ -292,6 +353,7 @@ def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float
             flags=flags, quality=round(max(0.0, q), 3), color=rgb,
             best=_best_windows(fr, t0, t1, med_sharp), action_peaks=_peaks(fr),
             static_ratio=round(static_ratio, 3), hud=round(hud, 3), track=_track(fr),
+            seats=seats if move == "static" else [], mouth=_mouth_series(fr, seats) if seats and move == "static" else [],
         ))
     # blur is relative (sharpness depends on content): flag shots far below the clip/project norm later too
     for s in shots:

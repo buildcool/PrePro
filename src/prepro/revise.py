@@ -135,6 +135,10 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                 k = _find(s, key[5:])
                 if k is not None:
                     s.items[k].note = (s.items[k].note + " nobeat").strip()
+            elif key.startswith("speaker:"):            # don't cut to the speaker here: keep who is on screen
+                k = _find(s, key[8:])
+                if k is not None:
+                    s.items[k].note = (s.items[k].note + " nospeaker").strip()
             elif key.startswith("loop:"):
                 ref = key.split(":", 1)[1]
                 s.items = [it for it in s.items if not (it.ref == ref and it.role == "loop")]

@@ -21,9 +21,11 @@ SOFT_FILLERS = {"like", "basically", "actually", "literally", "so", "okay", "rig
 FILLER_PHRASES = ["you know", "i mean", "kind of", "sort of", "you see"]
 GREETING_RE = re.compile(
     r"^(hey|hi|hello|what'?s up|namaste|namaskar|नमस्ते|नमस्कार)\b.*\b(guys|everyone|everybody|friends|doston|दोस्तों|channel|back)\b"
-    r"|welcome back|welcome to my channel|it'?s me again|subscribe to my channel",
+    r"|welcome back|welcome to my channel|it'?s me again|subscribe to my channel"
+    r"|^(thanks|thank you) (so much )?for having me|^(it'?s )?(great|good|glad) to be here",
     re.I,
 )
+PLEASANTRY_RE = re.compile(r"for having me|to be here", re.I)      # a guest's "thanks for having me" comes a few lines in
 CTA_RE = re.compile(r"\b(follow|subscribe|like and share|comment below|link in (the )?bio|part (two|2)|hit the bell|फॉलो|सब्सक्राइब)\b", re.I)
 NUM_RE = re.compile(r"(\d|₹|\$|%|\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|hundred|thousand|lakh|crore|million|"
                     r"zero|first|second|third|half)\b|पंद्रह|सौ|हज़ार|हजार|लाख|रुपये|rupees?)", re.I)
@@ -94,7 +96,11 @@ def build_segments(tr: Transcript, *, max_gap: float = 0.45, max_dur: float = 12
     for w in tr.words:
         if cur:
             gap = w.t0 - cur[-1].t1
-            if gap >= max_gap or (w.t1 - cur[0].t0) > max_dur or len(cur) >= max_words or END_PUNCT.search(cur[-1].text) and gap > 0.12:
+            sentence_end = END_PUNCT.search(cur[-1].text)
+            # a greeting sentence is its own line even when the next sentence follows without a pause, so "Welcome
+            # back." can be cut while "Today I have a creator who…" stays
+            greeting = sentence_end and GREETING_RE.search(" ".join(x.text for x in cur))
+            if gap >= max_gap or (w.t1 - cur[0].t0) > max_dur or len(cur) >= max_words or sentence_end and gap > 0.12 or greeting:
                 flush()
         cur.append(w)
     flush()
@@ -158,7 +164,7 @@ def tag_segments(segs: list[Segment], words: dict[str, Word]) -> None:
     for k, s in enumerate(segs):
         t = s.text.strip()
         tags = set(s.tags)
-        if GREETING_RE.search(t) and k <= 2:
+        if GREETING_RE.search(t) and (k <= 2 or (k <= 6 and PLEASANTRY_RE.search(t))):
             tags.add("greeting")
         if CTA_RE.search(t):
             tags.add("cta")

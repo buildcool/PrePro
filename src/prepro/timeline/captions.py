@@ -84,13 +84,36 @@ def build_captions(words: list[CaptionWord], *, style: str, words_range: tuple[i
         if i + 1 < len(chunks):
             t1 = min(t1, chunks[i + 1][0].t0 - 0.02)
         t1 = max(t1, t0 + 0.35)
-        pos = "lower"
-        if face_boxes_at is not None:
-            fb = face_boxes_at((t0 + t1) / 2)
-            if fb and fb[1] + fb[3] / 2 > (0.62 if vertical else 0.72):
-                pos = "upper"
-        caps.append(Caption(id=f"cap{i}", t0=round(t0, 3), t1=round(t1, 3), words=ch, style=style, pos=pos))
+        caps.append(Caption(id=f"cap{i}", t0=round(t0, 3), t1=round(t1, 3), words=ch, style=style, pos="lower"))
+    if face_boxes_at is not None and caps:
+        _place(caps, face_boxes_at, vertical)
     return caps
+
+
+# where captions sit (fraction of the frame height, top → bottom), matching write_ass's margins for two lines
+ZONES = {True: {"lower": (0.64, 0.77), "upper": (0.19, 0.32)}, False: {"lower": (0.80, 0.93), "upper": (0.10, 0.22)}}
+
+
+def _covers_mouth(fb, zone) -> bool:
+    """A caption zone that reaches up over the mouth/chin (the lower ~30 % of the face) or down over the eyes."""
+    if not fb:
+        return False
+    _x, y, _w, h = fb
+    top, bottom = y - h / 2, y + h / 2
+    return zone[0] < bottom - 0.22 * h and zone[1] > top + 0.2 * h
+
+
+def _place(caps: list[Caption], face_at, vertical: bool) -> None:
+    """One caption position for the whole video — text that hops above and below the face from cut to cut feels
+    jittery. The position that keeps the most captions off the face wins; a caption moves only where it really would
+    cover the mouth."""
+    z = ZONES[vertical]
+    faces = [face_at((c.t0 + c.t1) / 2) for c in caps]
+    clash = {p: sum(_covers_mouth(fb, z[p]) for fb in faces) for p in ("lower", "upper")}
+    default = "lower" if clash["lower"] <= clash["upper"] else "upper"
+    other = "upper" if default == "lower" else "lower"
+    for c, fb in zip(caps, faces, strict=True):
+        c.pos = other if _covers_mouth(fb, z[default]) and not _covers_mouth(fb, z[other]) else default
 
 
 def _ts(t: float) -> str:

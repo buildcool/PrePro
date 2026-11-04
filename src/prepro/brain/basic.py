@@ -839,6 +839,9 @@ class BasicBrain:
                          why="satisfying shot first, unhurried holds, natural sound up, final reveal last")
 
     def _story_talking_head(self, d: Direction) -> StoryPlan:
+        conversation = self._story_dialogue(d)            # two people talking: keep the exchange intact
+        if conversation is not None:
+            return conversation
         used: set = set()
         items = self._hook_item(d, used)
         segs = [s for s in self.usable_segments() if s.id not in used]
@@ -860,6 +863,75 @@ class BasicBrain:
                          why="hook first, every point tight (fillers, retakes and pauses out), CTA last")
 
     _story_podcast_clip = _story_talking_head
+
+    RESPONSE = re.compile(r"^\s*(wait|really|right|exactly|yeah|yes|yep|no|nope|true|totally|wow|oh|ha+|okay|ok|hmm+|what)\b", re.I)
+    STOP = frozenset(["a", "an", "the", "and", "or", "but", "so", "to", "of", "in", "on", "at", "for", "with", "is", "it", "this", "that", "i", "you", "we", "they", "he", "she", "me", "my", "your", "our", "was", "were", "be", "been", "am", "are", "do", "did", "not", "no", "yes", "just", "very", "really", "what", "wait"])
+
+    def responds(self, s: Segment, prev: Segment | None) -> bool:
+        """`s` answers or echoes the line before it, said by someone else ("Wait, you almost did not upload it?",
+        "Eleven times!", "Right."): without that line it makes no sense, so it can't open a clip or survive alone."""
+        if prev is None or s.speaker is None or prev.speaker is None or s.speaker == prev.speaker:
+            return False
+        content = {w for w in re.findall(r"[a-z0-9']+", s.text.lower()) if w not in self.STOP}
+        before = {w for w in re.findall(r"[a-z0-9']+", prev.text.lower()) if w not in self.STOP}
+        echo = len(content & before)
+        short = len(s.text.split()) <= 6
+        return (short and (echo >= 1 or bool(self.RESPONSE.match(s.text)))) or (s.text.strip().endswith("?") and echo >= 1)
+
+    def dialogue_lines(self) -> list[Segment] | None:
+        """The usable lines of a conversation (a two-shot whose lines have speakers), in order; None for monologues."""
+        for a in self.talk_assets():
+            segs = sorted(self.pa.clips[a.id].transcript.segments, key=lambda s: s.t0)
+            if len({s.speaker for s in segs if s.speaker is not None}) >= 2:
+                return [s for s in segs if not self.is_cut_candidate(s) or ("micro" in s.tags and s.speaker is not None)]
+        return None
+
+    def _story_dialogue(self, d: Direction) -> StoryPlan | None:
+        """A conversation is cut like a podcast clipper cuts it: one stretch of the exchange, in the order it was said,
+        opening on a line that stands on its own (a number, a claim, a question — never an answer or an echo) and
+        ending on a landing, not on a question left hanging. Moving lines around would break the back-and-forth."""
+        lines = self.dialogue_lines()
+        if not lines or len(lines) < 3:
+            return None
+        from ..repurpose import _closer, _opener  # the Shorts finder's opener/closer judgement
+
+        lo = d.target_min or (d.knobs.target_length or 30) * 0.8
+        hi = d.target_max or (d.knobs.target_length or 30) * 1.2
+        best, best_sc = None, -9.0
+        for i, first in enumerate(lines):
+            prev = lines[i - 1] if i else None
+            if self.responds(first, prev) or "greeting" in first.tags:
+                continue
+            op, _ = _opener(self, first, i)
+            for j in range(i + 1, len(lines)):
+                dur = lines[j].t1 - first.t0
+                if dur > hi * 1.1:
+                    break
+                if dur < lo * 0.85:
+                    continue
+                last = lines[j]
+                cl, _ = _closer(self, last)
+                if last.text.strip().endswith("?"):
+                    cl -= 0.6                                 # a question left hanging
+                if j + 1 < len(lines) and self.responds(lines[j + 1], last) and lines[j + 1].text.strip().endswith("!"):
+                    cl -= 0.2                                 # the reaction that lands it is just outside
+                fit = 1.0 - min(1.0, abs(dur - (lo + hi) / 2) / max(1.0, hi - lo))
+                sc = 0.45 * op + 0.35 * cl + 0.2 * fit
+                if sc > best_sc:
+                    best, best_sc = (i, j), sc
+        if best is None:
+            return None
+        i, j = best
+        window = lines[i: j + 1]
+        items = [StoryItem(ref=s.id, role="hook" if k == 0 else "body", section="cold_open" if k == 0 else "conversation",
+                           whole=s.speaker is not None and len(s.text.split()) <= 3)
+                 for k, s in enumerate(window)]
+        if len(items) > 2:
+            items[-1].role = "payoff"
+        return StoryPlan(direction_id=d.id, hook_id=d.hooks[0].id if d.hooks else None, items=items,
+                         sections=[StorySection(name="cold_open"), StorySection(name="conversation")],
+                         why="one stretch of the conversation in the order it was said: opens on a line that stands on its "
+                             "own, every answer stays with its question, ends on a landing")
 
     def _story_comedy(self, d: Direction) -> StoryPlan:
         items = [StoryItem(ref=s.id, role="beat", section="skit") for s in self.usable_segments()]

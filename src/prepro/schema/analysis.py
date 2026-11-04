@@ -43,6 +43,8 @@ class Segment(BaseModel):
     emotion: str | None = None        # filled by AI (or heuristics)
     lang: str | None = None
     tags: list[str] = Field(default_factory=list)   # greeting|cta|question|numbers|hesitation|punchline…
+    speaker: int | None = None        # seat (index into the shot's `seats`) of the person saying it, multi-person shots
+    speaker_conf: float = 0.0
 
 
 class Transcript(BaseModel):
@@ -71,6 +73,16 @@ class Window(BaseModel):
     t1: float
     score: float
     why: str = ""
+
+
+class Seat(BaseModel):
+    """A person who stays in one place in a multi-person shot (a podcast or interview two-shot), left to right."""
+
+    x: float                          # face centre, normalised 0..1
+    y: float
+    w: float                          # face size
+    h: float
+    presence: float = 1.0             # share of sampled frames with a face there
 
 
 class Shot(BaseModel):
@@ -106,6 +118,8 @@ class Shot(BaseModel):
     static_ratio: float = 0.0          # share of pixels that never change (HUD / screen capture hint)
     hud: float = 0.0                   # edge density inside the static region (text/HUD overlays)
     track: list[tuple[float, float, float]] = Field(default_factory=list)   # (t, x, y) subject position (face or moving subject), ~2 Hz
+    seats: list[Seat] = Field(default_factory=list)   # 2+ people sitting still (podcast two-shot); empty otherwise
+    mouth: list[list[float]] = Field(default_factory=list)   # per seat: mouth movement (minus head movement), 4 Hz from t0
 
     @property
     def dur(self) -> float:
