@@ -1,22 +1,37 @@
 name: release
+# Tags can't be pushed from the authoring environment, so a release is cut whenever `main` carries a
+# version (pyproject.toml) that has no tag yet: this job creates the tag, builds and publishes.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
-  engine:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Build wheel + sdist
-        run: uv build
-      - name: Release notes
-        run: |
-          f="docs/releases/${GITHUB_REF_NAME}.md"
-          [ -f "$f" ] || echo "PrePro ${GITHUB_REF_NAME}" > "$f"
-      - uses: softprops/action-gh-release@v2
         with:
-          body_path: docs/releases/${{ github.ref_name }}.md
+          fetch-depth: 0
+      - id: v
+        run: echo "version=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+      - id: check
+        run: |
+          if git rev-parse "v${{ steps.v.outputs.version }}" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.check.outputs.exists == 'false'
+        uses: astral-sh/setup-uv@v5
+      - if: steps.check.outputs.exists == 'false'
+        run: uv build
+      - if: steps.check.outputs.exists == 'false'
+        run: |
+          f="docs/releases/v${{ steps.v.outputs.version }}.md"
+          [ -f "$f" ] || echo "PrePro v${{ steps.v.outputs.version }}" > "$f"
+      - if: steps.check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: PrePro v${{ steps.v.outputs.version }}
+          body_path: docs/releases/v${{ steps.v.outputs.version }}.md
           files: dist/*

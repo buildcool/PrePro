@@ -1,7 +1,7 @@
 # Handoff (read this first when resuming)
 
 **Repo:** github.com/buildcool/PrePro · day-to-day work on `dev`; releases fast-forward `main` + tag `vX.Y.Z`
-(the `release` workflow builds the wheel and publishes a GitHub Release from `docs/releases/<tag>.md`).
+(the `release` workflow creates the tag, builds the wheel and publishes a GitHub Release from `docs/releases/<tag>.md` whenever main carries a new version — tag pushes from the container are denied by policy, HTTP 403).
 **Plan:** `docs/PLAN.md` (approved). **Release ladder:** v0.1 offline engine → v0.2 AI brain + exports →
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
