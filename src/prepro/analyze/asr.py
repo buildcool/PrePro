@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 import numpy as np
@@ -169,33 +170,73 @@ def whisper_available(model: str = "small") -> bool:
     return cached(model)
 
 
-def transcribe_whisper(y: np.ndarray, *, model: str = "small", device: str = "auto", compute_type: str = "auto",
-                       language: str | None = None, verbatim: bool = True) -> tuple[list[RawWord], str | None]:
+GPU_NOTE: list[str] = []      # why the NVIDIA GPU couldn't be used (once per process); Whisper then runs on the CPU
+
+
+@cache
+def gpu_unusable() -> str | None:
+    """None when faster-whisper can run on an NVIDIA GPU here, else why not in plain words. A GPU alone isn't enough:
+    CTranslate2 also needs CUDA 12's cuBLAS and cuDNN 9, which most Windows PCs with a gaming GPU don't have."""
+    try:
+        import ctranslate2
+
+        if ctranslate2.get_cuda_device_count() <= 0:
+            return "no NVIDIA GPU"
+    except Exception:
+        return "no NVIDIA GPU"
+    import ctypes
+    import os
+
+    libs = ("cublas64_12.dll", "cudnn64_9.dll") if os.name == "nt" else ("libcublas.so.12", "libcudnn.so.9")
+    missing = []
+    for lib in libs:
+        try:
+            ctypes.CDLL(lib, winmode=0) if os.name == "nt" else ctypes.CDLL(lib)
+        except OSError:
+            missing.append(lib)
+    if missing:
+        return f"an NVIDIA GPU is here but its CUDA libraries aren't installed ({', '.join(missing)})"
+    return None
+
+
+def whisper_device(device: str = "auto", compute_type: str = "auto") -> tuple[str, str]:
+    dev = device
+    if dev == "auto":
+        dev = "cpu" if (GPU_NOTE or gpu_unusable()) else "cuda"
+    return dev, compute_type if compute_type != "auto" else ("float16" if dev == "cuda" else "int8")
+
+
+def _whisper_words(y: np.ndarray, model: str, dev: str, ct: str, language: str | None, verbatim: bool) -> tuple[list[RawWord], str | None]:
     from faster_whisper import WhisperModel
 
-    key = (model, device, compute_type)
+    key = (model, dev, ct)
     if key not in _WHISPER_CACHE:
-        dev = device
-        if dev == "auto":
-            try:
-                import ctranslate2
-
-                dev = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
-            except Exception:
-                dev = "cpu"
-        ct = compute_type if compute_type != "auto" else ("float16" if dev == "cuda" else "int8")
         _WHISPER_CACHE[key] = WhisperModel(model, device=dev, compute_type=ct)
-    m = _WHISPER_CACHE[key]
-    segments, info = m.transcribe(
+    segments, info = _WHISPER_CACHE[key].transcribe(
         y, language=language, word_timestamps=True, vad_filter=True,
         initial_prompt=VERBATIM_PROMPT if verbatim and (language in (None, "en")) else None,
         condition_on_previous_text=False,
     )
     words = []
-    for seg in segments:
+    for seg in segments:          # lazy: CUDA errors only show up here
         for w in seg.words or []:
             words.append(RawWord(w.word.strip(), float(w.start), float(w.end), float(w.probability)))
     return words, getattr(info, "language", language)
+
+
+def transcribe_whisper(y: np.ndarray, *, model: str = "small", device: str = "auto", compute_type: str = "auto",
+                       language: str | None = None, verbatim: bool = True) -> tuple[list[RawWord], str | None]:
+    dev, ct = whisper_device(device, compute_type)
+    try:
+        return _whisper_words(y, model, dev, ct, language, verbatim)
+    except Exception as e:
+        if device != "auto" or dev != "cuda":
+            raise
+        # the GPU looked usable but failed (old driver, partial CUDA install…): finish on the CPU instead of
+        # silently dropping to the rough offline recogniser
+        GPU_NOTE.append(f"the NVIDIA GPU failed ({str(e)[:160]})")
+        cdev, cct = whisper_device("cpu", compute_type)
+        return _whisper_words(y, model, cdev, cct, language, verbatim)
 
 
 def transcribe_pocketsphinx(y: np.ndarray, speech: list[Interval]) -> list[RawWord]:
@@ -255,6 +296,12 @@ def transcribe(asset_id: str, wav16: Path, *, backend: str = "auto", sidecar: Pa
             if b == "faster-whisper" and (backend == "faster-whisper" or whisper_available(model)):
                 words, lang = transcribe_whisper(y, model=model, device=device, compute_type=compute_type, language=language, verbatim=verbatim)
                 used = "faster-whisper"
+                dev, _ct = whisper_device(device, compute_type)
+                note = f"Whisper {model} on the {'GPU' if dev == 'cuda' else 'CPU'}"
+                if dev == "cpu" and device == "auto":
+                    why = GPU_NOTE[0] if GPU_NOTE else gpu_unusable()
+                    if why and why != "no NVIDIA GPU":
+                        note += f" — {why}; installing CUDA 12 + cuDNN 9 would make this much faster"
                 break
             if b == "pocketsphinx" and (lang in (None, "en") or backend == "pocketsphinx"):
                 if not speech:

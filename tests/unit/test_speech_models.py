@@ -55,6 +55,31 @@ def test_broken_recogniser_is_reported_not_silent():
     assert failed_note(silent) is None and not can_improve(silent)
 
 
+def test_whisper_uses_the_cpu_when_the_gpu_cannot_run_it(monkeypatch):
+    """A gaming PC has an NVIDIA GPU but usually not CUDA's cuBLAS/cuDNN: Whisper must run on the CPU, say why,
+    and never silently drop to the rough offline recogniser."""
+    from prepro.analyze import asr
+
+    monkeypatch.setattr(asr, "GPU_NOTE", [])
+    monkeypatch.setattr(asr, "gpu_unusable", lambda: "an NVIDIA GPU is here but its CUDA libraries aren't installed (cublas64_12.dll)")
+    assert asr.whisper_device("auto") == ("cpu", "int8")
+    assert asr.whisper_device("cuda") == ("cuda", "float16")          # an explicit choice is respected
+    # the GPU looked fine but fails on first use → finish on the CPU and remember why
+    monkeypatch.setattr(asr, "gpu_unusable", lambda: None)
+    calls = []
+
+    def fake(y, model, dev, ct, language, verbatim):
+        calls.append(dev)
+        if dev == "cuda":
+            raise RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
+        return [asr.RawWord("hello", 0.1, 0.4)], "en"
+
+    monkeypatch.setattr(asr, "_whisper_words", fake)
+    words, lang = asr.transcribe_whisper(None)
+    assert calls == ["cuda", "cpu"] and words[0].text == "hello" and "GPU failed" in asr.GPU_NOTE[0]
+    assert asr.whisper_device("auto") == ("cpu", "int8")              # and stays on the CPU afterwards
+
+
 def test_doctor_tells_broken_from_missing(monkeypatch):
     import importlib
 

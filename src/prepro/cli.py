@@ -167,6 +167,13 @@ def doctor() -> None:
                            ("pocketsphinx", "offline English fallback recogniser")):
         state, detail = _import_state(mod)
         t.add_row(mod.replace("_", "-"), state, ok_detail if state == "[green]installed" else detail)
+        if mod == "faster_whisper" and state == "[green]installed":
+            from .analyze.asr import gpu_unusable
+
+            why = gpu_unusable()
+            t.add_row("speech on GPU", "[green]yes" if not why else "[dim]no",
+                      "NVIDIA GPU with CUDA 12 + cuDNN 9" if not why else
+                      why + ("" if why == "no NVIDIA GPU" else " — Whisper runs on the CPU (slower)"))
     try:
         import opentimelineio as otio
 
