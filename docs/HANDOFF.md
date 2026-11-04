@@ -40,8 +40,7 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 - `uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"`; apt `espeak-ng melt sox fonts-noto-core`.
 - UI: `npm --prefix ui install && npm --prefix ui run build`. The browser test (`tests/ui`, slow) needs node +
   playwright.
-- Run tests with `.venv/bin/python -m pytest` (not the bare `pytest` script; `tests.conftest` imports need the
-  repo root on `sys.path`). `-m "not slow"` skips the final-quality renders (phone pack, preview render).
+- Run tests with `.venv/bin/pytest` (pytest's `pythonpath` puts the repo root on `sys.path` for `tests.conftest`).
 - `.venv/bin/prepro testmedia fetch` (real media into ~/.cache/prepro/testmedia), then
   `.venv/bin/python -m pytest tests -q` (synthetic shoots are cached in /tmp/prepro-test-shoots).
 - Review storyboards in `<shoot>/.prepro/qa/` after `prepro build`.
@@ -51,8 +50,11 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   blender.org, youtube. Reachable: PyPI, npm, apt, raw.githubusercontent.com, Google Fonts.
 - So Whisper ASR cannot be exercised here; PocketSphinx (bundled English model) and transcript sidecars
   are used for end-to-end tests. Never report Whisper results as tested here.
-- `gh` CLI token is invalid in the container: git push works through the proxy, GitHub API calls do not —
-  releases are created by the tag-triggered workflow.
+- The `gh` CLI token is invalid in the container. git push works through the proxy, and the repo is public,
+  so read CI status and job logs anonymously:
+  - status: `curl https://api.github.com/repos/buildcool/PrePro/actions/runs`
+  - logs: `.../actions/jobs/<id>/logs`
+- Releases are created by the workflow on `main`.
 
 ## Desktop notes
 - The frozen engine is about 810 MB unpacked:

@@ -60,6 +60,7 @@ ignore = ["E501", "B008", "SIM108", "UP042", "SIM105", "SIM102", "UP031", "B007"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]          # `from tests.conftest import …` works with the bare `pytest` script (CI) too
 addopts = "-q"
 markers = [
   "slow: long-running (rendering, real media)",
