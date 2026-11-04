@@ -126,6 +126,12 @@ function Footage({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l:
           )}
         </div>
       </div>
+      {s.asr.includes("pocketsphinx") && (
+        <div className="card small" style={{ borderLeft: "3px solid var(--warn)" }}>
+          Speech was recognised with the basic offline recogniser, so words and captions may be rough. Open <b>Brains &amp; privacy → Speech
+          recognition</b> to download the Whisper model once (about 480 MB); PrePro redoes those transcripts automatically.
+        </div>
+      )}
       {s.warnings.length > 0 && (
         <div className="card small">{s.warnings.map((w, i) => <div key={i} className="gap">⚠ {w}</div>)}</div>
       )}

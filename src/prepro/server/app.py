@@ -177,6 +177,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "directions": ds.model_dump() if ds else None,
                 "shorts": shorts.model_dump() if shorts else None,
                 "style": dna.model_dump() if dna else None,
+                "asr": sorted({c.transcript.backend for c in pa.clips.values() if c.transcript}) if pa else [],
                 "style_refs": [str(p.relative_to(root)) for p in proj.scan().style_refs],
                 "talk_seconds": round(sum(a.info.duration for a in pa.assets if a.kind.value == "aroll"), 1) if pa else 0,
                 "brief": {"text": bt.read_text(encoding="utf-8") if bt.exists() else "", "parsed": brief.model_dump() if brief else None},
@@ -599,6 +600,44 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         from ..brain.providers import detect_connectors
 
         return detect_connectors()
+
+    # ------------------------------------------------------------ speech models
+    @app.get("/api/models")
+    def speech_models():
+        from ..speech_models import installed, status
+
+        s = Settings.load()
+        return {"installed": installed(), "current": s.asr.whisper_model, "models": status(s.asr.whisper_model)}
+
+    @app.put("/api/models")
+    def use_model(body: dict = Body(...)):
+        from ..speech_models import SIZES_MB
+
+        name = str(body.get("model", ""))
+        if name not in SIZES_MB:
+            raise HTTPException(400, "unknown model")
+        s = Settings.load()
+        s.asr.whisper_model = name
+        s.save()
+        return speech_models()
+
+    @app.post("/api/models/{name}/download")
+    def download_model(name: str):
+        from ..speech_models import SIZES_MB, download
+
+        if name not in SIZES_MB:
+            raise HTTPException(400, "unknown model")
+        if (j := jobs.running("_models", "model")) is not None:
+            return j.public()
+
+        def work(job: Job):
+            path = download(name, job.progress)
+            s = Settings.load()
+            s.asr.whisper_model = name
+            s.save()
+            return {"model": name, "path": path}
+
+        return jobs.submit("model", "_models", work).public()
 
     # ------------------------------------------------------------ jobs
     @app.get("/api/jobs/{jid}")

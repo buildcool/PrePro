@@ -53,6 +53,7 @@ class Ctx:
     markers: list[Marker] = field(default_factory=list)
     spans: dict[str, list[tuple[float, float]]] = field(default_factory=dict)      # ref → timeline spans
     word_t: dict[str, float] = field(default_factory=dict)                         # word id → timeline time
+    speed_done: set = field(default_factory=set)                                   # shots that already got their slow-mo
     caption_words: list[CaptionWord] = field(default_factory=list)
     section_t: dict[str, list[float]] = field(default_factory=dict)
     speech_spans: list[tuple[float, float]] = field(default_factory=list)
@@ -353,13 +354,20 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             a = it.t0 if it.t0 is not None else shot.t0
             b = it.t1 if it.t1 is not None else min(shot.t1, a + broll_len)
             speed_cue = next((c for c in cues.get(shot.id, []) if c.type == "speed"), None)
+            if speed_cue and shot.id in ctx.speed_done:
+                speed_cue = None             # one slow-mo per shot: later uses of the same shot play at normal speed
+            if (speed_cue and (speed_cue.value or 1.0) < 1 and it.t0 is not None and shot.action_peaks
+                    and not any(a - 0.3 <= p <= b + 0.3 for p in shot.action_peaks) and speed_cue.confidence < 1.0):
+                speed_cue = None             # slow-mo belongs on the moment with the action, not on an empty stretch
             speed = 1.0
             if speed_cue and speed_cue.confidence >= applied_conf:
+                ctx.speed_done.add(shot.id)
                 speed = float(speed_cue.value or 1.0)
-                if speed < 1:   # slow-mo: centre the source window on the action, keep the rec length
+                if speed < 1:   # slow-mo: centre the source window on the action inside this moment, keep the rec length
                     rec_len = b - a
                     src_len = rec_len * speed
-                    centre = shot.action_peaks[0] if shot.action_peaks else (a + b) / 2
+                    inside = [p for p in shot.action_peaks if a - 0.3 <= p <= b + 0.3]
+                    centre = inside[0] if inside else (shot.action_peaks[0] if shot.action_peaks and it.t0 is None else (a + b) / 2)
                     a = max(shot.t0, min(centre - src_len / 2, shot.t1 - src_len))
                     b = a + src_len
                 ctx.suggest("speed", speed_cue.why, conf=speed_cue.confidence, t=t, payload={"speed": speed, "key": f"fx:speed:{speed_cue.at}"})

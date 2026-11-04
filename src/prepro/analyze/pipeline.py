@@ -94,6 +94,12 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
     return ca, mus
 
 
+def _whisper_ready(settings) -> bool:
+    from .asr import whisper_available
+
+    return whisper_available(settings.asr.whisper_model)
+
+
 def analyse_project(root: str | Path, *, settings: Settings | None = None, progress: Progress | None = None,
                     force: bool = False, faces: bool = True) -> ProjectAnalysis:
     settings = settings or Settings.load()
@@ -141,6 +147,9 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
             try:
                 data = key.read_text(encoding="utf-8")
                 ca = ClipAnalysis.model_validate_json(data)
+                if (ca.transcript and ca.transcript.backend == "pocketsphinx" and settings.asr.backend == "auto"
+                        and _whisper_ready(settings)):
+                    raise ValueError("a better speech model is now available")
                 musical[a.id] = proj.load_json(f"analysis/{key.stem}.mus.json", {}).get("m") if (proj.cache / "analysis" / f"{key.stem}.mus.json").exists() else None
             except Exception:
                 ca = None
@@ -157,6 +166,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
     duplicate_groups([s for a in pa.assets if a.kind == AssetKind.BROLL for s in pa.clips[a.id].shots])
     context.cluster_context(pa)
     pa.genres = context.guess_genres(pa)
+    pa.stats["context_version"] = context.CONTEXT_VERSION
     langs = [c.transcript.language for c in pa.clips.values() if c.transcript and c.transcript.language]
     pa.speech_language = max(set(langs), key=langs.count) if langs else None
     pa.stats.update({

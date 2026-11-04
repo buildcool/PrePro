@@ -152,13 +152,9 @@ def whisper_available(model: str = "small") -> bool:
         import faster_whisper  # noqa: F401
     except ImportError:
         return False
-    from huggingface_hub import try_to_load_from_cache
+    from ..speech_models import cached
 
-    repo = model if "/" in model else f"Systran/faster-whisper-{model}"
-    try:
-        return isinstance(try_to_load_from_cache(repo, "model.bin"), str)
-    except Exception:
-        return False
+    return cached(model)
 
 
 def transcribe_whisper(y: np.ndarray, *, model: str = "small", device: str = "auto", compute_type: str = "auto",

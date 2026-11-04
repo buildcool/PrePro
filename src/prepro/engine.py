@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .analyze.context import CONTEXT_VERSION
 from .analyze.pipeline import ANALYSIS_VERSION, analyse_project, load_analysis
 from .brain.basic import BasicBrain
 from .brief.parse import load_brief, parse_text
@@ -73,6 +74,19 @@ def analysis(root: str | Path, *, settings: Settings | None = None, force: bool 
         scan = proj.scan()
         if {f.rel for f in scan.files} != {a.path for a in pa.assets}:
             pa = None
+    if pa is not None and any(c.transcript and c.transcript.backend == "pocketsphinx" for c in pa.clips.values()):
+        s = settings or Settings.load()
+        from .analyze.asr import whisper_available
+
+        if s.asr.backend == "auto" and whisper_available(s.asr.whisper_model):
+            pa = None                     # Whisper was downloaded since: redo the rough transcripts (other clips stay cached)
+    if pa is not None and pa.stats.get("context_version", 1) < CONTEXT_VERSION:
+        from .analyze import context as ctx
+
+        ctx.cluster_context(pa)
+        pa.genres = ctx.guess_genres(pa)
+        pa.stats["context_version"] = CONTEXT_VERSION
+        proj.save_model("analysis.json", pa)
     return pa or analyse_project(root, settings=settings, progress=progress, force=force)
 
 

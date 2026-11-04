@@ -81,6 +81,40 @@ def style(
 
 
 @app.command()
+def models(
+    download: str = typer.Option(None, "--download", help="Download a speech model: tiny|base|small|medium|large-v3-turbo"),
+    use: str = typer.Option(None, "--use", help="Use this speech model for analysis"),
+) -> None:
+    """Speech-recognition models: what's on this computer, download one, choose one."""
+    from .config import Settings
+    from .speech_models import SIZES_MB, status
+    from .speech_models import download as dl
+
+    s = Settings.load()
+    if download:
+        if download not in SIZES_MB:
+            console.print(f"[red]unknown model {download!r}; choose from {', '.join(SIZES_MB)}")
+            raise typer.Exit(2)
+        last = [0.0]
+
+        def prog(_stage, i, n, msg):
+            if i - last[0] >= 25 or i >= n:
+                console.print(f"  {msg}")
+                last[0] = i
+
+        dl(download, prog)
+        s.asr.whisper_model = download
+        s.save()
+        console.print(f"[green]✓[/] {download} downloaded and selected")
+    if use:
+        s.asr.whisper_model = use
+        s.save()
+    for m in status(s.asr.whisper_model):
+        mark = "[green]✓ on this computer[/]" if m["cached"] else f"[dim]{m['size_mb']} MB download[/]"
+        console.print(f"  {'→' if m['current'] else ' '} {m['name']:15s} {mark}  {m['note']}")
+
+
+@app.command()
 def ui(port: int = typer.Option(8765, help="Local port"), no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser")) -> None:
     """Open the review app (runs on this computer only; footage is never uploaded)."""
     from .server import serve

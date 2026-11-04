@@ -116,3 +116,13 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
   slipped through. The morphological text-region detector reads 100 % there, 0 % on raw clips, 61 % on our own
   captioned travel render, and 8 % (one frame) false positives on a scenery montage.
 - **CI had never run the tests** (an import-path problem since M0). Fixed; Linux, Windows and UI are green.
+- **Real footage end to end** (new realmedia test: 3 Intel sample clips + a face clip under JFK's speech + 2 music
+  tracks), reviewed from storyboards:
+  1. The "cinematic film" came out 3.3 s long. A loop bug skipped the reuse pass, and each long clip counted as
+     one moment.
+  2. After fixing that, the film cut to empty frames (bare conveyor belt, empty parking lot) and repeated one
+     slow-mo moment 5×.
+  3. After activity-aware moments it was 52 s / 43 cuts between the same 3 angles: monotonous.
+  4. Final: 14 s, 13 cuts, every moment with a subject, slow-mo on the moving fruit, and a "film more angles"
+     gap.
+  - Also found: "3082 day(s)" from dates in the sample clips' metadata. Fixed.

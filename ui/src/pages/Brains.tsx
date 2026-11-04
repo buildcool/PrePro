@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, followJob, type Job } from "../api";
 import { useToast } from "../App";
-import type { Brains as B } from "../types";
+import type { Brains as B, SpeechModels } from "../types";
 
 const PASSES: [string, string][] = [
   ["director", "Directions, hooks, what's missing"],
@@ -15,10 +15,26 @@ const PASSES: [string, string][] = [
 
 export default function Brains({ onClose }: { onClose: () => void }) {
   const [b, setB] = useState<B | null>(null);
+  const [sm, setSm] = useState<SpeechModels | null>(null);
+  const [dl, setDl] = useState<Job | null>(null);
   const { say } = useToast();
   useEffect(() => {
     api<B>("/brains").then(setB).catch((e) => say(e.message, "error"));
+    api<SpeechModels>("/models").then(setSm).catch(() => setSm(null));
   }, []);
+  const download = async (name: string) => {
+    try {
+      const j = await api<Job>(`/models/${name}/download`, { body: {} });
+      setDl(j);
+      await followJob(j, setDl);
+      say(`The ${name} speech model is ready — analyse again for better captions.`);
+    } catch (e: any) {
+      say(`Download failed: ${e.message}`, "error");
+    } finally {
+      setDl(null);
+      setSm(await api<SpeechModels>("/models"));
+    }
+  };
   const save = async (patch: Partial<B>) => {
     try {
       setB(await api<B>("/brains", { method: "PUT", body: patch }));
@@ -49,6 +65,32 @@ export default function Brains({ onClose }: { onClose: () => void }) {
               Raw videos, photos and audio never leave this PC in any mode. File names and GPS are never sent. Everything sent is logged in
               <code> .prepro/sent/ </code> inside the shoot folder.
             </p>
+            <h3>Speech recognition (on this computer)</h3>
+            {!sm ? <p className="small mute">Checking…</p> : !sm.installed ? (
+              <p className="small mute">Speech recognition isn't installed in this build — only the basic offline recogniser is available.</p>
+            ) : (
+              <div className="col">
+                {sm.models.map((m) => (
+                  <div key={m.name} className="row small" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
+                    <label className="row" style={{ flexWrap: "nowrap" }}>
+                      <input type="radio" name="asr" checked={m.current} disabled={!m.cached}
+                        onChange={async () => setSm(await api<SpeechModels>("/models", { method: "PUT", body: { model: m.name } }))} />
+                      <span><b>{m.name}</b> <span className="dim">· {m.note}</span></span>
+                    </label>
+                    {m.cached ? <span className="chip ok">on this PC</span> : (
+                      <button className="btn small" disabled={!!dl} onClick={() => download(m.name)}>Download {m.size_mb >= 1000 ? `${(m.size_mb / 1000).toFixed(1)} GB` : `${m.size_mb} MB`}</button>
+                    )}
+                  </div>
+                ))}
+                {dl && (
+                  <div className="col" style={{ gap: 4 }}>
+                    <div className="small mute">{dl.message || "Starting download…"}</div>
+                    <div className="progress"><div style={{ width: `${Math.round((dl.frac || 0.02) * 100)}%` }} /></div>
+                  </div>
+                )}
+                <p className="small dim">Without a downloaded model PrePro uses a basic offline recogniser (English only, rough words). The download comes from huggingface.co once; your audio never leaves this computer.</p>
+              </div>
+            )}
             <h3>Connected brains</h3>
             {b.connectors.length === 0 ? (
               <p className="small mute">

@@ -73,6 +73,7 @@ export interface Summary {
   talk_seconds: number;
   style: StyleDNA | null;
   style_refs: string[];
+  asr: string[];
   brief: { text: string; parsed: Brief | null };
 }
 
@@ -203,4 +204,10 @@ export interface StyleDNA {
   summary: string[];
   knobs: Record<string, unknown>;
   enabled: boolean;
+}
+
+export interface SpeechModels {
+  installed: boolean;
+  current: string;
+  models: { name: string; size_mb: number; note: string; cached: boolean; current: boolean }[];
 }

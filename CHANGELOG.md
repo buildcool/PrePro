@@ -28,8 +28,25 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
     - a 0.6 s-shot montage measured 95 cuts/min against a true 95
     - a captioned talking head had text on screen 100 % of the time, against 0 % for the raw clip
 - The scanner keeps `style/` / `references/` videos out of the footage.
+- **Speech models.** Speech models can be downloaded with real progress: Brains & privacy → Speech recognition, or
+  `prepro models --download small`.
+  - Before this, a fresh install never used Whisper and silently fell back to PocketSphinx.
+  - The Footage step now says when the rough recogniser was used.
+  - Once Whisper is available, those transcripts are redone automatically; other clips stay cached.
+  - Model names map correctly (`large-v3-turbo`).
 - `words_to_digits` understands "a million" / "two billion" (→ 1M / 2B).
 ### Fixed
+- **Real footage** (new `tests/e2e/test_realmedia.py`: Intel/OpenCV sample clips, JFK speech, Kevin MacLeod music):
+  - **Montage reuse.** The montage gave up after one pass over its shots, producing a 3 s "film" from three long
+    clips. Long shots now yield several distinct moments.
+  - **Empty moments.** Montages could cut to an empty conveyor belt or an empty parking lot. Moments are now
+    chosen by activity (tracked subject / action peak), start when the subject enters, and slow-mo lands only on
+    the moment with the action.
+  - **Repeated moment.** The same slow-mo moment was repeated 5×. Now there is one slow-mo per shot.
+  - **Montage length** now follows the variety of angles (at most 3 moments per angle). There is a new
+    "film more angles" gap when there are fewer than 6.
+  - **Day numbering.** Days were counted as a date span ("3082 days"). They are now distinct shooting dates, and
+    dead-clock timestamps are ignored. Cached analyses get only this cheap stage re-run (`CONTEXT_VERSION`).
 - **CI collection had failed since M0.** The bare `pytest` script couldn't import `tests.conftest`; pytest now
   sets `pythonpath`. CI status is now checked from the public API every release.
 

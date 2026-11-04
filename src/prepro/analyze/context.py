@@ -84,17 +84,30 @@ def place_name(pt) -> str | None:
     return None
 
 
+# bump when days/places/genre logic changes: cached analyses get just this cheap stage re-run (no re-analysis)
+CONTEXT_VERSION = 2
+
+
 def cluster_context(pa: ProjectAnalysis) -> None:
     """Recording order, day index and place clusters (with offline reverse-geocoded names)."""
     vids = [a for a in pa.assets if a.kind in (AssetKind.AROLL, AssetKind.BROLL, AssetKind.SCREEN, AssetKind.IMAGE, AssetKind.UNKNOWN)]
-    times: list[tuple[Asset, datetime | None]] = [(a, a.info.creation_time) for a in vids]
-    dated = sorted((t for _, t in times if t), key=lambda t: t.timestamp())
-    base = dated[0] if dated else None
+    now = datetime.now().timestamp()
+
+    def plausible(t: datetime | None) -> datetime | None:
+        # cameras with a dead clock write 1970/1904/2000-01-01 or future dates: treat as unknown
+        if t is None:
+            return None
+        ts = t.timestamp()
+        return t if 946771200 <= ts <= now + 2 * 86400 else None   # 2000-01-02 … now
+
+    times: list[tuple[Asset, datetime | None]] = [(a, plausible(a.info.creation_time)) for a in vids]
+    days = sorted({t.date() for _, t in times if t})
+    day_no = {d: k + 1 for k, d in enumerate(days)}               # Day 1, Day 2… = distinct shooting dates
     for i, (a, t) in enumerate(sorted(times, key=lambda x: (x[1].timestamp() if x[1] else 1e18, x[0].path))):
         ca = pa.clips.setdefault(a.id, ClipAnalysis(asset_id=a.id))
         ca.order_key = t.timestamp() if t else 1e12 + i
-        if t and base:
-            ca.day_index = (t.date() - base.date()).days + 1
+        if t:
+            ca.day_index = day_no[t.date()]
     # places: greedy clustering within 25 km
     centers: list[tuple] = []
     for a in vids:

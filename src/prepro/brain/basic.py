@@ -275,7 +275,11 @@ class BasicBrain:
         if not keys:
             keys = [("story_vlog", 0.4, "default", False)]
         speech_ok = sum(s.t1 - s.t0 for s in self.usable_segments())
-        broll_ok = sum(min(s.dur, 5.0) for s in self.good_shots())
+        # a long shot holds several usable moments — only where something happens, and at most three per angle:
+        # cutting back to the same three angles over and over is what makes a montage feel stitched together
+        good = self.good_shots()
+        broll_ok = sum(min(s.dur, 5.0 + 3.5 * min(2, max(0, self._active_moments(s) - 1))) for s in good)
+        self._variety = min(1.0, len(good) / 6.0)
         vertical = sum(1 for a in self.pa.assets if a.info.is_vertical and a.kind in (AssetKind.AROLL, AssetKind.BROLL))
         horizontal = sum(1 for a in self.pa.assets if a.info.has_video and not a.info.is_vertical and a.kind in (AssetKind.AROLL, AssetKind.BROLL))
         out = []
@@ -318,7 +322,7 @@ class BasicBrain:
         elif pbk == "gaming":
             est = speech_ok * 0.9 + 6
         elif pbk == "travel_film":
-            est = broll_ok * 0.55
+            est = broll_ok * 0.55 * (0.5 + 0.5 * getattr(self, "_variety", 1.0))    # few angles → shorter film
         elif pbk == "hype_reel":
             est = 15.0 if broll_ok >= 12 else max(8.0, broll_ok * 0.8)
         elif pbk == "teaser":
@@ -364,6 +368,9 @@ class BasicBrain:
             gaps.append("No call-to-action line — record a 5-second 'follow for part 2' outro.")
         if d.hooks and d.hooks[0].score < 0.35 and d.playbook in ("story_vlog", "talking_head", "podcast_clip", "comedy"):
             gaps.append("No strong hook line — record one sentence that teases the best moment or the payoff.")
+        if d.playbook in ("hype_reel", "travel_film", "teaser", "aesthetic") and 0 < len(shots) < 6:
+            gaps.append(f"Only {len(shots)} distinct B-roll shot{'s' if len(shots) > 1 else ''} — film more angles and details "
+                        "(a wide, a medium and a close-up per place) so the montage doesn't keep cutting back to the same view.")
         if d.playbook in ("hype_reel", "travel_film", "teaser") and not any((self.assets[s.asset_id].info.fps or 30) >= 48 for s in shots):
             gaps.append("No high-frame-rate clips — shoot 60/120 fps for real slow-motion.")
         for a in self.talk_assets():
@@ -396,15 +403,93 @@ class BasicBrain:
             return [StoryItem(ref=ref, role="hook", t0=t0, t1=t1, section="cold_open", note=h.why)]
         return []
 
+    MOVING = ("pan_left", "pan_right", "tilt_up", "tilt_down", "whip_in", "whip_out")
+
+    def _activity(self, s: Shot, a: float, b: float) -> float:
+        """How much is happening in a moment: a tracked subject on screen or an action peak (0..1).
+        A moving camera carries the shot by itself; without tracker data the answer is "unknown" (0.5)."""
+        if s.camera_move in self.MOVING:
+            return 1.0
+        if not s.track and not s.action_peaks:
+            return 0.5
+        pts = [t for t, _x, _y in s.track if a - 0.25 <= t <= b + 0.25]
+        cov = min(1.0, len(pts) / max(1.0, (b - a) * 2.0))      # tracks are sampled at ~2 Hz
+        if any(a - 0.3 <= p <= b + 0.3 for p in s.action_peaks):
+            cov = max(cov, 0.8)
+        return cov
+
+    def _candidates(self, s: Shot, dur: float):
+        """Moments of a shot, best first: its best windows, then every half-second position."""
+        seen = []
+        for w in sorted(s.best, key=lambda w: -w.score):
+            mid = (w.t0 + w.t1) / 2
+            a = min(max(s.t0, mid - dur / 2), s.t1 - dur)
+            seen.append(round(max(s.t0, a), 3))
+        a = s.t0
+        while a + dur <= s.t1 + 1e-6:
+            seen.append(round(a, 3))
+            a += max(0.5, dur / 2)
+        out = []
+        for a in seen:
+            if a not in out:
+                out.append(a)
+        return out
+
+    def _active_moments(self, s: Shot, dur: float = 3.5) -> int:
+        """How many distinct, non-overlapping moments of `dur` seconds in this shot have something happening."""
+        n, last = 0, -1e9
+        for a in sorted(self._candidates(s, min(dur, s.dur))):
+            if a >= last + dur and self._activity(s, a, a + min(dur, s.dur)) >= 0.5:
+                n += 1
+                last = a
+        return max(1, n) if s.dur <= dur else n
+
+    def _align(self, s: Shot, a: float, dur: float) -> float:
+        """Start the moment as the subject enters, not on the empty frame before it (static shots with tracks)."""
+        if s.camera_move in self.MOVING or not s.track:
+            return a
+        pts = sorted(t for t, _x, _y in s.track if a <= t <= a + dur)
+        if pts and pts[0] - a > 0.4:
+            a = min(pts[0] - 0.2, s.t1 - dur)
+        return max(s.t0, a)
+
+    def _fresh_window(self, s: Shot, dur: float, taken: list[tuple[float, float]]) -> tuple[float, float] | None:
+        """A moment of shot `s` that doesn't overlap the moments already used (≥ 0.5 s apart) and has something
+        happening in it — an editor never cuts to an empty frame just to fill time."""
+        dur = min(dur, s.dur)
+
+        def free(a: float, b: float) -> bool:
+            return all(b <= x - 0.5 or a >= y + 0.5 for x, y in taken)
+
+        best, best_act = None, 0.0
+        for a in self._candidates(s, dur):
+            if not free(a, a + dur):
+                continue
+            act = self._activity(s, a, a + dur)
+            if act > best_act + 1e-6:
+                best, best_act = a, act
+            if act >= 0.8:
+                break
+        if best is None or best_act < 0.4:
+            return None
+        if best_act < 0.8:
+            moved = self._align(s, best, dur)
+            if free(moved, moved + dur):
+                best = moved
+        return round(best, 3), round(best + dur, 3)
+
     def _window(self, s: Shot, dur: float, around: float | None = None) -> tuple[float, float]:
         dur = min(dur, s.dur)
         if around is not None:
             t0 = min(max(s.t0, around - dur / 2), s.t1 - dur)
-        elif s.best:
-            b = s.best[0]
-            t0 = min(max(s.t0, (b.t0 + b.t1) / 2 - dur / 2), s.t1 - dur)
         else:
-            t0 = s.t0 + (s.dur - dur) / 2
+            # the best-scoring moment that actually has something happening in it
+            cands = self._candidates(s, dur)
+            t0 = next((a for a in cands if self._activity(s, a, a + dur) >= 0.5), None)
+            if t0 is None:
+                t0 = max(cands, key=lambda a: self._activity(s, a, a + dur)) if cands else s.t0 + (s.dur - dur) / 2
+            if self._activity(s, t0, t0 + dur) < 0.8:
+                t0 = self._align(s, t0, dur)
         t0 = max(s.t0, t0)
         return round(t0, 3), round(t0 + dur, 3)
 
@@ -491,6 +576,10 @@ class BasicBrain:
         """Fill music sections (name, seconds, shot length) with shots; strongest motion goes to the drop."""
         items = list(hook)
         used = {i.ref for i in items}
+        used_w: dict[str, list[tuple[float, float]]] = {}    # moments already taken from each shot
+        for i in items:
+            if i.t0 is not None and i.t1 is not None:
+                used_w.setdefault(i.ref, []).append((i.t0, i.t1))
         calm = sorted(pool, key=lambda s: (s.motion, -s.quality))
         kinetic = sorted(pool, key=lambda s: -(s.motion + 0.5 * bool(s.action_peaks) + 0.3 * (s.whip_in or s.whip_out)))
         sections = [StorySection(name="cold_open", music_mode="front")] if items else []
@@ -499,7 +588,7 @@ class BasicBrain:
             src = kinetic if name in ("drop", "climax", "escalation", "build") else calm
             t = 0.0
             rounds = 0
-            while t < secs - 0.3 and rounds < 3:
+            while t < secs - 0.3 and rounds < 6:
                 progressed = False
                 for s in src:
                     if t >= secs - 0.3:
@@ -511,17 +600,20 @@ class BasicBrain:
                         break
                     around = s.action_peaks[0] if (s.action_peaks and name in ("drop", "climax")) else None
                     t0, t1 = self._window(s, dur, around=around)
-                    if rounds:   # second pass: use a different window of the same shot
-                        alt = [w for w in s.best if abs(w.t0 - t0) > 0.8]
-                        if alt:
-                            t0 = alt[0].t0
-                            t1 = min(s.t1, t0 + dur)
+                    taken = used_w.get(s.id, [])
+                    if any(min(t1, b) - max(t0, a) > 0.1 for a, b in taken):
+                        # long shots hold several moments: take a fresh one (best windows first, then any free stretch)
+                        fresh = self._fresh_window(s, dur, taken)
+                        if fresh is None:
+                            continue
+                        t0, t1 = fresh
                     items.append(StoryItem(ref=s.id, role="montage" if name != "outro" else "outro", t0=t0, t1=t1, section=name))
                     used.add(s.id)
+                    used_w.setdefault(s.id, []).append((t0, t1))
                     t += t1 - t0
                     progressed = True
                 rounds += 1
-                if not progressed:
+                if not progressed and rounds > 1:    # round 0 skips used shots; only give up once reuse found nothing
                     break
         return StoryPlan(direction_id=d.id, hook_id=d.hooks[0].id if d.hooks else None, items=items, sections=sections)
 
