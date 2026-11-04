@@ -2,9 +2,7 @@
 
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
-## [Unreleased]
-Planned for 0.7.0. Committed on `dev`; not released yet.
-
+## [0.7.0] — 2026-11-04
 ### Added — gaming pack
 - **Impact detection** (`analyze/sound.impacts`): explosions, shots and hits.
   - **Booms:** a third or more of the energy under 60 Hz. **Shots:** noise-like with a jump of 15 dB or more.
@@ -25,6 +23,33 @@ Planned for 0.7.0. Committed on `dev`; not released yet.
 - **Dull-stretch fixes sped up a gameplay cold open,** silently. Speed-ups now only apply to wordless B-roll, and
   moving content (gameplay, pans, action) is no longer treated as a dead zone.
 - **The cringe guard** no longer flags a cold-open preview or the cuts between plays in screen recordings.
+### Fixed — Windows (first full run on a Windows PC, with espeak-ng; Windows CI had skipped most tests)
+- **The offline speech recogniser never worked on Windows with Python 3.12.** pocketsphinx 5.1.x has no Windows
+  wheel for 3.12, so it was compiled on install; a MinGW build can't load (`libgcc_s_seh-1.dll`). It is pinned
+  below 5.1 (5.0.4 has wheels for 3.11–3.13 on every platform).
+- **Speech that couldn't be recognised was silent.** The clip got an empty transcript and the cut was made blind.
+  Now it is a project warning with the fix (download a speech model), and those clips are transcribed again as soon
+  as Whisper is there. `prepro doctor` says "won't load" (with the error) instead of "not installed".
+- **Whisper on a PC with an NVIDIA GPU but no CUDA libraries** (most gaming PCs) chose the GPU, failed, and dropped
+  to the rough recogniser without a word. "Auto" now uses the GPU only when CUDA 12's cuBLAS and cuDNN 9 load,
+  finishes on the CPU if the GPU fails on first use, and the transcript and `prepro doctor` say which ran and why.
+- **Claude Code / Codex connectors:**
+  - npm installs them as `.cmd` shims, and cmd.exe mangled the JSON schema we pass. A shim is now resolved to
+    the program it launches.
+  - The system prompt goes through `--system-prompt-file`, because Windows caps command lines.
+  - Prompts and replies travel as UTF-8 bytes: Windows pipes default to cp1252 and CRLF, which broke ₹, “quotes”
+    and Hindi.
+  - The install hint now points to the native Claude Code installer (`winget install Anthropic.ClaudeCode`).
+- **Desktop release (Linux):** v0.6.0 shipped without the AppImage/.deb because one ffmpeg download from
+  johnvansickle.com failed. It now retries, and falls back to BtbN's static build, checked against its sha256.
+- **Tests on Windows:**
+  - TTS lines go to espeak-ng as a UTF-8 file. Devanagari passed as an argument became "????", so the Hindi
+    fixture lines were 0.3 s of noise.
+  - The CLI stubs run through an interpreter on every OS.
+  - Exported `file://` URLs are read back with `url2pathname`.
+  - Shoots built with real media are cached apart from fully drawn ones.
+### Added
+- `scripts/check_asr.py`: word error rate per speech backend on real speech with a known transcript.
 
 ## [0.6.0] — 2026-11-04
 ### Added — Editor's Craft v2 (what top editors do; every technique is a reasoned, rejectable decision)

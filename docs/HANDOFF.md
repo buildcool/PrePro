@@ -6,12 +6,25 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **Gaming pack: committed on `dev`, not released.** It is planned for v0.7.0; the version is still 0.6.0.
-  - `analyze/sound.impacts`
-  - `BasicBrain._game_events` / `_story_gaming`: cold open, plays with build-up, replay, payoff
-  - callouts; compiler handles talky shot windows (full volume, captioned) and the `replay` role
-  - **Tested before the commit:** ruff, the unit tests, and every e2e file up to `test_p2_style`, plus
-    `test_p4_gaming` on its own. **Not re-run since the change:** `test_p3_craft` and `test_realmedia`.
+- **v0.7.0: the gaming pack + Windows fixes.** The first full run on a Windows PC; see QA "v0.7 on Windows".
+  - Gaming: `analyze/sound.impacts`, `BasicBrain._game_events` / `_story_gaming` (cold open, plays with build-up,
+    replay, payoff), callouts; the compiler handles talky shot windows (full volume, captioned) and the `replay` role.
+  - Windows fixes:
+    - pocketsphinx pinned `<5.1`
+    - a speech-failure warning (`asr.failed_note`)
+    - Whisper picks the GPU only when cuBLAS/cuDNN load, with a CPU fallback (`asr.gpu_unusable`, `whisper_device`)
+    - CLI connectors resolve npm `.cmd` shims (`providers.launch_command`), use `--system-prompt-file`, and pass
+      UTF-8 bytes
+    - espeak-ng fixtures read their text from a UTF-8 file
+  - Desktop CI: the Linux ffmpeg download retries, then falls back to BtbN. v0.6.0 has no Linux installers; re-run
+    its desktop job from the Actions tab if they're needed.
+  - Verified on Windows: every engine test file, one at a time, slow render tests included.
+    - Real footage passed with PocketSphinx and with Whisper.
+    - `scripts/check_asr.py`: Whisper small 0 % WER on JFK, PocketSphinx 50 %.
+    - Not run on Windows: the browser UI test (needs Playwright) and the desktop smoke test (Linux/Xvfb).
+- **In progress (branch `v0.8-wip`, merged into `dev` after the v0.7.0 release): GPU video encoding.**
+  `media/encoders.py` picks NVENC → Quick Sync → AMF after a real test encode, else x264; a GPU failure mid-render
+  redoes that piece on the CPU. `Settings.render.encoder` / `PREPRO_ENCODER` = auto|cpu|nvenc|qsv|amf.
 - v0.6.0: Editor's Craft v2 (released).
   - `knowledge/craft.yaml` technique cards
   - J/L splits (`compiler._apply_split_edits`), open loops and re-hooks (`basic._open_loop`/`_rehooks`)
@@ -53,34 +66,32 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
     needs a real import check, as does the `.kdenlive` file.
   - **MLT files carry their `<profile>`.** Shotcut uses it; the `melt` CLI needs `-profile` (see the M4 test).
 
-## Resume on your own PC
-The cloud session ended here because its credits ran out. Everything is pushed to `dev`.
-1. Get the code and install it. On Linux, install the apt packages listed under *How to test* first. On Windows,
-   install ffmpeg and espeak-ng and put both on PATH (Shotcut provides `melt`). Without espeak-ng the
-   speech-based tests are skipped, not run, and Windows CI has never run them. Use `.venv\Scripts\` wherever
-   these steps say `.venv/bin/`. The prompt for starting the next session is in `docs/NEXT_SESSION.md`.
-   ```bash
-   git clone https://github.com/buildcool/PrePro.git
-   cd PrePro
-   git checkout dev
-   python3 -m venv .venv
-   .venv/bin/pip install -e ".[asr,ai,geo,export,dev]"
-   ```
-2. Finish checking the gaming pack. Run one test file per command, because running them all at once can run out
-   of memory:
-   ```bash
-   .venv/bin/pytest tests/e2e/test_p3_craft.py -q -m "not slow and not realmedia and not live"
-   .venv/bin/pytest tests/e2e/test_p4_gaming.py -q -m "not slow and not realmedia and not live"
-   .venv/bin/prepro testmedia fetch
-   .venv/bin/pytest tests/e2e/test_realmedia.py -q -m realmedia
-   ```
-3. Release v0.7.0:
-   1. Set the version to 0.7.0 in `pyproject.toml`, `src/prepro/__init__.py` and `desktop/package.json`.
-   2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [0.7.0] — <date>` and delete the "not released yet"
-      line under it. The release notes are ready in `docs/releases/v0.7.0.md`.
-   3. Commit and push `dev`, and wait for CI to pass.
-   4. Run `git push origin dev:main`. The `release` workflow then tags v0.7.0 and builds the wheel, sdist and
-      installers.
+## Set up a PC
+Run one test file per command; all at once can run out of memory. Use `.venv\Scripts\` on Windows.
+- **Linux:** apt `espeak-ng melt sox fonts-noto-core ffmpeg`, then the commands below.
+- **Windows** (done on the current dev PC, see *Environment notes*):
+  - `winget install astral-sh.uv eSpeak-NG.eSpeak-NG`, and put `C:\Program Files\eSpeak NG` on PATH
+  - ffmpeg via `choco install ffmpeg`
+  - Shotcut for `melt` (optional; only the MLT render test needs it)
+  - without espeak-ng, the speech-based tests are skipped, not run
+```bash
+git clone https://github.com/buildcool/PrePro.git && cd PrePro && git checkout dev
+uv venv --seed --python 3.12 .venv
+uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
+.venv/bin/prepro doctor
+.venv/bin/prepro testmedia fetch
+.venv/bin/prepro models --download small                  # Whisper; ~480 MB from huggingface.co
+.venv/bin/python scripts/check_asr.py                     # word error rate per recogniser on real speech
+.venv/bin/pytest tests/e2e/test_p4_gaming.py -m "not live" # one file per command
+```
+
+## Release
+1. Set the version in `pyproject.toml`, `src/prepro/__init__.py`, `desktop/package.json` (and the two root entries in
+   `desktop/package-lock.json`).
+2. In `CHANGELOG.md`, turn `## [Unreleased]` into `## [X.Y.Z] — <date>`; write `docs/releases/vX.Y.Z.md`.
+3. Commit and push `dev`, wait for CI to be green on Ubuntu and Windows.
+4. `git push origin dev:main`. The `release` workflow tags it and builds the wheel, sdist and installers. Check that
+   the run *and* its desktop jobs succeeded and that the release has the `.exe`, `.AppImage` and `.deb`.
 
 ## How to test
 - `uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"`; apt `espeak-ng melt sox fonts-noto-core`.
@@ -90,6 +101,21 @@ The cloud session ended here because its credits ran out. Everything is pushed t
 - `.venv/bin/prepro testmedia fetch` (real media into ~/.cache/prepro/testmedia), then
   `.venv/bin/python -m pytest tests -q` (synthetic shoots are cached in /tmp/prepro-test-shoots).
 - Review storyboards in `<shoot>/.prepro/qa/` after `prepro build`.
+
+## Environment notes (Windows dev PC, from v0.7)
+- Windows 11, i9-14900HX, 16 GB, RTX 4070 (driver only: no cuBLAS, so Whisper runs on the CPU), Intel UHD.
+- PyPI and GitHub (Fastly) download at about 200 KB/s here; Hugging Face is fast (about 8 MB/s). uv puts every
+  download on one HTTP/2 connection. For big installs, fetch the large wheels in parallel with `curl -Z`, check them
+  against the PyPI JSON sha256, `uv pip install --no-deps` them, then run the normal install.
+- C: has little free space; caches go on D:: `UV_CACHE_DIR`, `PREPRO_TEST_SHOOTS` (a path with a space, on purpose),
+  `TMP`/`TEMP`.
+- MinGW gcc is on PATH and MSVC is not. Anything compiled at install time is built with MinGW and may not load in
+  Python, which is how pocketsphinx broke.
+- The `gh` CLI isn't installed. Pushes use the stored `buildcool` credential (remote URL
+  `https://buildcool@github.com/...`); commits are authored as `Claude <noreply@anthropic.com>` like the rest of the
+  history.
+- CI status comes from the public API (`/repos/buildcool/PrePro/actions/runs`). Job logs need admin rights, so they
+  can't be read anonymously.
 
 ## Environment notes (cloud container)
 - Network policy blocks huggingface.co (Whisper models), wikimedia, archive.org, pexels/pixabay/freesound,
@@ -120,6 +146,9 @@ The cloud session ended here because its credits ran out. Everything is pushed t
   review is still needed before commercial distribution.
 
 ## Next steps
+0. **v0.8.0 in progress:** GPU video encoding (branch `v0.8-wip`), then podcast/talking-head speaker switching
+   (a 9:16 crop that follows whoever is talking, switching at sentence ends with a minimum hold, so Shorts cut from
+   a two-person podcast never sit on the empty gap between the speakers).
 1. **Genre packs, more:**
    - gaming: HUD/kill-feed flashes, facecam enlarge on big reactions, fail memes
    - lifestyle "satisfying moment" detection

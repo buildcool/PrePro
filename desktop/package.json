@@ -1,7 +1,7 @@
 {
   "name": "prepro-desktop",
   "productName": "PrePro",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "PrePro — the AI pre-edit engine for creators (desktop app)",
   "main": "main.js",
   "author": { "name": "buildcool", "email": "buildcool@users.noreply.github.com" },

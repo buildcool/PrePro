@@ -167,3 +167,29 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
 
   All fixed. The plays set the target, the last play is always kept, speed-ups are for wordless B-roll only, and
   moving content is never a dead zone.
+
+### v0.7 on Windows: the first full run on a Windows PC
+Machine: Windows 11, i9-14900HX, 16 GB, RTX 4070 (driver only, no CUDA toolkit), Intel UHD. Python 3.12 (uv),
+ffmpeg 8.0, espeak-ng 1.52, Shotcut 26.9 for `melt`. Windows CI has no espeak-ng, so before this run nearly every
+engine test had been skipped on Windows, not passed.
+- **Results.** Unit: M0 8, M1 11, M3 8, packaging 3, speech models 6. End to end: M2 11 (with the render), M4 10
+  (with `melt`), M5 revise 11, M5 server 3, packaging 1, Shorts 2, Style DNA 2, Craft 8, Gaming 3. Craft and Gaming
+  were also run on shoots built with the real faces. Real footage passed with both PocketSphinx and Whisper.
+- **Windows-only bugs found:**
+  1. pocketsphinx was compiled at install (no cp312 wheel), by MinGW, and couldn't load: `DLL load failed`.
+     `prepro doctor` called it "not installed". Every clip without subtitles got an empty transcript, with no warning.
+  2. Whisper picked the GPU because the RTX 4070 was visible, but cuBLAS isn't installed. It would have failed and
+     silently dropped to PocketSphinx.
+  3. Through npm's `claude.cmd`, cmd.exe broke the JSON schema argument (`json.loads` failed in the CLI). Pipes
+     used cp1252, so ₹/Hindi crashed, and CRLF reached the CLI.
+  4. The Hindi fixture handed Devanagari to espeak-ng as an argument. It arrived as "????": 0.3 s of noise instead
+     of 2.5 s of speech.
+  5. Test-only: extensionless stub scripts, `read_text()` in cp1252, `/D:/…` paths from `file://` URLs.
+- **Speech on real footage (JFK inaugural, 11 s; `scripts/check_asr.py`), word error rate:**
+  - Whisper small, on the CPU: 0.0 %, 9.8 s including loading the model.
+  - PocketSphinx: 50.0 % ("ask not what your country…" came out as "and not like you on the train").
+
+  Whisper is not optional for quality: the rough recogniser is only a fallback for timing.
+- **Release pipeline.** The v0.6.0 release run had failed on Linux (the johnvansickle.com download), so v0.6.0 has
+  no AppImage/.deb. Nobody had noticed because the job logs need admin rights; the public API only showed
+  "failure". The build now retries and falls back to BtbN's static build.

@@ -8,7 +8,8 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import pytest
 from tests.conftest import needs_ffmpeg, needs_tts
@@ -35,6 +36,11 @@ def cut(shoot_factory, tmp_path_factory):
 
 def _frames(t: float, fps: float) -> int:
     return int(round(t * fps))
+
+
+def _url_path(u: str) -> Path:
+    """file:// URL → local path. url2pathname also turns Windows' "/D:/x%20y" into "D:\\x y"."""
+    return Path(url2pathname(urlparse(u).path))
 
 
 def _v1(tl):
@@ -68,8 +74,7 @@ def test_fcp7_xml_structure(cut):
     urls = {e.text for e in root.iter("pathurl")}
     assert urls
     for u in urls:
-        p = Path(unquote(urlparse(u).path))
-        assert p.exists(), u
+        assert _url_path(u).exists(), u
     # suggestion markers carry the reason so the editor sees *why* in the NLE
     comments = [m.findtext("comment") or "" for m in seq.iter("marker")]
     assert comments and all(c.strip() for c in comments)
@@ -108,7 +113,7 @@ def test_otio_roundtrip(cut):
     assert len([c for c in v1 if isinstance(c, otio.schema.Clip)]) == len(_v1(tl))
     for c in t.find_clips():
         if isinstance(c.media_reference, otio.schema.ExternalReference):
-            assert Path(unquote(urlparse(c.media_reference.target_url).path)).exists()
+            assert _url_path(c.media_reference.target_url).exists()
     if "kdenlive" in made:
         k = ET.parse(made["kdenlive"]).getroot()
         assert k.tag == "mlt" and (k.findall("producer") or k.findall("chain"))

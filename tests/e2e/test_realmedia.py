@@ -51,6 +51,13 @@ def test_real_footage_end_to_end(real_shoot, tmp_path):
     assert sum(1 for k in kinds.values() if k == AssetKind.MUSIC) == 2
     talk = pa.clips[next(a.id for a in pa.assets if a.path == "footage/talk_jfk.mp4")]
     assert talk.transcript and len(talk.transcript.words) > 10          # real speech was recognised (sphinx or whisper)
+    from prepro.analyze.asr import whisper_available
+    from prepro.config import Settings
+
+    if whisper_available(Settings.load().asr.whisper_model):            # a downloaded model must actually be used
+        assert talk.transcript.backend == "faster-whisper", talk.transcript.note
+        heard = " ".join(w.text for w in talk.transcript.words).lower()
+        assert "ask not what your country can do for you" in heard.replace(",", "").replace(".", ""), heard
     res = build(real_shoot, render=True)
     tl = res.timeline
     assert tl.duration > 5 and not [f for f in res.lint if f.severity == "error"], [f.msg for f in res.lint if f.severity == "error"]

@@ -35,8 +35,10 @@ uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
 .venv/bin/prepro build demo-shoots/travel_vlog --direction auto
 ```
 
-Requirements: Python 3.11–3.13, ffmpeg/ffprobe on `PATH` (or `PREPRO_FFMPEG`). Optional: NVIDIA GPU for
-faster transcription.
+Requirements: Python 3.11–3.13, ffmpeg/ffprobe on `PATH` (or `PREPRO_FFMPEG`). Speech recognition: run
+`prepro models --download small` once (Whisper, ~480 MB); without it only a rough offline recogniser is used.
+An NVIDIA GPU is used for transcription when CUDA 12's cuBLAS and cuDNN 9 are installed, otherwise the CPU is;
+`prepro doctor` shows which, and why.
 
 ## The review app
 
