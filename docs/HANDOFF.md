@@ -55,8 +55,10 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Resume on your own PC
 The cloud session ended here because its credits ran out. Everything is pushed to `dev`.
-1. Get the code and install it. Install the apt packages listed under *How to test* first. On Windows, use
-   `.venv\Scripts\` wherever these steps say `.venv/bin/`.
+1. Get the code and install it. On Linux, install the apt packages listed under *How to test* first. On Windows,
+   install ffmpeg and espeak-ng and put both on PATH (Shotcut provides `melt`). Without espeak-ng the
+   speech-based tests are skipped, not run, and Windows CI has never run them. Use `.venv\Scripts\` wherever
+   these steps say `.venv/bin/`. The prompt for starting the next session is in `docs/NEXT_SESSION.md`.
    ```bash
    git clone https://github.com/buildcool/PrePro.git
    cd PrePro
