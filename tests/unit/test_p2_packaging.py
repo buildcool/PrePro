@@ -39,3 +39,23 @@ def test_chapters_follow_youtube_rules():
     short = _tl([("cold_open", 5), ("part1", 20)], [])
     ch, note = chapters(short, _PA())
     assert ch == [] and "minute" in note
+
+
+def test_caption_detector_sees_outlined_text_over_a_dark_shirt():
+    """CI regression: captions drawn over a presenter's dark shirt merged into one tall block and were missed."""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+
+    from prepro.config import assets_dir
+    from prepro.style import _text_band
+
+    W, H = 240, 136
+    base = Image.new("RGB", (W, H), (60, 90, 150))
+    d = ImageDraw.Draw(base)
+    d.ellipse([95, 30, 145, 85], fill=(230, 190, 150))            # a face
+    d.rectangle([80, 85, 160, H], fill=(30, 30, 35))               # a dark shirt right under the caption
+    clean = np.asarray(base.copy())
+    font = ImageFont.truetype(str(assets_dir() / "fonts" / "Anton-Regular.ttf"), 13)
+    d.text((W // 2, int(H * 0.72)), "MISTAKES", font=font, fill=(255, 255, 255), anchor="mt", stroke_width=2, stroke_fill=(0, 0, 0))
+    assert _text_band(np.asarray(base)) is True
+    assert _text_band(clean) is False

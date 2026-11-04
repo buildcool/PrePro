@@ -60,12 +60,36 @@ def _hist(fr: np.ndarray) -> np.ndarray:
     return cv2.normalize(h, h).flatten().astype(np.float32)
 
 
+def _outlined_text(g: np.ndarray) -> bool:
+    """Burned-in captions are bright letters with a tight dark outline: many bright/dark pixel pairs packed into a
+    wide, short block. Unlike plain edges this doesn't merge with a dark shirt or background behind the caption."""
+    import cv2
+
+    H, W = g.shape
+    dark = cv2.dilate((g < 60).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    pairs = ((g > 200) & dark).astype(np.uint8)
+    if pairs.sum() < 12:
+        return False
+    joined = cv2.dilate(pairs, cv2.getStructuringElement(cv2.MORPH_RECT, (max(5, W // 30), 3)))
+    _n, _l, stats, _c = cv2.connectedComponentsWithStats(joined)
+    for x, y, w, h, _area in stats[1:]:
+        if not (0.02 * H <= h <= 0.18 * H) or w < 2.0 * h or w < 0.12 * W:
+            continue
+        if not (y > 0.5 * H or y + h < 0.5 * H):
+            continue
+        if pairs[y: y + h, x: x + w].sum() >= max(10, 0.04 * w * h):
+            return True
+    return False
+
+
 def _text_band(fr: np.ndarray) -> bool:
     """Burned-in captions/titles: a text-shaped block (wide, 2.5–16 % of the height, densely stroked) in the upper or
     lower caption band, with bright letters next to dark outlines."""
     import cv2
 
     g = cv2.cvtColor(fr, cv2.COLOR_RGB2GRAY)
+    if _outlined_text(g):
+        return True
     H, W = g.shape
     grad = cv2.morphologyEx(g, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
     _, bw = cv2.threshold(grad, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)

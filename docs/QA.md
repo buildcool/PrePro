@@ -126,3 +126,8 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
   4. Final: 14 s, 13 cuts, every moment with a subject, slow-mo on the moving fruit, and a "film more angles"
      gap.
   - Also found: "3082 day(s)" from dates in the sample clips' metadata. Fixed.
+- **CI caught a Style DNA miss local runs couldn't.** CI has no real test media, so its talking-head fixture uses
+  the drawn presenter. The caption sat on the presenter's dark shirt, and the text-region detector merged them into
+  one block that was too tall: 0 % text. An outlined-text detector (bright letters tightly outlined in black) now
+  reads 100 % there, 0 % on raw clips, and has the same false-positive rate on scenery. There is a unit regression
+  test.
