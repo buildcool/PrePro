@@ -157,6 +157,13 @@ def doctor() -> None:
         need = {"ass", "xfade", "sidechaincompress", "loudnorm", "ebur128", "lut3d", "afftdn"}
         missing = need - set(filters())
         t.add_row("ffmpeg filters", "[green]ok" if not missing else "[yellow]partial", ", ".join(sorted(missing)) or "all required filters present")
+        from .media import encoders
+
+        gpus = encoders.available()
+        for size, short in (("previews", 540), ("1080p renders", 1080)):
+            pick = encoders.choose(short)
+            t.add_row(f"video encoding ({size})", "[green]GPU" if pick.gpu else "CPU",
+                      encoders.why(short) + ("" if gpus else " · no GPU encoder works here (NVENC / Quick Sync / AMF)"))
     except FFmpegError as e:
         t.add_row("ffmpeg", "[red]missing", str(e))
     from .speech_models import SIZES_MB, cached

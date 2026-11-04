@@ -67,6 +67,7 @@ class RenderSettings(BaseModel):
     preset_final: str = "medium"
     target_lufs: float = -14.0
     true_peak: float = -1.0
+    encoder: Literal["auto", "cpu", "nvenc", "qsv", "amf"] = "auto"   # auto = the GPU if it encodes here, else the CPU
 
 
 class BrainRouting(BaseModel):

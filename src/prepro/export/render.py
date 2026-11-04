@@ -17,6 +17,7 @@ import soundfile as sf
 
 from ..assist.looks import lut_path
 from ..config import assets_dir
+from ..media import encoders as enc
 from ..media.ffmpeg import ffmpeg_bin, run_ffmpeg
 from ..project import Project
 from ..schema.analysis import ProjectAnalysis
@@ -35,6 +36,8 @@ class RenderResult:
     true_peak_db: float | None
     speech_to_music_db: float | None
     storyboard: Path | None = None
+    encoder: str = "cpu"                 # nvenc | qsv | amf | cpu — what encoded the final picture
+    encoder_note: str = ""               # in words, incl. a GPU → CPU fallback and why
 
 
 def ff_escape(p: Path | str) -> str:
@@ -80,12 +83,17 @@ def _crop_filter(it: Item, sw: int, sh: int, W: int, H: int, dur: float) -> str:
 
 
 def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: float, *, crf: int, preset: str, look: Path | None,
-             cache: Path) -> Path:
+             cache: Path, encoder: enc.Encoder = enc.CPU) -> tuple[Path, str]:
+    """One V1 item as a clip at the timeline's size and frame rate. Returns (file, encoder name). Cached per item;
+    the encoder is part of the file name so pieces from different encoders are never stream-copied together."""
     key = hashlib.sha1(json.dumps([it.model_dump(exclude={"id", "rec_in", "suggestion_ids", "section", "role", "note"}), W, H, fps, crf, preset,
                                    str(look)], sort_keys=True, default=str).encode()).hexdigest()[:16]
-    out = cache / f"seg_{key}.mp4"
-    if out.exists() and out.stat().st_size > 1000:
-        return out
+    want = encoder.name
+    # "auto" reuses a piece from any encoder; a forced encoder (e.g. cpu) only its own
+    for name in dict.fromkeys((want, "cpu", *enc.GPU_ORDER) if enc.preference() == "auto" else (want,)):
+        hit = cache / f"seg_{key}_{name}.mp4"
+        if hit.exists() and hit.stat().st_size > 1000:
+            return hit, name
     a = pa.asset(it.asset_id)
     src = proj.path(a.path)
     dur = it.rec_dur
@@ -106,17 +114,22 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
         else:
             vf = f"[0:v]{speed}{_crop_filter(it, ds[0], ds[1], W, H, dur)},scale={W}:{H}:flags=bicubic{tail}[v]"
         args = ["-ss", f"{max(0.0, it.src_in):.3f}", "-t", f"{src_dur + 0.1:.3f}", "-i", str(src), "-filter_complex", vf, "-map", "[v]"]
-    args += ["-frames:v", str(nframes), "-an", "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
-    run_ffmpeg(args, timeout=1800)
-    return out
+    tmp = cache / f"seg_{key}.part.mp4"
+    used = enc.encode(lambda e: [*args, "-frames:v", str(nframes), "-an", *e.args(crf, preset), "-r", f"{fps}", str(tmp)],
+                      prefer=encoder, timeout=1800)
+    out = cache / f"seg_{key}_{used.name}.mp4"
+    os.replace(tmp, out)
+    return out, used.name
 
 
-def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, preset: str) -> Path:
-    if not any(it.transition_in != "cut" and it.transition_dur > 0 for it, _ in segs[1:]):
+def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, preset: str, *, mixed: bool = False,
+             encoder: enc.Encoder = enc.CPU) -> str:
+    """Join the V1 pieces (stream copy when every cut is hard and all came from one encoder). Returns the encoder."""
+    if not mixed and not any(it.transition_in != "cut" and it.transition_dur > 0 for it, _ in segs[1:]):
         lst = out.with_suffix(".txt")
         lst.write_text("".join(f"file '{p.as_posix()}'\n" for _, p in segs), encoding="utf-8")
         run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(out)], timeout=1800)
-        return out
+        return "copy"
     xf = {"whip": "hblur", "dissolve": "fade", "zoom": "zoomin", "fade_black": "fadeblack", "slide": "slideleft"}
     args, chain = [], []
     for _, p in segs:
@@ -131,13 +144,13 @@ def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, pre
         else:
             chain.append(f"{acc}[n{k}]concat=n=2:v=1:a=0,settb=AVTB{lab}")
         acc = lab
-    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
-    run_ffmpeg(args, timeout=3600)
-    return out
+    args += ["-filter_complex", ";".join(chain), "-map", acc]
+    return enc.encode(lambda e: [*args, *e.args(crf, preset), "-r", f"{fps}", str(out)], prefer=encoder, timeout=3600).name
 
 
 def _overlay_pass(pa: ProjectAnalysis, proj: Project, tl: Timeline, base: Path, ass: Path | None, out: Path, W: int, H: int, fps: float,
-                  crf: int, preset: str, look: Path | None) -> Path:
+                  crf: int, preset: str, look: Path | None, encoder: enc.Encoder = enc.CPU) -> str | None:
+    """B-roll/meme overlays + captions over the joined picture. Returns the encoder (None when nothing to add)."""
     ovs = [i for i in tl.items if i.track in ("V2", "V3") and i.kind in ("video", "image")]
     args = ["-i", str(base)]
     chain = []
@@ -162,11 +175,10 @@ def _overlay_pass(pa: ProjectAnalysis, proj: Project, tl: Timeline, base: Path, 
         acc = "[vout]"
     if not chain:
         os.replace(base, out)
-        return out
-    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
+        return None
+    args += ["-filter_complex", ";".join(chain), "-map", acc]
     _ = (sx, sy)
-    run_ffmpeg(args, timeout=3600)
-    return out
+    return enc.encode(lambda e: [*args, *e.args(crf, preset), "-r", f"{fps}", str(out)], prefer=encoder, timeout=3600).name
 
 
 # ------------------------------------------------------------------ audio
@@ -344,14 +356,18 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
     crf, preset = (30, "veryfast") if quality == "preview" else (19, "medium")
     look = lut_path(tl.look) if tl.look else None
     work = proj.sub(f"renders/work_{quality}")
-    segs = []
+    encoder = enc.choose(min(W, H))                  # the GPU when it is measurably faster here, else the CPU
+    segs, made_by = [], []
     for it in sorted((i for i in tl.items if i.track == "V1" and i.kind in ("video", "image")), key=lambda i: i.rec_in):
-        segs.append((it, _segment(pa, proj, it, W, H, tl.fps, crf=crf if quality == "preview" else 16, preset=preset, look=look, cache=work)))
+        path, by = _segment(pa, proj, it, W, H, tl.fps, crf=crf if quality == "preview" else 16, preset=preset, look=look, cache=work,
+                            encoder=encoder)
+        segs.append((it, path))
+        made_by.append(by)
     if not segs:
         raise ValueError("timeline has no picture")
     out.parent.mkdir(parents=True, exist_ok=True)
     base = out.with_name(out.stem + ".base.mp4")
-    _combine(segs, base, tl.fps, crf, preset)
+    joined = _combine(segs, base, tl.fps, crf, preset, mixed=len(set(made_by)) > 1, encoder=encoder)
     scaled = tl.model_copy(deep=True)
     scaled.width, scaled.height = W, H
     if not captions:
@@ -359,14 +375,21 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
         scaled.items = [i for i in scaled.items if i.kind != "text"]
     ass = write_ass(scaled, out.with_suffix(".ass")) if (scaled.captions or any(i.kind == "text" for i in scaled.items)) else None
     vid = out.with_name(out.stem + ".video.mp4")
-    _overlay_pass(pa, proj, tl, base, ass, vid, W, H, tl.fps, crf, preset, look)
+    final = _overlay_pass(pa, proj, tl, base, ass, vid, W, H, tl.fps, crf, preset, look, encoder=encoder)
     wav = out.with_suffix(".wav")
     lufs, tp, sm = mix_audio(pa, proj, tl, wav, stems_dir=(out.parent / f"{out.stem}_stems") if stems else None, music=music)
     run_ffmpeg(["-i", str(vid), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                 "-shortest", "-movflags", "+faststart", str(out)], timeout=1800)
     for p in (base, vid):
         p.unlink(missing_ok=True)
-    res = RenderResult(video=out, audio=wav, duration=tl.duration, lufs=lufs, true_peak_db=tp, speech_to_music_db=sm)
+    last = final or (joined if joined != "copy" else made_by[-1])     # the encoder of the picture you actually see
+    used = [enc.LABEL[n] for n in dict.fromkeys([*made_by, *(x for x in (joined, final) if x and x != "copy")])]
+    note = " + ".join(used)
+    if any(enc.failed_reason(n) for n in enc.GPU_ORDER):
+        note += " — the GPU encoder failed, so the CPU took over: " + "; ".join(
+            f"{n}: {enc.failed_reason(n)}" for n in enc.GPU_ORDER if enc.failed_reason(n))
+    res = RenderResult(video=out, audio=wav, duration=tl.duration, lufs=lufs, true_peak_db=tp, speech_to_music_db=sm,
+                       encoder=last, encoder_note=note)
     if storyboard:
         try:
             res.storyboard = make_storyboard(tl, out, proj.sub("qa") / f"{out.stem}_storyboard.jpg", scale=scale)

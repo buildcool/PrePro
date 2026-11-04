@@ -112,8 +112,10 @@ uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
 - MinGW gcc is on PATH and MSVC is not. Anything compiled at install time is built with MinGW and may not load in
   Python, which is how pocketsphinx broke.
 - The `gh` CLI isn't installed. Pushes use the stored `buildcool` credential (remote URL
-  `https://buildcool@github.com/...`); commits are authored as `Claude <noreply@anthropic.com>` like the rest of the
-  history.
+  `https://buildcool@github.com/...`).
+- **Commit authorship (asked by the owner):** author `buildcool <331665223+buildcool@users.noreply.github.com>`,
+  set repo-locally with `git config user.name/user.email`, plus the trailer
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. The PC's global git identity is someone else's.
 - CI status comes from the public API (`/repos/buildcool/PrePro/actions/runs`). Job logs need admin rights, so they
   can't be read anonymously.
 
