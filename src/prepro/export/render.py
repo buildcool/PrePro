@@ -49,6 +49,21 @@ def _even(x: float) -> int:
     return max(2, int(round(x / 2)) * 2)
 
 
+def _still_input(src: Path, dur: float) -> list[str]:
+    """Input options to hold an image for `dur` seconds. An animated GIF loops (the GIF reader has no `-loop`
+    option, so the image-style `-loop 1` made every GIF meme fail to render)."""
+    if Path(src).suffix.lower() == ".gif":
+        return ["-stream_loop", "-1", "-t", f"{dur:.3f}", "-i", str(src)]
+    return ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(src)]
+
+
+def _panel(place: tuple[float, float, float, float], W: int, H: int) -> tuple[int, int, int, int]:
+    """A layout panel in output pixels: (x, y, w, h), even sizes, inside the frame."""
+    x, y, w, h = place
+    pw, ph = min(_even(w * W), W), min(_even(h * H), H)
+    return min(int(round(x * W)), W - pw), min(int(round(y * H)), H - ph), pw, ph
+
+
 # ------------------------------------------------------------------ video
 def _crop_filter(it: Item, sw: int, sh: int, W: int, H: int, dur: float) -> str:
     ar = W / H
@@ -103,7 +118,7 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
     if it.kind == "image":
         vf = (f"[0:v]split[bg0][fg0];[bg0]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:2[bg];"
               f"[fg0]scale={W}:{H}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2{tail}[v]")
-        args = ["-loop", "1", "-t", f"{dur + 0.2:.3f}", "-i", str(src), "-filter_complex", vf, "-map", "[v]"]
+        args = [*_still_input(src, dur + 0.2), "-filter_complex", vf, "-map", "[v]"]
     else:
         ds = a.info.display_size or (W, H)
         src_dur = it.src_out - it.src_in
@@ -111,6 +126,10 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
         if a.kind.value in ("meme_video",) and abs(ds[0] / ds[1] - W / H) > 0.05:
             vf = (f"[0:v]{speed}split[bg0][fg0];[bg0]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:2[bg];"
                   f"[fg0]scale={W}:{H}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2{tail}[v]")
+        elif it.place:                                   # one panel of a layout; the rest of the frame stays black
+            px, py, pw, ph = _panel(it.place, W, H)
+            vf = (f"[0:v]{speed}{_crop_filter(it, ds[0], ds[1], pw, ph, dur)},scale={pw}:{ph}:flags=bicubic,"
+                  f"pad={W}:{H}:{px}:{py}:color=black{tail}[v]")
         else:
             vf = f"[0:v]{speed}{_crop_filter(it, ds[0], ds[1], W, H, dur)},scale={W}:{H}:flags=bicubic{tail}[v]"
         args = ["-ss", f"{max(0.0, it.src_in):.3f}", "-t", f"{src_dur + 0.1:.3f}", "-i", str(src), "-filter_complex", vf, "-map", "[v]"]
@@ -162,14 +181,16 @@ def _overlay_pass(pa: ProjectAnalysis, proj: Project, tl: Timeline, base: Path, 
         ds = a.info.display_size or (W, H)
         lut = f",lut3d=file='{ff_escape(look)}'" if look else ""
         if it.kind == "image":
-            args += ["-loop", "1", "-t", f"{it.rec_dur:.3f}", "-i", str(proj.path(a.path))]
+            args += _still_input(proj.path(a.path), it.rec_dur)
             pre = f"[{k}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,format=yuva420p,setpts=PTS-STARTPTS+{it.rec_in:.3f}/TB[o{k}]"
         else:
             args += ["-ss", f"{it.src_in:.3f}", "-t", f"{it.src_out - it.src_in:.3f}", "-i", str(proj.path(a.path))]
-            pre = (f"[{k}:v]setpts=(PTS-STARTPTS)/{it.speed}+{it.rec_in:.3f}/TB,{_crop_filter(it, ds[0], ds[1], W, H, it.rec_dur)},"
-                   f"scale={W}:{H},fps={fps},format=yuv420p{lut}[o{k}]")
+            px, py, pw, ph = _panel(it.place, W, H) if it.place else (0, 0, W, H)
+            pre = (f"[{k}:v]setpts=(PTS-STARTPTS)/{it.speed}+{it.rec_in:.3f}/TB,{_crop_filter(it, ds[0], ds[1], pw, ph, it.rec_dur)},"
+                   f"scale={pw}:{ph},fps={fps},format=yuv420p{lut}[o{k}]")
         chain.append(pre)
-        chain.append(f"{acc}[o{k}]overlay=0:0:enable='between(t,{it.rec_in:.3f},{it.rec_out:.3f})':eof_action=pass[ov{k}]")
+        ox, oy = (_panel(it.place, W, H)[:2] if it.place and it.kind != "image" else (0, 0))
+        chain.append(f"{acc}[o{k}]overlay={ox}:{oy}:enable='between(t,{it.rec_in:.3f},{it.rec_out:.3f})':eof_action=pass[ov{k}]")
         acc = f"[ov{k}]"
     if ass is not None:
         chain.append(f"{acc}ass=filename='{ff_escape(ass)}':fontsdir='{ff_escape(assets_dir() / 'fonts')}'[vout]")

@@ -56,6 +56,7 @@ class Ctx:
     speed_done: set = field(default_factory=set)                                   # shots that already got their slow-mo
     on_screen: dict = field(default_factory=dict)                                  # two-shots: asset → seat framed now
     turns: dict = field(default_factory=dict)                                      # line → length of that speaker's turn
+    layout_top: float | None = None                                                # stacked layout: the top panel's height
     caption_words: list[CaptionWord] = field(default_factory=list)
     section_t: dict[str, list[float]] = field(default_factory=dict)
     speech_spans: list[tuple[float, float]] = field(default_factory=list)
@@ -525,8 +526,9 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         else:
             continue
         ctx.section_t[sec][1] = t
-        # meme cutaway right after its anchor segment
-        for c in cues.get(it.ref, []):
+        # meme cutaway right after its anchor segment (or after one play window of a long gameplay shot: "<shot>@<t0>")
+        windowed = cues.get(f"{it.ref}@{it.t0:.1f}", []) if it.t0 is not None else []
+        for c in [*cues.get(it.ref, []), *windowed]:
             if c.type != "meme":
                 continue
             if not c.asset or c.asset.startswith("meme:") or c.confidence < applied_conf or "meme" in no:
@@ -556,6 +558,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             ctx.section_t[sec][1] = t
     total = t
     _apply_split_edits(ctx, polish, no)
+    _facecam_layout(ctx)
+    _facecam_moments(ctx, polish, applied_conf)
 
     # ---- B-roll overlays (V2) over talking beats
     for c in polish.effects:
@@ -678,6 +682,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             cw.emph = True
     if d.playbook == "aesthetic" and style != "off":
         style = "aesthetic"
+    # a callout shows the streamer's words big while they say them: the captions step aside for it (the same words
+    # twice, drawn at the same height, overlapped into "DCDOUBLE KILL!LL!")
+    callouts = [(i.rec_in, i.rec_in + (i.duration or 0)) for i in ctx.items if i.kind == "text" and i.style == "callout"]
+    ctx.caption_words = [w for w in ctx.caption_words if not any(a - 0.05 <= w.t0 < b for a, b in callouts)]
     caps = build_captions(sorted(ctx.caption_words, key=lambda w: w.t0), style=style if style != "aesthetic" else "clean",
                           words_range=tuple(pb.captions.get("words", [3, 6])), vertical=H > W, face_boxes_at=_face_lookup(ctx))
     if style == "aesthetic":
@@ -708,7 +716,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                   meta={"target": d.knobs.target_length, "hook": d.hooks[0].model_dump() if d.hooks else None, "story_why": story.why,
                         "vo_script": polish.vo_script, "broll_gaps": [g.model_dump() for g in polish.broll_gaps],
                         "music": [c.model_dump() for c in polish.music],
-                        "word_t": {k: round(v, 3) for k, v in ctx.word_t.items()}})
+                        "word_t": {k: round(v, 3) for k, v in ctx.word_t.items()},
+                        **({"layout_top": ctx.layout_top} if ctx.layout_top else {})})
     tl.music_spans = getattr(ctx, "_music_spans", [])
     return tl
 
@@ -727,6 +736,84 @@ def _try(fn, key):
         return fn(key)
     except KeyError:
         return None
+
+
+STACK_TOP = (0.24, 0.40)       # the webcam panel's share of a vertical frame (sized to the webcam's own shape)
+
+
+def _facecam_layout(ctx: Ctx) -> None:
+    """Vertical cut of a screen recording with a webcam (a gaming stream): stacked like gaming Shorts — the webcam on
+    top at its own shape, the game below. A plain 9:16 crop of a 16:9 stream would cut the streamer out (or, following
+    the face, cut the game out)."""
+    if ctx.H <= ctx.W or ctx.d.knobs.layout == "crop":
+        return
+    v1 = [i for i in ctx.items if i.track == "V1" and i.kind == "video" and i.role != "meme" and i.asset_id]
+    for asset_id in dict.fromkeys(i.asset_id for i in v1):
+        fc = ctx.pa.clips[asset_id].facecam
+        if not fc:
+            continue
+        ds = ctx.pa.asset(asset_id).info.display_size or (1920, 1080)
+        fx0, fy0, fx1, fy1 = fc
+        cam_ar = (fx1 - fx0) * ds[0] / max(1e-6, (fy1 - fy0) * ds[1])
+        top = round(min(STACK_TOP[1], max(STACK_TOP[0], ctx.W / cam_ar / ctx.H)), 3)     # the webcam at its own shape
+        cam_tf = _cam_transform(fc, ds, ctx.W, top * ctx.H)
+        ctx.layout_top = top
+        for it in (i for i in v1 if i.asset_id == asset_id):
+            z = it.transform.zoom if it.transform else 1.0
+            it.transform = Transform(cx=0.5, cy=0.5, zoom=z) if abs(z - 1) > 1e-3 else None    # the game, centred
+            it.place = (0.0, top, 1.0, round(1.0 - top, 3))
+            ctx.items.append(Item(id=ctx.iid("v"), track="V2", kind="video", asset_id=asset_id, src_in=it.src_in, src_out=it.src_out,
+                                  rec_in=it.rec_in, speed=it.speed, transform=cam_tf, place=(0.0, 0.0, 1.0, top), role="facecam",
+                                  ref=it.ref, transition_in=it.transition_in, transition_dur=it.transition_dur))
+        ctx.suggest("layout", "Stacked for a vertical Short: your webcam on top, the game below — a plain 9:16 crop of the stream "
+                    "would cut one of you out", conf=0.85, t=0.0, payload={"key": f"layout:{asset_id}"})
+
+
+BIG_TOP = 0.52                 # stacked layout: the webcam panel's share of the frame while it is enlarged
+
+
+def _cam_transform(fc: list[float], ds: tuple[int, int], panel_w: float, panel_h: float) -> Transform:
+    """Crop of the webcam picture for a panel of panel_w × panel_h output pixels: centred on the webcam, zoomed just
+    inside its border."""
+    fx0, fy0, fx1, fy1 = fc
+    src_ar, panel_ar = ds[0] / ds[1], panel_w / panel_h
+    base_w, base_h = min(1.0, panel_ar / src_ar), min(1.0, src_ar / panel_ar)
+    zoom = max(base_w / (fx1 - fx0), base_h / (fy1 - fy0)) * 1.03
+    return Transform(cx=round((fx0 + fx1) / 2, 4), cy=round((fy0 + fy1) / 2, 4), zoom=round(zoom, 3))
+
+
+def _facecam_moments(ctx: Ctx, polish: PolishPlan, applied_conf: float) -> None:
+    """`facecam` cues: the streamer's webcam enlarged for a moment over the game (stacked Shorts: the webcam panel
+    grows to half the frame; 16:9: the picture-in-picture doubles in its corner)."""
+    for c in polish.effects:
+        if c.type != "facecam" or c.at not in ctx.word_t:
+            continue
+        t = ctx.word_t[c.at] - 0.25
+        host = next((i for i in ctx.items if i.track == "V1" and i.kind == "video" and i.asset_id and i.rec_in <= t < i.rec_out), None)
+        fc = ctx.pa.clips[host.asset_id].facecam if host is not None else None
+        if not fc:
+            continue
+        t0, t1 = max(host.rec_in, t), min(host.rec_out, t + (c.dur or 1.6))
+        if t1 - t0 < 0.8:
+            continue
+        ds = ctx.pa.asset(host.asset_id).info.display_size or (1920, 1080)
+        if ctx.layout_top or ctx.H > ctx.W:                  # vertical: the webcam over the top half (a plain 9:16 crop
+            place = (0.0, 0.0, 1.0, BIG_TOP)                 # doesn't show the webcam's corner at all)
+        else:                                                # 16:9: the picture-in-picture, twice as big, same corner
+            fx0, fy0, fx1, fy1 = fc
+            w, h = min(0.5, 2 * (fx1 - fx0)), min(0.5, 2 * (fy1 - fy0))
+            x = fx0 if fx0 < 0.5 else min(1.0, fx1) - w
+            y = fy0 if fy0 < 0.5 else min(1.0, fy1) - h
+            place = (round(max(0.0, x), 4), round(max(0.0, y), 4), round(w, 4), round(h, 4))
+        tf = _cam_transform(fc, ds, place[2] * ctx.W, place[3] * ctx.H)
+        s_in = host.src_in + (t0 - host.rec_in) * host.speed
+        on = c.confidence >= applied_conf
+        if on:
+            ctx.items.append(Item(id=ctx.iid("v"), track="V2", kind="video", asset_id=host.asset_id, src_in=round(s_in, 3),
+                                  src_out=round(s_in + (t1 - t0) * host.speed, 3), rec_in=round(t0, 3), speed=host.speed, transform=tf,
+                                  place=place, role="facecam_big", ref=f"fx:facecam:{c.at}"))
+        ctx.suggest("facecam", c.why or "facecam enlarged on a big reaction", conf=c.confidence, t=t0,
+                    payload={"key": f"fx:facecam:{c.at}"}, status=None if on else "optional")
 
 
 def _apply_split_edits(ctx: Ctx, polish: PolishPlan, no: set) -> None:

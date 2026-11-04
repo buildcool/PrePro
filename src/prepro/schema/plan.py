@@ -31,6 +31,7 @@ class Knobs(BaseModel):
     meme_tone: Literal["clean", "edgy"] = "clean"
     tightness: float | None = None    # speech-cut tightness override (Style DNA); None = playbook
     shot_len: float | None = None     # typical B-roll shot length override (Style DNA); None = playbook
+    layout: Literal["auto", "stack", "crop"] = "auto"   # vertical cuts of a screen recording with a webcam: stacked or cropped
 
 
 class HookOption(BaseModel):

@@ -143,6 +143,8 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
         "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     ]
     ml = int(W * side)
+    # a stacked layout (webcam panel on top): top-anchored text starts below the webcam, never over the face
+    top = max(top, float(tl.meta.get("layout_top") or 0.0) + 0.02)
     for name, (font, size, prim, outl, bold, _up) in STYLES.items():
         fs = int(H * size * (1.0 if vertical else 0.9))
         outline = max(2, fs // 14)
@@ -179,14 +181,20 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
         else:
             txt = " ".join(word_txt(x, False) for x in c.words)
             lines.append(f"Dialogue: 1,{_ts(c.t0)},{_ts(c.t1)},{base},,0,0,{mv},,{an}{pop}{txt}")
+    low_caps = [(c.t0, c.t1) for c in tl.captions if c.pos == "lower"]
+    cap_block = H * (STYLES["bold"][1] * 2.6 if vertical else STYLES["clean"][1] * 2.4)     # ≈ two caption lines
     for it in tl.items:
         if it.kind != "text" or not it.text:
             continue
         st = it.style if it.style in STYLES else "title"
         txt = _esc(it.text.upper() if STYLES[st][5] else it.text)
         anim = "{\\fad(120,160)\\fscx92\\fscy92\\t(0,140,\\fscx100\\fscy100)}"
-        if st == "cta":
-            anim = "{\\fad(150,200)\\an2\\pos(" + f"{W // 2},{int(H * (1 - SAFE['9:16' if vertical else '16:9'][1]) - H * 0.02)}" + ")}"
+        base_y = H * (1 - bottom) - (H * 0.02 if st == "cta" else 0)
+        # bottom-anchored text over a caption on screen at the same time goes above it, never on top of it
+        if st not in ("hook", "title", "card") and any(a < it.rec_out and b > it.rec_in for a, b in low_caps):
+            anim = anim[:-1] + "\\an2\\pos(" + f"{W // 2},{int(base_y - cap_block)}" + ")}"
+        elif st == "cta":
+            anim = "{\\fad(150,200)\\an2\\pos(" + f"{W // 2},{int(base_y)}" + ")}"
         lines.append(f"Dialogue: 2,{_ts(it.rec_in)},{_ts(it.rec_out)},{st},,0,0,0,,{anim}{txt}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path

@@ -47,6 +47,9 @@ class Item(BaseModel):
     speed: float = 1.0
     link: str | None = None
     transform: Transform | None = None
+    # where the picture goes in the output frame, (x, y, w, h) normalised — a panel of a layout (facecam on top,
+    # gameplay below); None = the whole frame. The crop (transform) is taken at the panel's shape.
+    place: tuple[float, float, float, float] | None = None
     gain_db: float = 0.0
     envelope: list[tuple[float, float]] = Field(default_factory=list)  # (timeline t, gain dB) e.g. ducking
     fade_in: float = 0.0

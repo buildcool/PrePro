@@ -152,6 +152,8 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                     s.items[k].whole = True
             elif key == "captions":
                 dd.knobs.captions = "off"
+            elif key.startswith("layout:"):             # no stacked facecam layout: one 9:16 crop of the game
+                dd.knobs.layout = "crop"
             elif key.startswith("music:"):
                 secs = set(key[6:].split(","))
                 for c in p.music:

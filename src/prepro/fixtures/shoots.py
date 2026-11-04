@@ -307,30 +307,39 @@ def _build_gaming(root, truth, *, face, md, quick, sidecars, with_brief):
         A.Line("Oh my god, behind you!", speed=200, pitch=70, amplitude=190, kind="hype", pause_after=1.5),
         A.Line("Double kill! Let's go!", speed=200, pitch=72, amplitude=200, kind="punchline", pause_after=3.0),
         A.Line("Wait, wait, I am so low.", speed=185, pitch=60, pause_after=2.5),
+        A.Line("Noooo! How did he even hit that?", speed=190, pitch=55, amplitude=185, kind="fail", pause_after=2.5),
         A.Line("Victory! We actually won!", speed=190, pitch=70, amplitude=200, kind="payoff", pause_after=1.5),
     ]
     voice = root / "gameplay/.voice.wav"
     spoken = _write_speech(lines, voice, seed=7)
     import soundfile as sf
 
+    cam = face
+    if cam is None:                    # no downloaded face: a drawn streamer in the facecam, mouth on the clean voice
+        cam = V.presenter_clip(voice, root / "gameplay/.facecam.mp4", size=(320, 180), seed=7)
     v, sr = sf.read(str(voice), dtype="float32")
     mix = v.copy()
     boom = A.sfx("explosion")
     for ln in spoken:
-        if ln.kind in ("hype", "punchline", "payoff"):
+        if ln.kind in ("hype", "punchline", "payoff", "fail"):
             at = int(max(0, ln.t0 - 0.4) * sr)
             mix[at: at + len(boom)] += boom[: max(0, min(len(boom), len(mix) - at))] * 0.5
     A.write_wav(voice, mix)
     dur = len(mix) / sr
     events = [(ln.t0, "DOUBLE KILL" if "Double" in ln.text else "VICTORY") for ln in spoken if ln.kind in ("punchline", "payoff")]
-    V.screen_clip(root / "gameplay/match_01.mp4", dur=dur, audio=voice, facecam=face, events=events)
+    V.screen_clip(root / "gameplay/match_01.mp4", dur=dur, audio=voice, facecam=cam, events=events)
     voice.unlink(missing_ok=True)
+    if cam is not face:
+        cam.unlink(missing_ok=True)
     if sidecars:
         write_sidecar(root / "gameplay/match_01.mp4", spoken, "en")
     truth["clips"]["gameplay/match_01.mp4"] = {"kind": "screen", "lines": [asdict(s) for s in spoken], "events": events}
     _music(root, truth, "montage_dnb_174", bpm=174, mood="hype", seed=14, sections=[("intro", 2, 0.5), ("drop", 8, 1.0), ("outro", 2, 0.4)])
     _memes(root)
-    truth["expect"] = {"playbooks": ["gaming"], "highlights": [e[0] for e in events]}
+    # the picture-in-picture facecam sits top-right: 320×180 at (W-344, 24) on 1280×720
+    truth["expect"] = {"playbooks": ["gaming"], "highlights": [e[0] for e in events],
+                       "fails": [ln.t0 for ln in spoken if ln.kind == "fail"],
+                       "facecam": [round(936 / 1280, 3), round(24 / 720, 3), round(1256 / 1280, 3), round(204 / 720, 3)]}
 
 
 def _build_hindi_vlog(root, truth, *, face, md, quick, sidecars, with_brief):

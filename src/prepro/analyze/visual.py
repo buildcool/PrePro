@@ -285,6 +285,95 @@ def _mouth_series(fr: list[FrameStats], seats: list[Seat]) -> list[list[float]]:
     return out
 
 
+def find_facecam(src: Path, duration: float, *, samples: int = 12, width: int = 960) -> list[float] | None:
+    """The picture-in-picture webcam of a screen recording, as [x0, y0, x1, y1] (normalised), or None.
+
+    A steady face in a corner (looked for at 960 px: at the 320 px analysis width a streamer's face in a PiP is too
+    small to detect), then the rectangle around it whose border stays in the same place in every frame while the
+    game and the person move (where the webcam picture meets the game). Without a clear border, a head-and-shoulders
+    box around the face."""
+    det = face_detector()
+    if det.net is None or duration <= 0:
+        return None
+    seen: list[FaceBox] = []
+    freq = None
+    n = 0
+    for t, rgb in iter_frames(src, fps=samples / max(duration, 0.1), width=width):
+        n += 1
+        fh_, fw_ = rgb.shape[:2]
+        for qx, qy in ((0.0, 0.0), (0.5, 0.0), (0.0, 0.5), (0.5, 0.5)):   # each corner on its own: twice the face size
+            crop = rgb[int(qy * fh_): int((qy + 0.5) * fh_), int(qx * fw_): int((qx + 0.5) * fw_)]
+            for b in det(np.ascontiguousarray(crop), t, conf=0.5):
+                x, y, w, h = qx + b.x * 0.5, qy + b.y * 0.5, b.w * 0.5, b.h * 0.5
+                if (x < 0.38 or x > 0.62) and (y < 0.42 or y > 0.58) and w < 0.25:
+                    seen.append(FaceBox(t=b.t, x=x, y=y, w=w, h=h, conf=b.conf))
+        # edges in any colour channel: a webcam border can differ from the game in colour only (blue-grey next to green
+        # of the same brightness is nearly invisible in greyscale)
+        e = cv2.dilate(np.maximum.reduce([cv2.Canny(np.ascontiguousarray(rgb[:, :, c]), 50, 150) for c in range(3)]),
+                       np.ones((3, 3), np.uint8)) > 0
+        freq = e.astype(np.float32) if freq is None else freq + e
+    if not seen or freq is None or n < 3:
+        return None
+    # the steady corner face: the biggest group of detections at about the same place, seen in half the samples
+    groups: list[list[FaceBox]] = []
+    for b in seen:
+        g = next((g for g in groups if abs(g[0].x - b.x) < 0.05 and abs(g[0].y - b.y) < 0.08), None)
+        (g.append(b) if g is not None else groups.append([b]))
+    g = max(groups, key=len)
+    if len({round(b.t, 1) for b in g}) < max(3, n * 0.5):
+        return None
+    fx, fy = float(np.median([b.x for b in g])), float(np.median([b.y for b in g]))
+    fw, fh = float(np.median([b.w for b in g])), float(np.median([b.h for b in g]))
+    on = (freq / n) >= 0.6                             # an edge in (nearly) every sampled frame
+    H, W = on.shape
+
+    def longest(v: np.ndarray) -> int:
+        best = cur = 0
+        for x in v:
+            cur = cur + 1 if x else 0
+            best = max(best, cur)
+        return best
+
+    def line(lo: float, hi: float, span: tuple[float, float], vertical: bool) -> tuple[float, float]:
+        """The straight line in [lo, hi] (columns if vertical, else rows) with the longest unbroken persistent run
+        across `span`: a PiP border runs the webcam's whole height/width, edges inside the picture don't."""
+        size, other = (W, H) if vertical else (H, W)
+        a, b = int(max(0.0, lo) * size), int(min(1.0, hi) * size)
+        s0, s1 = int(max(0.0, span[0]) * other), int(min(1.0, span[1]) * other)
+        best, at = 0, (lo + hi) / 2
+        for k in range(a, b):
+            v = on[s0:s1, k] if vertical else on[k, s0:s1]
+            r = longest(v)
+            if r > best or (r == best and r and abs(k / size - (fx if vertical else fy)) > abs(at - (fx if vertical else fy))):
+                best, at = r, (k + 0.5) / size        # ties: the one farther from the face (the outer frame)
+        return best / other, at
+
+    right, top = fx > 0.5, fy < 0.5
+    # provisional head-and-shoulders box, then snap each side to a border line that persists
+    x0, x1 = fx - 1.3 * fw, fx + 1.3 * fw
+    y0, y1 = fy - 1.1 * fh, fy + 1.4 * fh
+    tall = (fy - 4 * fh, fy + 4 * fh)
+    for _ in range(2):
+        rows = (min(y0, tall[0]), max(y1, tall[1]))
+        r_in, c_in = line(fx - 4.0 * fw, fx - 0.7 * fw, rows, True) if right else line(fx + 0.7 * fw, fx + 4.0 * fw, rows, True)
+        r_out, c_out = line(fx + 0.7 * fw, 1.0, rows, True) if right else line(0.0, fx - 0.7 * fw, rows, True)
+        need = 1.5 * fh
+        if r_in >= need:
+            x0, x1 = (c_in, x1) if right else (x0, c_in)
+        x0, x1 = ((x0, c_out) if r_out >= need else (x0, 1.0)) if right else ((c_out, x1) if r_out >= need else (0.0, x1))
+        cols = (x0 - 0.02, x1 + 0.02)
+        r_in, w_in = line(fy + 0.7 * fh, fy + 4.0 * fh, cols, False) if top else line(fy - 4.0 * fh, fy - 0.7 * fh, cols, False)
+        r_out, w_out = line(0.0, fy - 0.7 * fh, cols, False) if top else line(fy + 0.7 * fh, 1.0, cols, False)
+        need = 0.6 * (x1 - x0)
+        if r_in >= need:
+            y0, y1 = (y0, w_in) if top else (w_in, y1)
+        y0, y1 = ((w_out, y1) if r_out >= need else (0.0, y1)) if top else ((y0, w_out) if r_out >= need else (y0, 1.0))
+    box = [max(0.0, x0), max(0.0, y0), min(1.0, x1), min(1.0, y1)]
+    if box[2] - box[0] < 1.2 * fw or box[3] - box[1] < 1.2 * fh or (box[2] - box[0]) * (box[3] - box[1]) > 0.25:
+        return None                                    # not a PiP: a face in the corner of a normal shot
+    return [round(v, 4) for v in box]
+
+
 def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float, fps: float | None, faces: bool = True) -> tuple[list[Shot], dict]:
     stats: list[FrameStats] = []
     prev_gray = None

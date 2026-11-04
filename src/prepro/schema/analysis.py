@@ -171,6 +171,7 @@ class ClipAnalysis(BaseModel):
     place_cluster: int | None = None
     day_index: int | None = None
     order_key: float = 0.0            # recording order (creation time or name order)
+    facecam: list[float] | None = None   # screen recordings: the picture-in-picture webcam [x0, y0, x1, y1]
     errors: list[str] = Field(default_factory=list)
 
 

@@ -13,7 +13,8 @@ import pytest
 from prepro.fixtures import realmedia, shoots
 
 CACHE = Path(os.environ.get("PREPRO_TEST_SHOOTS") or Path(tempfile.gettempdir()) / "prepro-test-shoots")
-FIXTURE_VERSION = "5"     # 4: TTS via a UTF-8 file (Hindi was noise on Windows); 5: gaming facecam top-right, bundled font
+FIXTURE_VERSION = "6"     # 4: TTS via a UTF-8 file (Hindi was noise on Windows); 5: gaming facecam top-right, bundled font;
+                          # 6: a drawn streamer in the gaming facecam, and a planted death (fail) in the match
 
 
 def have(exe: str) -> bool:

@@ -236,6 +236,21 @@ engine test had been skipped on Windows, not passed.
     subscribers in 1 year?!", with a unit test of garbled cases.
   - The longer hook then failed the cringe guard's reading-time check (7 words in 2.6 s). The hook's time on screen
     now follows its length.
+- **Gaming Shorts (stacked webcam), reviewed frame by frame** — the storyboard takes one frame per shot and missed the
+  important moments, so frames were also grabbed at the reaction, the replay and the payoff:
+  1. Facecam detection found nothing at first: at 960 px the drawn webcam face scored 0.32–0.45, because the whole
+     frame is squeezed to 300×300 for the detector. Corners are now searched one at a time.
+  2. The webcam's inner edge came out 5 % too far in: edges inside the webcam picture (shoulders, the room) beat the
+     border. The border is the line with the longest unbroken run, and it is found in colour, because in the drawn
+     test the blue-grey webcam and the green game had the same brightness. Within 3 px on both test streams.
+  3. "DOUBLE KILL" was on screen three times at once (the game's banner, our hook text, the caption), and the hook
+     text ended on "LET'S". The duplicate is gone, and reactions are shown whole.
+  4. At the big reaction, the callout "DOUBLE KILL!" was drawn over the caption with the same words:
+     "DCDOUBLE KILL!LL!". This had been there since v0.7 and was missed because the storyboard never sampled that
+     moment. The callout now replaces the caption.
+  5. The death merged into the victory window and its meme had nowhere to go. A death and a win are separate beats
+     now: death → facepalm GIF → comeback. The GIF then failed to render (`-loop 1` on a GIF), which no test had
+     ever rendered before.
 - **Phone pack on the GPU** failed the constant-frame-rate check: 30.0006 fps. The NVENC pieces were 1 timestamp tick
   short each (3.233008 s for 97 frames), and the stream-copy join of the clean version carried that over. GPU pieces
   are joined with one more GPU encode now.

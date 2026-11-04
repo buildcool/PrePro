@@ -2,6 +2,29 @@
 
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
+## [Unreleased]
+### Added — gaming Shorts
+- **The webcam in a stream is found.** A streamer's picture-in-picture is located from a steady face in a corner and
+  the border that stays put around it (checked per colour channel, and at higher resolution than the rest of the
+  analysis, because a webcam face is small). On the test streams, with a drawn face and with a real one, it lands
+  within 3 px of the true box.
+- **Vertical gaming Shorts are offered next to the YouTube cut.** When there is a webcam they are stacked: the
+  webcam on top at its own shape, the game below. Hook text and titles sit under the webcam, never over the face.
+  Rejecting the layout gives one plain 9:16 crop.
+- **The webcam gets big on the biggest win** (half the frame in a Short; a picture-in-picture twice the size on
+  YouTube). It happens once per video, and as a decision you can reject.
+- **Fails get their meme.** A death ("Noooo! How did he even hit that?") stays its own beat and is followed by a
+  fail meme from your folder. It never opens the video and never gets a hype callout.
+- Timeline items can be placed in a panel of the frame (`place`), which is how layouts render.
+### Fixed
+- **GIF memes failed to render.** Every image was opened with `-loop 1`, which GIFs don't accept; they now loop with
+  `-stream_loop`.
+- **A callout and the caption drew the same words on top of each other** ("DCDOUBLE KILL!LL!"). The callout now
+  replaces the captions while it is on screen, and any other bottom text stacks above a caption.
+- **"REPLAY"** is a corner tag like a broadcast replay; it was tiny centred text.
+- **On-screen text that only repeats the captioned words is dropped** ("DOUBLE KILL! LET'S" over "DOUBLE KILL!"),
+  and a reaction is shown whole, never as a dangling "LET'S".
+
 ## [0.8.0] — 2026-11-05
 ### Added — podcast and interview two-shots
 - **Who is talking.** In a shot with two or more people sitting still (one wide camera on a podcast), PrePro finds

@@ -6,6 +6,16 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
+- **On `dev`, not released (CHANGELOG [Unreleased]): gaming Shorts.**
+  - `analyze/visual.find_facecam` → `ClipAnalysis.facecam` (ANALYSIS_VERSION 11)
+  - `Item.place` panels in the renderer
+  - `compiler._facecam_layout` (stacked 9:16, `Knobs.layout`, `layout:<asset>` rejection) and `_facecam_moments`
+    (`facecam` cue on the biggest win)
+  - gaming fails (`BasicBrain.FAIL/WIN`, a fail meme keyed `<shot>@<t0>`)
+  - a 9:16 gaming direction is offered next to the 16:9 one
+  - fixture: a drawn streamer webcam + a planted death; FIXTURE_VERSION 6
+- **Next, at the user's request: lifestyle and vlog formats** (photo + text + song reels and the other popular
+  Instagram/YouTube lifestyle formats); gaming is paused after this.
 - **v0.8.0 (released 2026-11-05; CHANGELOG [0.8.0], QA "v0.8"):**
   - GPU video encoding (`media/encoders.py`):
     - candidates NVENC → Quick Sync → AMF, each after a real test encode

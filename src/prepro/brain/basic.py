@@ -119,6 +119,22 @@ def _phrase(words: list[str], max_words: int) -> list[str]:
     return best or words[:max_words]
 
 
+def reaction_text(text: str, max_words: int = 3) -> str:
+    """A streamer's reaction as on-screen text: its first exclamation, whole ("DOUBLE KILL!"), never a dangling
+    "DOUBLE KILL! LET'S"."""
+    first = re.split(r"(?<=[!?.])\s", text.strip())[0]
+    words = _phrase(first.split(), max_words) if len(first.split()) > max_words else first.split()
+    return " ".join(words).upper().rstrip(",;: ")
+
+
+def repeats_speech(text: str, spoken: str) -> bool:
+    """On-screen text that only repeats words being said (and captioned) at the same time is clutter: "DOUBLE KILL!"
+    over a caption "DOUBLE KILL!". A condensed form ("₹5000 for 3 days?!" for "five thousand rupees…") is not."""
+    norm = lambda s: {w for w in re.findall(r"[\w₹$']+", s.lower())}          # noqa: E731
+    shown = norm(text)
+    return bool(shown) and shown <= norm(spoken)
+
+
 def text_hook(seg_text: str, max_words: int = 6) -> str:
     """'So today we are in Goa and I spent only five thousand rupees for three full days.' → '₹5000 for 3 days?!'
     'Honestly, it started with one video I almost did not upload.' → '1 video I almost didn't upload?!'"""
@@ -281,7 +297,7 @@ class BasicBrain:
                 r = self._seg(e["reaction"]) if e["reaction"] else None
                 if sh is not None:
                     opts.append(HookOption(id=f"h{len(opts)}", kind="peak_moment", refs=[sh.id],
-                                           text_hook=" ".join(r.text.split()[:3]).upper().rstrip(",;: ") if r else None,
+                                           text_hook=reaction_text(r.text) if r else None,
                                            why=f"open on the best play ({e['kind'].replace('+', ' + ')} at {e['t']:.1f} s)" +
                                                (f" — “{r.text.strip()[:40]}”" if r else ""),
                                            score=round(min(1.0, 0.55 + 0.3 * min(1.0, e["score"] / 1.5)), 3)))
@@ -370,6 +386,19 @@ class BasicBrain:
             d.outline = self.outline(d)
             d.coverage_gaps = self.coverage_gaps(d)
             out.append(d)
+        # a stream makes a YouTube highlight *and* a vertical Short: offer both (the Short stacks the webcam on top)
+        g = next((d for d in out if d.playbook == "gaming" and d.aspect == "16:9" and not d.from_brief), None)
+        if g is not None and len(out) < max_n and not prefs.aspect:
+            s = g.model_copy(deep=True)
+            tgt = min(g.knobs.target_length or 30.0, 45.0)
+            s.id, s.aspect, s.name = f"d{len(out) + 1}", "9:16", self.direction_name("gaming", "9:16", tgt)
+            s.knobs.target_length, s.target_min, s.target_max = tgt, round(max(5.0, tgt * 0.85), 1), round(tgt * 1.15, 1)
+            s.knobs.captions = "bold" if s.knobs.captions == "clean" else s.knobs.captions
+            cam = any(self.pa.clips[a.id].facecam for a in self.pa.assets if a.id in self.pa.clips)
+            s.why = "the same plays as a vertical Short" + (" — your webcam stacked on top, the game below" if cam else "")
+            s.fit_score = round(g.fit_score * 0.95, 3)
+            s.outline, s.coverage_gaps = self.outline(s), self.coverage_gaps(s)
+            out.append(s)
         notes = f"{len(self.usable_segments())} usable talking segments ({speech_ok:.0f}s), {len(self.good_shots())} usable B-roll shots"
         return DirectionSet(directions=out, notes=notes)
 
@@ -914,6 +943,18 @@ class BasicBrain:
     RESPONSE = re.compile(r"^\s*(wait|really|right|exactly|yeah|yes|yep|no|nope|true|totally|wow|oh|ha+|okay|ok|hmm+|what)\b", re.I)
     ECHO_STOP = frozenset(["a", "an", "the", "and", "or", "but", "so", "to", "of", "in", "on", "at", "for", "with", "is", "it", "this", "that", "i", "you", "we", "they", "he", "she", "me", "my", "your", "our", "was", "were", "be", "been", "am", "are", "do", "did", "not", "no", "yes", "just", "very", "really", "what", "wait"])
 
+    def _opening_speech(self, it: StoryItem) -> str:
+        """What is said during the first item of the cut: its line, or the lines inside a shot window (a gameplay
+        cold open plays the streamer's reaction)."""
+        seg = self._seg(it.ref)
+        if seg is not None:
+            return seg.text
+        shot = self._shot(it.ref)
+        if shot is None or not self.pa.clips[shot.asset_id].transcript:
+            return ""
+        a, b = (it.t0 if it.t0 is not None else shot.t0), (it.t1 if it.t1 is not None else shot.t1)
+        return " ".join(s.text for s in self.pa.clips[shot.asset_id].transcript.segments if s.t1 > a and s.t0 < b)
+
     def responds(self, s: Segment, prev: Segment | None) -> bool:
         """`s` answers or echoes the line before it, said by someone else ("Wait, you almost did not upload it?",
         "Eleven times!", "Right."): without that line it makes no sense, so it can't open a clip or survive alone."""
@@ -1002,6 +1043,8 @@ class BasicBrain:
                          why="dialogue in order, pauses tightened except the beat before each punchline, reaction cutaway after it")
 
     REACTION = re.compile(r"\b(let'?s go|no way|oh my god|omg|what|victory|won|win|kill|clutch|headshot|insane|yes|noo+|bro)\b", re.I)
+    FAIL = re.compile(r"\b(noo+|i died|i'?m dead|dead|how did|lag+|bruh|ugh|why|nahh*)\b", re.I)
+    WIN = re.compile(r"\b(kill|kills|won|win|victory|let'?s go|clutch|headshot|yes+)\b", re.I)
 
     def _game_events(self, asset_id: str) -> list[dict]:
         """Highlights in gameplay: an impact (explosion/shot) followed by the streamer's reaction is the classic
@@ -1030,16 +1073,21 @@ class BasicBrain:
         def reaction(s) -> float:
             return 0.5 * s.text.strip().endswith("!") + 0.4 * bool(self.REACTION.search(s.text)) + 0.2 * min(1.0, max(0.0, s.energy) / 1.5)
 
+        def fail(s) -> bool:              # a death / a miss: "Noooo! How did he even hit that?" (not "No way, double kill!")
+            return bool(s is not None and self.FAIL.search(s.text) and not self.WIN.search(s.text))
+
         events, used = [], set()
         for t, strength in hits:
             r = next((s for s in segs if t - 0.3 <= s.t0 <= t + 2.5 and reaction(s) >= 0.4), None)
             score = 0.5 + min(0.3, strength / 150) + (reaction(r) if r else 0.0)
-            events.append({"t": t, "score": round(score, 3), "reaction": r.id if r else None, "kind": "impact+reaction" if r else "impact"})
+            events.append({"t": t, "score": round(score, 3), "reaction": r.id if r else None, "kind": "impact+reaction" if r else "impact",
+                           "fail": fail(r)})
             if r:
                 used.add(r.id)
         for s in segs:
             if s.id not in used and reaction(s) >= 0.8:
-                events.append({"t": max(0.0, s.t0 - 0.3), "score": round(0.3 + reaction(s) * 0.5, 3), "reaction": s.id, "kind": "reaction"})
+                events.append({"t": max(0.0, s.t0 - 0.3), "score": round(0.3 + reaction(s) * 0.5, 3), "reaction": s.id, "kind": "reaction",
+                               "fail": fail(s)})
         cache[asset_id] = sorted(events, key=lambda e: e["t"])
         return cache[asset_id]
 
@@ -1076,13 +1124,20 @@ class BasicBrain:
         for m in moments:
             if merged and merged[-1]["asset"] == m["asset"] and m["t0"] <= merged[-1]["t1"] + 0.5:
                 last = merged[-1]
+                if bool(last.get("fail")) != bool(m.get("fail")):
+                    # a death and a win are separate beats (the fail meme goes between them): split where the first
+                    # one ends, so no frame plays twice
+                    m = {**m, "t0": max(m["t0"], last["t1"])}
+                    if m["t1"] - m["t0"] >= 1.0:
+                        merged.append(m)
+                    continue
                 last["t1"] = max(last["t1"], m["t1"])
                 if m["score"] > last["score"]:
-                    last.update({k: m[k] for k in ("t", "score", "reaction", "kind")})
+                    last.update({k: m[k] for k in ("t", "score", "reaction", "kind", "fail")})
                 continue
             merged.append(dict(m))
         target = d.knobs.target_length or 45
-        best = max(merged, key=lambda m: m["score"])
+        best = max(merged, key=lambda m: (not m.get("fail"), m["score"]))     # a death is no cold open — the best win is
         final = max(merged, key=lambda m: m["t"])          # the last play is the payoff — never cut it
         chosen, total = [final], 2.4 + (final["t1"] - final["t0"])
         for m in sorted(merged, key=lambda m: -m["score"]):
@@ -1101,7 +1156,7 @@ class BasicBrain:
         for k, m in enumerate(chosen):
             role = "payoff" if k == len(chosen) - 1 and len(chosen) > 1 else "highlight"
             items.append(StoryItem(ref=m["shot"].id, role=role, t0=round(m["t0"], 3), t1=round(m["t1"], 3), section="match",
-                                   note=f"{m['kind'].replace('+', ' + ')} at {m['t']:.1f}s"))
+                                   note=f"{m['kind'].replace('+', ' + ')} at {m['t']:.1f}s" + (" · fail" if m.get("fail") else "")))
             if m is best and "speed" not in self.no:
                 r0 = max(m["shot"].t0, best["t"] - 0.3)
                 items.append(StoryItem(ref=m["shot"].id, role="replay", t0=round(r0, 3), t1=round(min(m["shot"].t1, r0 + 1.0), 3), section="replay",
@@ -1213,6 +1268,20 @@ class BasicBrain:
                 asset = r.arg.get("asset") or self._pick_meme(["shock", "irony"])
                 pp.effects.append(EffectCue(type="meme", at=at, asset=asset, intent="brief", why=f"you asked: {r.source.strip()}", confidence=1.0))
                 placed += 1
+        if d.playbook == "gaming" and meme_ok:
+            # gaming: a fail meme right after the death — the setback before the comeback, and the classic gaming beat
+            for it in story.items:
+                if placed >= meme_budget or "fail" not in (it.note or "").split() or it.t0 is None:
+                    continue
+                asset = self._pick_meme(["fail"])
+                if asset is None:
+                    continue
+                said = next((self._seg(e["reaction"]) for e in self._game_events(self._shot(it.ref).asset_id)
+                             if e.get("fail") and e["reaction"] and it.t0 <= e["t"] <= (it.t1 or e["t"])), None)
+                pp.effects.append(EffectCue(type="meme", at=f"{it.ref}@{it.t0:.1f}", asset=asset, intent="fail",
+                                            why="fail meme right after the death" + (f": “{said.text.strip()[:40]}”" if said else ""),
+                                            confidence=0.7 if not asset.startswith("meme:") else 0.45))
+                placed += 1
         if d.playbook == "comedy" and meme_ok:
             # comedy: the meme goes after a real punchline — the one a library meme literally matches first, else the button
             punches = [it for it in story.items if it.role == "punchline" and self._seg(it.ref)]
@@ -1281,12 +1350,12 @@ class BasicBrain:
         # gaming: a callout on the best plays in the streamer's own words, a REPLAY label on the slow-mo
         if d.playbook == "gaming" and "text" not in self.no:
             if any(sec.name == "replay" for sec in story.sections) and any(it.role == "replay" for it in story.items):
-                pp.effects.append(EffectCue(type="text", at="section:replay", text="REPLAY", style="small", dur=1.4, confidence=0.75,
-                                            why="label the slow-mo replay so it reads as a replay, not a glitch"))
+                pp.effects.append(EffectCue(type="text", at="section:replay", text="REPLAY", style="card", dur=1.4, confidence=0.75,
+                                            why="a replay tag in the corner, like a broadcast, so the slow-mo reads as a replay, not a glitch"))
             last_t = -1e9
             for it in story.items:
-                if it.role not in ("highlight", "payoff") or "reaction" not in (it.note or ""):
-                    continue
+                if it.role not in ("highlight", "payoff") or "reaction" not in (it.note or "") or "fail" in (it.note or "").split():
+                    continue                     # a death gets its meme, not a hype callout
                 inside = [e for a in self.pa.assets if a.kind in (AssetKind.SCREEN, AssetKind.AROLL) for e in self._game_events(a.id)
                           if e["reaction"] and it.t0 is not None and it.t0 <= e["t"] <= (it.t1 or e["t"])]
                 ev = max(inside, key=lambda e: e["score"]) if inside else None
@@ -1296,11 +1365,27 @@ class BasicBrain:
                 words = [w for w in self.pa.words(r.asset_id) if w.id in r.word_ids and not w.filler]
                 if not words:
                     continue
-                first_clause = re.split(r"(?<=[!?.])\s", r.text.strip())[0]
-                call = " ".join(first_clause.split()[:3]).upper().rstrip(",;: ")
+                call = reaction_text(r.text)
                 pp.effects.append(EffectCue(type="text", at=words[0].id, text=call, style="callout", dur=max(1.6, 0.9 + len(call.split()) / 2.5),
                                             confidence=0.7, why=f"callout on the play, in your words: “{call}”"))
                 last_t = ev["t"]
+        # gaming with a webcam: the streamer's face, big, on the single biggest reaction (once — a habit would be noise)
+        if d.playbook == "gaming" and "zoom" not in self.no:
+            best = None
+            for it in story.items:
+                sh = self._shot(it.ref)
+                if it.role not in ("highlight", "payoff") or it.t0 is None or sh is None:
+                    continue
+                for e in self._game_events(sh.asset_id):
+                    rank = (not e.get("fail"), e["score"])        # the biggest win; a death gets its meme instead
+                    if e["reaction"] and it.t0 <= e["t"] <= (it.t1 or e["t"]) and (best is None or rank > (not best.get("fail"), best["score"])):
+                        best = e
+            r = self._seg(best["reaction"]) if best else None
+            if r is not None and self.pa.clips[r.asset_id].facecam:
+                words = [w for w in self.pa.words(r.asset_id) if w.id in r.word_ids and not w.filler]
+                if words:
+                    pp.effects.append(EffectCue(type="facecam", at=words[0].id, dur=round(min(2.2, max(1.4, r.t1 - r.t0 + 0.4)), 2),
+                                                confidence=0.75, why=f"your face, big, on the biggest reaction: “{reaction_text(r.text)}”"))
         # open loop: "later…" on the flash-forward; re-hooks at later parts
         for it in story.items:
             if it.role == "flashforward" and "text" not in self.no:
@@ -1323,6 +1408,8 @@ class BasicBrain:
             hook_text = text_hook(premise.text) if premise else None
             if hook_text and set(re.findall(r"[a-z]{4,}", hook_text.lower())) & punch_words - set(re.findall(r"[a-z]{4,}", premise.text.lower())):
                 hook_text = None
+        if hook_text and story.items and repeats_speech(hook_text, self._opening_speech(story.items[0])):
+            hook_text = None              # the captions already say exactly this at the same moment: no echo on screen
         if d.aspect == "9:16" and hook_text:
             read = round(max(2.6, 0.8 + len(hook_text.split()) / 3.0), 1)      # long enough to read (≈ 3 words/s)
             pp.effects.append(EffectCue(type="text", at="start", text=hook_text, style="hook", dur=read, why="on-screen text hook (works on mute)", confidence=0.7))

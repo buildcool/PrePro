@@ -21,7 +21,7 @@ from .speakers import assign_speakers
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
 
-ANALYSIS_VERSION = 10          # 10: seats + mouth movement in multi-person shots, a speaker per line
+ANALYSIS_VERSION = 11          # 10: seats + mouth movement, a speaker per line; 11: the facecam of screen recordings
 Progress = Callable[[str, int, int, str], None]
 
 
@@ -87,6 +87,12 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
                 ca.errors.append(meta["error"])
             if ca.transcript and any(s.seats for s in ca.shots):
                 assign_speakers(ca)          # two-shots: who says each line (for framing on the speaker)
+            static = max((s.static_ratio for s in ca.shots), default=0.0)
+            hud = max((s.hud for s in ca.shots), default=0.0)
+            if faces and (kind == AssetKind.SCREEN or (0.01 < static < 0.6 and hud > 0.06)):     # a screen recording
+                from .visual import find_facecam
+
+                ca.facecam = find_facecam(src, a.info.duration)    # the streamer's webcam, for gaming layouts
             if kind in (AssetKind.MEME_VIDEO, AssetKind.MEME_IMAGE):
                 for sh in ca.shots:
                     sh.flags = []      # memes are designed that way (dark/blurry is intentional)
