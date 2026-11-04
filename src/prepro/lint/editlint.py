@@ -55,6 +55,28 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
                 out.append(Finding(rule="monotone", severity="info", msg="5+ montage shots with identical length — vary the rhythm", t=b.rec_in))
         else:
             run = 1
+    # shot grammar: two B-roll shots of the same size from the same clip back to back read as one shot, stuttering
+    def size(it):
+        if not it.asset_id or it.asset_id not in pa.clips:
+            return None
+        sh = next((x for x in pa.clips[it.asset_id].shots if x.t0 - 1e-3 <= (it.src_in + it.src_out) / 2 <= x.t1 + 1e-3), None)
+        if sh is None:
+            return None
+        faces = [f for f in sh.faces if it.src_in - 0.5 <= f.t <= it.src_out + 0.5]
+        if faces:
+            h = max(f.h for f in faces)
+            return "close" if h >= 0.33 else ("medium" if h >= 0.15 else "wide")
+        return sh.shot_type
+    broll_v1 = [i for i in v1 if i.kind == "video" and i.asset_id and pa.asset(i.asset_id).kind == AssetKind.BROLL and i.role != "meme"]
+    for a, b in zip(broll_v1, broll_v1[1:], strict=False):
+        if abs(a.rec_out - b.rec_in) < 0.05 and a.asset_id == b.asset_id and size(a) and size(a) == size(b) and b.role not in ("loop",):
+            out.append(Finding(rule="samesize", severity="info", msg=f"two {size(a)} shots of the same scene back to back — vary the framing",
+                               t=b.rec_in))
+    # open loops must be paid off later in the same cut
+    for ff in (i for i in v1 if i.role == "flashforward"):
+        if not any(i.ref == ff.ref and i.rec_in > ff.rec_out and i.role != "flashforward" for i in v1):
+            out.append(Finding(rule="open_loop_unpaid", severity="error", msg="a flash-forward promises a moment the cut never shows", t=ff.rec_in,
+                               fix=FixOp(op="drop_effect", target=f"open_loop:{ff.ref}", why="never promise what the video doesn't pay off")))
     # dead zones (no visual change)
     events = sorted({0.0, dur} | {i.rec_in for i in tl.items if i.track in ("V1", "V2", "V3", "T1")} |
                     {i.rec_out for i in tl.items if i.track in ("V2", "V3", "T1")})
@@ -62,11 +84,16 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
         # slow push-ins count as change
         moving = any(i.transform and any(k.zoom > 1.01 for k in i.transform.keys) and i.rec_in <= a < i.rec_out for i in v1)
         if b - a > pb.pacing.dead_zone and not moving:
-            out.append(Finding(rule="deadzone", severity="warn", msg=f"{b - a:.1f}s with no visual change (limit {pb.pacing.dead_zone:.0f}s) — add a B-roll cutaway or punch-in", t=a))
+            mid = (a + b) / 2
+            on = next((i for i in v1 if i.rec_in <= mid < i.rec_out and i.ref), None)
+            fix = FixOp(op="add_effect", target=on.ref, arg={"kind": "deadzone", "t0": round(a, 2), "t1": round(b, 2)},
+                        why="break a dull stretch") if on is not None and d.playbook != "aesthetic" else None
+            out.append(Finding(rule="deadzone", severity="warn", msg=f"{b - a:.1f}s with no visual change (limit {pb.pacing.dead_zone:.0f}s) — add a B-roll cutaway or punch-in",
+                               t=a, fix=fix))
     # effect density vs budget
     counts = defaultdict(int)
     for i in v1:
-        if i.transform and i.transform.zoom > 1.01:
+        if i.transform and i.transform.zoom > 1.01 and i.note != "reframe":   # jump-cut reframes are framing, not effects
             counts["zoom"] += 1
         if i.transition_in != "cut":
             counts["transition"] += 1
@@ -292,6 +319,12 @@ def apply_fixes(findings: list[Finding], polish: PolishPlan, story: StoryPlan, p
         elif op.op == "drop_effect" and ":" in op.target and not op.target.startswith("sfx@"):
             typ, at = op.target.split(":", 1)
             p.effects = [c for c in p.effects if not (c.confidence < 1.0 and c.type == typ and (c.at == at or c.asset == at))]
+        elif op.op == "add_effect" and op.arg.get("kind") == "deadzone":
+            _fix_deadzone(op.target, p, s, pa)
+        elif op.op == "drop_effect" and op.target.startswith("open_loop:"):
+            ref = op.target.split(":", 1)[1]
+            s.items = [it for it in s.items if not (it.ref == ref and it.role == "flashforward")]
+            p.effects = [c for c in p.effects if not (c.type == "text" and c.intent == "open_loop" and c.at == ref)]
         elif op.op == "drop_effect" and op.target.startswith("sfx@"):
             # drop the later of two identical sfx: lower its confidence below the apply threshold
             t = float(op.target.split("@", 1)[1])
@@ -300,3 +333,31 @@ def apply_fixes(findings: list[Finding], polish: PolishPlan, story: StoryPlan, p
             if len(sfx) > 1:
                 p.effects.remove(sfx[-1])
     return p, s
+
+
+def _fix_deadzone(ref: str, p: PolishPlan, s: StoryPlan, pa: ProjectAnalysis) -> None:
+    """Cheapest honest fix for a dull stretch: a same-place B-roll cutaway over talking, else a punch-in on its
+    strongest word; wordless B-roll gets a gentle speed-up. Never on purpose-slow moments (handled by the caller)."""
+    from ..schema.media import AssetKind
+    from ..schema.plan import EffectCue
+
+    seg = next((x for x in pa.all_segments() if x.id == ref), None)
+    if seg is not None:
+        used = {it.ref for it in s.items} | {c.asset for c in p.effects if c.type == "broll" and c.asset}
+        ca = pa.clips[seg.asset_id]
+        same = [sh for a in pa.assets if a.kind == AssetKind.BROLL and (pa.clips[a.id].day_index, pa.clips[a.id].place_cluster) ==
+                (ca.day_index, ca.place_cluster) for sh in pa.clips[a.id].shots
+                if sh.id not in used and not set(sh.flags) & {"dark", "blurry", "shaky", "pocket"} and sh.dur >= 1.5]
+        if same and not any(c.type == "broll" and c.at == seg.id for c in p.effects):
+            sh = max(same, key=lambda x: x.quality)
+            p.effects.append(EffectCue(type="broll", at=seg.id, asset=sh.id, dur=round(min(3.0, sh.dur), 2), confidence=0.7,
+                                       why="break a dull stretch: show what you're talking about"))
+            return
+        words = [w for w in pa.words(seg.asset_id) if w.id in seg.word_ids and not w.filler and w.t0 >= seg.t0 + 1.0]
+        if words and not any(c.type == "zoom" and c.at in seg.word_ids for c in p.effects):
+            w = max(words, key=lambda w: (w.emphasis, len(w.text)))
+            p.effects.append(EffectCue(type="zoom", at=w.id, value=1.14, confidence=0.7, why=f"break a dull stretch: punch in on “{w.text}”"))
+        return
+    shot = next((x for x in pa.all_shots() if x.id == ref), None)
+    if shot is not None and not any(c.type == "speed" and c.at == ref for c in p.effects):
+        p.effects.append(EffectCue(type="speed", at=ref, value=1.5, confidence=0.65, why="break a dull stretch: speed up a long wordless shot"))

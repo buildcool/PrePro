@@ -4,6 +4,56 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-04
+### Added — Editor's Craft v2 (what top editors do; every technique is a reasoned, rejectable decision)
+- **Technique cards** (`knowledge/craft.yaml`): one card per technique with its trigger, recipe, "not when"
+  guardrails, budget and source. The rules engine follows them, they go into the AI brain's system prompt, and the
+  critic checks against them.
+- **J/L split edits.** The voice starts under the previous shot (J) or runs on under the next picture (L) at
+  talking ↔ B-roll and place changes.
+  - Only the picture cut moves, so words are never clipped.
+  - Amounts are set per genre; comedy and hype stay crisp.
+  - Exported to every NLE as is.
+- **Open loops.**
+  - A 1–1.3 s flash-forward of the payoff right after the hook, with "later…" on screen.
+  - It must be paid off later in the cut; the new `open_loop_unpaid` lint removes it otherwise.
+  - Rejecting it keeps the payoff.
+- **Re-hooks.** In long talks, at the start of a later part, the part's own number/question/"but" line goes on
+  screen (with a soft riser). Shorts get one every 20–30 s after the first 30 s; long-form every 2–3 minutes. The
+  text is readable and stays up long enough.
+- **Dull stretches get fixed, not just flagged:**
+  - talking: a same-place B-roll cutaway, else a punch-in on the strongest word
+  - wordless B-roll: a gentle speed-up
+  - aesthetic holds are left alone
+- **Jump cuts on talking heads alternate framing (100 ↔ 112 %)** on every cut, based on the framing actually on
+  screen. Reframes no longer count as zoom "effects", so the over-stimulation check stopped stripping them.
+- **Comedy.**
+  - Detected automatically: dialogue-led footage with short punchy lines and a meme/SFX kit.
+  - Punchlines are the "!" line, the comeback and the short button line.
+  - A beat before each punchline and a hold after it, and the pause is never played twice.
+  - The meme from your folder that matches the line goes after it ("Emotional damage." → `emotional_damage_fail.mp4`).
+  - The text hook teases the premise, never the punchline.
+- **Montages:**
+  - moments ordered for motion/colour flow, with the same angle never back to back
+  - vertical cuts end on a fresh moment of the opening image, so Shorts loop seamlessly
+- **Cringe guard** (`lint/ghinn.py`). A `no_cringe` score with every failed check named:
+  - empty frames
+  - a repeated moment
+  - effects without a reason
+  - effect density beyond the genre
+  - music that stops dead
+  - text too short to read
+  - loudness jumps
+  - jump cuts without reframing
+  - memes in serious moments
+- **Path previews.** "Show me each path" renders the first 6 s of every direction (360p, free, local) right in its
+  card.
+- Shot-size lint (`samesize`). New decision filters in the review app: open loop, split, timing, loop.
+### Fixed
+- **Style DNA** missed captions drawn over a dark shirt. An outlined-text detector fixes it; this was a CI-only
+  case with the drawn presenter.
+- **A test needing espeak-ng** wasn't marked; Windows CI failed on it.
+
 ## [0.5.0] — 2026-11-04
 ### Added
 - **Packaging** (Export → "Packaging", Review → More → "Make thumbnails & titles", `--formats package`):

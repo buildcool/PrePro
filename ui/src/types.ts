@@ -74,6 +74,7 @@ export interface Summary {
   style: StyleDNA | null;
   style_refs: string[];
   asr: string[];
+  previews: Record<string, string>;
   brief: { text: string; parsed: Brief | null };
 }
 

@@ -1,0 +1,97 @@
+# Editor's craft: techniques top editors use, written as rules the engine (and the AI brain) can follow.
+# Each card: what triggers it (signals the analysis already has), the recipe, guardrails (when NOT to),
+# a budget, and where the idea comes from. Practitioner sources disagree on exact timings, so numbers are
+# ranges per genre — and restraint always wins (constitution rule 7).
+
+- id: split_edit
+  name: J/L cut (split edit)
+  genres: [story_vlog, travel_film, talking_head, podcast_clip, aesthetic, comedy, gaming, teaser]
+  trigger: a change of place/scene, or talking → B-roll, where the incoming sound is interesting (ambience, a voice
+    starting, a product sound) or the outgoing voice is still finishing its thought
+  recipe: J-cut — start the next clip's sound 0.3–0.8 s before its picture; L-cut — let the current voice run
+    0.3–0.6 s under the next picture
+  guardrails: never split a word (snap to word boundaries); not into or out of music-led montage sections; not on
+    the hook's first second
+  budget: at most one split edit per transition
+  source: Adobe / Soundstripe / MasterClass guides on J and L cuts
+
+- id: rehook
+  name: Re-hook (pattern interrupt with a reason)
+  genres: [story_vlog, talking_head, podcast_clip, gaming, comedy]
+  trigger: a cut longer than ~35 s (Shorts) or ~2.5 min (long-form) with no new question, place or payoff for a while
+  recipe: at the start of the next part, put its "but / question / number" line on screen as a short text card,
+    with a punch-in on the line and a soft riser into it
+  guardrails: only with a real line to point at (never generic "wait for it"); never two within 20 s; skip in
+    aesthetic and cinematic films
+  budget: Shorts — one every 20–30 s after the first 30 s; long-form — one every 2–3 minutes
+  source: retention-editing guides (pattern interrupts, open loops); Hook → Retain → Reward
+
+- id: open_loop
+  name: Open loop / flash-forward
+  genres: [story_vlog, teaser, gaming]
+  trigger: the strongest payoff moment (biggest action peak or emphasised claim) sits in the last third of the cut
+  recipe: right after the hook, show 1–1.5 s of that payoff with a "later…" text, then go back to the story
+  guardrails: at most 2 open loops per video and every one must be paid off later in the same cut; never spoil a
+    reveal the creator marked must-hide
+  budget: 1 (2 for videos over 5 minutes)
+  source: retention guides on open loops (limit them, always pay them off)
+
+- id: deadzone_fix
+  name: Fix a dull stretch
+  genres: [all]
+  trigger: the attention curve stays high-risk longer than the playbook's dead-zone limit
+  recipe: cheapest first — tighten pauses → cover with same-place B-roll → punch-in on the next emphasised word →
+    speed up wordless B-roll 1.5–2× → (last resort) suggest cutting the stretch
+  guardrails: never on purpose-slow moments (aesthetic holds, comedy beats, emotional pauses)
+  budget: as needed, within the playbook's effect budgets
+  source: retention editing; Murch — rhythm serves emotion and story
+
+- id: shot_grammar
+  name: Scene grammar & shot-size variety
+  genres: [story_vlog, travel_film, aesthetic, teaser]
+  trigger: a scene/place with several shots
+  recipe: establishing wide → medium → detail/close → reaction; consecutive shots change size or subject
+  guardrails: montages on the beat may repeat sizes on purpose (rhythm); never break a continuous action
+  budget: —
+  source: classic continuity editing; Casey Neistat scene construction
+
+- id: motion_continuity
+  name: Motion continuity / match cut
+  genres: [travel_film, hype_reel, teaser, story_vlog]
+  trigger: montage of moving shots (pans, walking subjects)
+  recipe: order shots so movement continues in the same direction across cuts; cut on the motion; avoid big
+    brightness/colour jumps between neighbours
+  guardrails: a deliberate direction change marks a new section (e.g. on the drop)
+  budget: —
+  source: cinematic travel editing; match-cut practice
+
+- id: loop_ending
+  name: Seamless loop ending (Shorts/Reels)
+  genres: [hype_reel, travel_film, aesthetic, comedy, gaming, podcast_clip, story_vlog]
+  trigger: a vertical cut of 60 s or less
+  recipe: end on a moment whose last frame matches the first frame (subject size/position/colour), or on a line that
+    leads back into the hook (cut-off ending); land music on an equivalent beat
+  guardrails: the video must still make sense on the first watch — never a trick ending
+  budget: 1
+  source: vidIQ / CapCut loop guides
+
+- id: comedy_timing
+  name: Comedy timing
+  genres: [comedy, story_vlog, gaming, talking_head]
+  trigger: a punchline (a line that ends with "!", a laugh after it, or a planted punchline tag)
+  recipe: keep a 0.3–0.6 s beat before the punchline (don't tighten it away); after it cut fast to the reaction or
+    hold 0.5 s; a meme/SFX lands on the reaction, never over the line
+  guardrails: no meme in sad/serious/sponsor moments; one meme per joke
+  budget: playbook meme/SFX budgets
+  source: comedy-editing guides (cut to the reaction, hold the beat)
+
+- id: ghinn_guard
+  name: Cringe guard
+  genres: [all]
+  trigger: every cut, before it is shown
+  recipe: score and fix the things viewers hate — empty frames, the same moment twice, effects without a reason,
+    effects above the genre norm, music mood against the content, music that stops dead, text too short to read,
+    loudness jumps between clips, jump cuts without reframing, memes in serious moments, clipped words
+  guardrails: report what can't be fixed safely instead of guessing
+  budget: —
+  source: why auto-edits feel cheap — "cuts fine, rhythm wrong", "random good moments, no story", clipped words

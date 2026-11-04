@@ -317,7 +317,9 @@ class BasicBrain:
     def target_length(self, pbk: str, speech_ok: float, broll_ok: float) -> float:
         pb = K.playbook(pbk)
         lo, hi = pb.target
-        if pbk in ("story_vlog", "talking_head", "podcast_clip", "comedy"):
+        if pbk == "comedy":
+            est = speech_ok * 1.25 + 3.0        # dialogue + the beats around punchlines + a meme cutaway or two
+        elif pbk in ("story_vlog", "talking_head", "podcast_clip"):
             est = speech_ok * 0.98 + (min(broll_ok, speech_ok * 0.5) * 0.35 if pbk == "story_vlog" else 0)
         elif pbk == "gaming":
             est = speech_ok * 0.9 + 6
@@ -386,7 +388,76 @@ class BasicBrain:
     # ------------------------------------------------------------ story
     def story(self, d: Direction) -> StoryPlan:
         fn = getattr(self, f"_story_{d.playbook}", None) or self._story_story_vlog
-        return fn(d)
+        sp = fn(d)
+        if d.playbook in ("story_vlog", "teaser", "gaming") and "open_loop" not in self.no:
+            self._open_loop(d, sp)
+        return sp
+
+    def _open_loop(self, d: Direction, sp: StoryPlan) -> None:
+        """Flash-forward: right after the hook, 1–1.5 s of the payoff that comes in the last third — an open loop the
+        cut then pays off. One per video; only when the payoff is a real action moment that stays in the cut."""
+        if len(sp.items) < 4 or any(it.role == "flashforward" for it in sp.items):
+            return
+        est, times = 0.0, []
+        for it in sp.items:
+            seg, shot = self._seg(it.ref), self._shot(it.ref)
+            dur = (it.t1 - it.t0) if it.t0 is not None and it.t1 is not None else ((seg.t1 - seg.t0) if seg else (min(3.0, shot.dur) if shot else 2.0))
+            times.append(est)
+            est += dur
+        if est < 25:
+            return
+        hook_refs = {sp.items[0].ref}
+        late = [(t, it) for t, it in zip(times, sp.items, strict=True) if t >= est * 0.6 and it.ref not in hook_refs and self._shot(it.ref)]
+        best = None
+        for _t, it in late:
+            sh = self._shot(it.ref)
+            a = it.t0 if it.t0 is not None else sh.t0
+            b = it.t1 if it.t1 is not None else sh.t1
+            peaks = [p for p in sh.action_peaks if a <= p <= b]
+            if peaks and sh.quality >= 0.6 and not set(sh.flags) & {"dark", "blurry", "shaky", "pocket"}:
+                score = sh.quality + 0.3 * len(peaks) + 0.2 * ((self.assets[sh.asset_id].info.fps or 30) >= 48)
+                if best is None or score > best[0]:
+                    best = (score, sh, peaks[0])
+        if best is None:
+            return
+        _s, sh, peak = best
+        t0 = max(sh.t0, peak - 0.6)
+        ff = StoryItem(ref=sh.id, role="flashforward", t0=round(t0, 3), t1=round(min(sh.t1, t0 + 1.3), 3), section=sp.items[0].section,
+                       note="flash-forward of the payoff: an open loop the video pays off later")
+        sp.items.insert(1, ff)
+
+    def _rehooks(self, d: Direction, story: StoryPlan, pp: PolishPlan) -> None:
+        """Re-hooks: a fresh reason to keep watching at the start of a later part — its own question / number / "but"
+        line put on screen. Shorts: one every 20–30 s after the first 30 s; long-form: every 2–3 minutes."""
+        if d.playbook not in ("story_vlog", "talking_head", "podcast_clip", "gaming", "comedy") or "text" in self.no:
+            return
+        vertical = d.aspect == "9:16"
+        first, every = (30.0, 25.0) if vertical else (150.0, 150.0)
+        t, last = 0.0, -1e9
+        taken = {c.at for c in pp.effects if c.type == "text"}
+        for it in story.items:
+            seg = self._seg(it.ref)
+            shot = self._shot(it.ref)
+            dur = (it.t1 - it.t0) if it.t0 is not None and it.t1 is not None else ((seg.t1 - seg.t0) if seg else (min(3.0, shot.dur) if shot else 2.0))
+            if seg is not None and t >= first and t - last >= every and it.role not in ("hook", "cta", "outro") and seg.id not in taken:
+                strong = ("question" in seg.tags or "numbers" in seg.tags
+                          or re.match(r"^\s*(but|so here|now|the best part|the worst|wait|here's|and then)\b", seg.text, re.I))
+                words = ""
+                if strong:
+                    from ..packaging import thumb_text
+
+                    words = thumb_text(seg.text, max_words=5)
+                    if len(words.split()) < 2:
+                        words = ""
+                if words:
+                    hold = round(max(2.0, 0.9 + len(words.split()) / 2.5), 1)
+                    pp.effects.append(EffectCue(type="text", at=seg.id, text=words, style="callout", dur=hold, confidence=0.7, intent="rehook",
+                                                why=f"re-hook at {t:.0f}s: put “{words}” on screen — a fresh reason to keep watching"))
+                    if "sfx" not in self.no and K.playbook(d.playbook).budget("sfx") > 0:
+                        pp.effects.append(EffectCue(type="sfx", at=f"before:{seg.id}", asset=self._pick_sfx("riser"), confidence=0.6,
+                                                    why="soft riser into the re-hook"))
+                    last = t
+            t += dur
 
     def _hook_item(self, d: Direction, used: set) -> list[StoryItem]:
         if not d.hooks:
@@ -615,7 +686,69 @@ class BasicBrain:
                 rounds += 1
                 if not progressed and rounds > 1:    # round 0 skips used shots; only give up once reuse found nothing
                     break
+        # motion continuity: within each section, order moments so movement keeps its direction and colours flow
+        if d.playbook in ("travel_film", "hype_reel", "teaser"):
+            items = self._flow_order(items)
+        # loop ending (vertical Shorts/Reels): finish on a fresh moment of the opening image so the replay is seamless
+        if d.aspect == "9:16" and len(items) >= 4 and "loop" not in self.no:
+            first = items[0]
+            sh = self._shot(first.ref)
+            if sh is not None and items[-1].ref != first.ref:
+                fresh = self._fresh_window(sh, min(1.2, sh.dur), used_w.get(first.ref, []) + [(first.t0 or sh.t0, first.t1 or sh.t1)])
+                if fresh:
+                    items.append(StoryItem(ref=sh.id, role="loop", t0=fresh[0], t1=fresh[1], section=items[-1].section,
+                                           note="loop ending: back to the opening image so the Short replays seamlessly"))
         return StoryPlan(direction_id=d.id, hook_id=d.hooks[0].id if d.hooks else None, items=items, sections=sections)
+
+    def _direction_of(self, it: StoryItem) -> int:
+        """+1 / -1 for the way movement goes in this moment (camera pan or the tracked subject), 0 if none."""
+        sh = self._shot(it.ref)
+        if sh is None:
+            return 0
+        if sh.camera_move in ("pan_right", "pan_left"):
+            return 1 if sh.camera_move == "pan_right" else -1
+        a = it.t0 if it.t0 is not None else sh.t0
+        b = it.t1 if it.t1 is not None else sh.t1
+        pts = [(t, x) for t, x, _y in sh.track if a <= t <= b]
+        if len(pts) >= 2 and pts[-1][0] > pts[0][0]:
+            v = (pts[-1][1] - pts[0][1]) / (pts[-1][0] - pts[0][0])
+            if abs(v) > 0.05:
+                return 1 if v > 0 else -1
+        return 0
+
+    def _flow_cost(self, a: StoryItem, b: StoryItem) -> float:
+        da, db = self._direction_of(a), self._direction_of(b)
+        cost = 1.0 if da * db < 0 else (-0.2 if da * db > 0 else 0.0)        # reversal hurts, a match cut helps
+        sa, sb = self._shot(a.ref), self._shot(b.ref)
+        if sa is not None and sb is not None and sa.color and sb.color:
+            cost += 0.6 * float(np.linalg.norm(np.array(sa.color) - np.array(sb.color)))
+        if a.ref == b.ref:
+            cost += 1.5            # two moments of the same angle back to back read as a jump cut
+        return cost
+
+    def flow_score(self, items: list[StoryItem]) -> float:
+        """Total flow cost of consecutive montage moments (lower = smoother); used by tests and the critic."""
+        return round(sum(self._flow_cost(a, b) for a, b in zip(items, items[1:], strict=False)), 3)
+
+    def _flow_order(self, items: list[StoryItem]) -> list[StoryItem]:
+        out: list[StoryItem] = []
+        k = 0
+        while k < len(items):
+            j = k
+            while j < len(items) and items[j].section == items[k].section:
+                j += 1
+            block = items[k:j]
+            if len(block) > 2 and all(it.role == "montage" for it in block):
+                ordered = [block[0]]
+                rest = block[1:]
+                while rest:
+                    nxt = min(rest, key=lambda r: self._flow_cost(ordered[-1], r))
+                    ordered.append(nxt)
+                    rest.remove(nxt)
+                block = ordered
+            out += block
+            k = j
+        return out
 
     def _story_travel_film(self, d: Direction) -> StoryPlan:
         target = d.knobs.target_length or 40
@@ -706,7 +839,13 @@ class BasicBrain:
         items = [StoryItem(ref=s.id, role="beat", section="skit") for s in self.usable_segments()]
         for i, it in enumerate(items):
             s = self._seg(it.ref)
-            if s and (s.text.strip().endswith("!") or "numbers" in s.tags) and i > 0:
+            if s is None or i == 0:
+                continue
+            prev = self._seg(items[i - 1].ref)
+            exclaim = s.text.strip().endswith("!")
+            comeback = prev is not None and prev.text.strip().endswith(("!", "?"))          # the retort to a claim/question
+            button = prev is not None and len(s.text.split()) <= 4 < len(prev.text.split())  # a short tag line after a setup
+            if exclaim or comeback or button:
                 it.role = "punchline"
         shots = self.good_shots()
         if shots and items:
@@ -807,7 +946,7 @@ class BasicBrain:
             used_shots = {it.ref for it in story.items}
             pool = [s for s in self.good_shots() if s.id not in used_shots]
             for s in segs_in_story:
-                if s.t1 - s.t0 < 4.5:
+                if s.t1 - s.t0 < (3.0 if d.playbook in ("talking_head", "podcast_clip") else 4.5):
                     continue
                 cand = [p for p in pool if self.cluster_of(p.asset_id) == self.cluster_of(s.asset_id)]   # same place only
                 if cand:
@@ -833,10 +972,26 @@ class BasicBrain:
                 asset = r.arg.get("asset") or self._pick_meme(["shock", "irony"])
                 pp.effects.append(EffectCue(type="meme", at=at, asset=asset, intent="brief", why=f"you asked: {r.source.strip()}", confidence=1.0))
                 placed += 1
+        if d.playbook == "comedy" and meme_ok:
+            # comedy: the meme goes after a real punchline — the one a library meme literally matches first, else the button
+            punches = [it for it in story.items if it.role == "punchline" and self._seg(it.ref)]
+            ranked = sorted(punches, key=lambda it: (self._meme_by_words(self._seg(it.ref).text) is None, -story.items.index(it)))
+            for it in ranked:
+                if placed >= meme_budget:
+                    break
+                s = self._seg(it.ref)
+                if any(e.type == "meme" and e.at == s.id for e in pp.effects):
+                    continue
+                asset = self._meme_by_words(s.text) or self._pick_meme(["shock", "irony", "fail"])
+                why = (f"punchline “{s.text.strip()[:40]}” → the matching meme from your folder after it" if self._meme_by_words(s.text)
+                       else f"punchline “{s.text.strip()[:40]}” → a reaction meme after it")
+                pp.effects.append(EffectCue(type="meme", at=s.id, asset=asset, intent="punchline", why=why,
+                                            confidence=0.75 if asset and not asset.startswith("meme:") else 0.45))
+                placed += 1
         for s in segs_in_story:
-            if placed >= meme_budget:
+            if placed >= meme_budget or d.playbook == "comedy":
                 break
-            punch = (s.text.strip().endswith("!") and ("micro" in s.tags or "numbers" in s.tags)) or (d.playbook == "comedy" and s.energy > 1.0)
+            punch = (s.text.strip().endswith("!") and ("micro" in s.tags or "numbers" in s.tags))
             if punch and not any(e.type == "meme" and e.at == s.id for e in pp.effects):
                 intent = "shock" if "numbers" in s.tags else "irony"
                 asset = self._pick_meme([intent, "fail"])
@@ -880,12 +1035,29 @@ class BasicBrain:
                     pp.effects.append(EffectCue(type="transition", at=f"before:{it.ref}", style="dissolve", why="soft dissolve between calm shots", confidence=0.6))
                 elif sec_change and d.playbook == "teaser" and it.section == "button":
                     pp.effects.append(EffectCue(type="transition", at=f"before:{it.ref}", style="fade_black", why="beat of black before the button", confidence=0.7))
+        # split edits (J/L cuts): sound leads or trails the picture where the scene or the speaker changes
+        self._split_edits(d, story, pp, pb)
+        # open loop: "later…" on the flash-forward; re-hooks at later parts
+        for it in story.items:
+            if it.role == "flashforward" and "text" not in self.no:
+                pp.effects.append(EffectCue(type="text", at=it.ref, text="later…", style="small", dur=1.2, confidence=0.75, intent="open_loop",
+                                            why="open loop: a glimpse of the payoff that comes later in this video"))
+        self._rehooks(d, story, pp)
         # text
         for sec in story.sections:
             if sec.card and d.playbook in ("story_vlog", "travel_film") and len([s for s in story.sections if s.card]) > 1:
                 pp.effects.append(EffectCue(type="text", at=f"section:{sec.name}", text=sec.card, style="card", dur=2.4, why="location/day card at a new place", confidence=0.75))
-        if d.aspect == "9:16" and d.hooks and d.hooks[0].text_hook:
-            pp.effects.append(EffectCue(type="text", at="start", text=d.hooks[0].text_hook, style="hook", dur=2.6, why="on-screen text hook (works on mute)", confidence=0.7))
+        hook_text = d.hooks[0].text_hook if d.hooks else None
+        if d.playbook == "comedy":
+            # comedy: tease the premise — putting the punchline on screen first kills the joke
+            premise = next((self._seg(it.ref) for it in story.items if self._seg(it.ref)), None)
+            punch_words = {w for it in story.items if it.role == "punchline" and self._seg(it.ref)
+                           for w in re.findall(r"[a-z]{4,}", self._seg(it.ref).text.lower())}
+            hook_text = text_hook(premise.text) if premise else None
+            if hook_text and set(re.findall(r"[a-z]{4,}", hook_text.lower())) & punch_words - set(re.findall(r"[a-z]{4,}", premise.text.lower())):
+                hook_text = None
+        if d.aspect == "9:16" and hook_text:
+            pp.effects.append(EffectCue(type="text", at="start", text=hook_text, style="hook", dur=2.6, why="on-screen text hook (works on mute)", confidence=0.7))
         for r in self.rules:
             if r.kind == "add_text" and r.target:
                 pp.effects.append(EffectCue(type="text", at=r.anchor or "end", text=r.target, style="cta" if (r.anchor or "end") == "end" else "title",
@@ -903,6 +1075,51 @@ class BasicBrain:
             places = [self.cluster_label(c) for c in self.clusters() if self.cluster_label(c)]
             pp.vo_script = ([f"{places[0]}. I had no plan — just a camera."] if places else []) + ["Here's what happened."]
         return pp
+
+    def _split_edits(self, d: Direction, story: StoryPlan, pp: PolishPlan, pb) -> None:
+        """J-cut: the next sound starts under the current picture; L-cut: the current voice runs under the next picture.
+        Only at talking ↔ B-roll changes and place changes, never inside music-led montages, never where a
+        transition (whip/dissolve) already joins the shots, at most one every ~6 s of story."""
+        se = pb.split_edits or {}
+        if not se or "split" in self.no:
+            return
+        joined = {c.at for c in pp.effects if c.type == "transition"}
+        front = {c.section for c in pp.music if c.mode == "front"}
+        last_t, t = -1e9, 0.0
+        for prev, nxt in zip(story.items, story.items[1:], strict=False):
+            pseg, nseg = self._seg(prev.ref), self._seg(nxt.ref)
+            pshot, nshot = self._shot(prev.ref), self._shot(nxt.ref)
+            dur = (prev.t1 - prev.t0) if prev.t0 is not None and prev.t1 is not None else ((pseg.t1 - pseg.t0) if pseg else 2.5)
+            t += dur
+            at = f"before:{nxt.ref}"
+            if at in joined or nxt.section in front or prev.section in front or t < 3.0 or t - last_t < 6.0 or prev.ref == nxt.ref:
+                continue
+            cue = None
+            if pshot and nseg and se.get("j"):
+                cue = EffectCue(type="split", at=at, style="J", value=float(se["j"]), confidence=0.75,
+                                why="J-cut: your voice starts under the last shot, so the move back to talking feels continuous")
+            elif pseg and nshot and se.get("l") and nshot.asset_id != pseg.asset_id:
+                cue = EffectCue(type="split", at=at, style="L", value=float(se["l"]), confidence=0.75,
+                                why="L-cut: you keep talking as the next shot appears — no hard stop between words and pictures")
+            elif pshot and nshot and prev.section != nxt.section and se.get("j") and self.assets[nshot.asset_id].info.has_audio:
+                cue = EffectCue(type="split", at=at, style="J", value=float(se["j"]), confidence=0.7,
+                                why="J-cut: the next place's sound arrives just before its picture")
+            if cue:
+                pp.effects.append(cue)
+                last_t = t
+
+    def _meme_by_words(self, text: str) -> str | None:
+        """A library meme whose file name says what the line says ("Emotional damage." ↔ emotional_damage_fail.mp4)."""
+        words = {w for w in re.findall(r"[a-z]{4,}", text.lower())}
+        best, score = None, 0
+        for a in self.pa.assets:
+            if a.kind not in (AssetKind.MEME_IMAGE, AssetKind.MEME_VIDEO):
+                continue
+            name = set(re.findall(r"[a-z]{4,}", a.name.lower()))
+            hit = len(words & name)
+            if hit > score:
+                best, score = a.id, hit
+        return best
 
     def _pick_meme(self, intents: list[str]) -> str | None:
         memes = [a for a in self.pa.assets if a.kind in (AssetKind.MEME_IMAGE, AssetKind.MEME_VIDEO)]

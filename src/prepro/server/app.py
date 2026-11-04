@@ -177,6 +177,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "directions": ds.model_dump() if ds else None,
                 "shorts": shorts.model_dump() if shorts else None,
                 "style": dna.model_dump() if dna else None,
+                "previews": {p.stem: str(p.relative_to(root)) for p in sorted((proj.cache / "previews").glob("*.mp4"))
+                             if (proj.cache / "directions.json").exists() and p.stat().st_mtime >= (proj.cache / "directions.json").stat().st_mtime - 1},
                 "asr": sorted({c.transcript.backend for c in pa.clips.values() if c.transcript}) if pa else [],
                 "style_refs": [str(p.relative_to(root)) for p in proj.scan().style_refs],
                 "talk_seconds": round(sum(a.info.duration for a in pa.assets if a.kind.value == "aroll"), 1) if pa else 0,
@@ -327,6 +329,19 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         dna.enabled = bool(body.get("enabled", True))
         Project(root).save_model("style.json", dna)
         return dna.model_dump()
+
+    @app.post("/api/projects/{pid}/previews")
+    def make_previews(pid: str):
+        root = project(pid)
+        if (j := jobs.running(pid, "previews")) is not None:
+            return j.public()
+
+        def work(job: Job):
+            from ..previews import make
+
+            return {"previews": make(root, progress=job.progress)}
+
+        return jobs.submit("previews", pid, work).public()
 
     @app.post("/api/projects/{pid}/shorts")
     def make_shorts(pid: str, body: dict = Body(default={})):

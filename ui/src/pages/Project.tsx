@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, followJob, frameUrl, type Job, mmss } from "../api";
+import { api, followJob, frameUrl, mediaUrl, type Job, mmss } from "../api";
 import { go, type Route, useToast } from "../App";
 import { refThumb, type Asset, type Brief, type Direction, type Summary } from "../types";
 import Export from "./Export";
@@ -266,9 +266,17 @@ function Directions({ s, run, busy }: { s: Summary; run: (p: string, b: unknown,
         <p className="mute" style={{ margin: 0 }}>
           Different ways to cut this footage. Each has 3 hook options and tells you what's missing for next time. Pick one (or several — each becomes its own cut).
         </p>
-        <button className="btn" disabled={busy || !s.analysed} onClick={() => run(`/projects/${s.id}/directions`, {}, "Directions")}>
-          {ds.length ? "Suggest again" : "Suggest directions"}
-        </button>
+        <div className="row">
+          {ds.length > 0 && (
+            <button className="btn" disabled={busy} title="Render the first 6 seconds of every path (free, local)"
+              onClick={() => run(`/projects/${s.id}/previews`, {}, "Previews")}>
+              {Object.keys(s.previews || {}).length ? "Refresh previews" : "Show me each path"}
+            </button>
+          )}
+          <button className="btn" disabled={busy || !s.analysed} onClick={() => run(`/projects/${s.id}/directions`, {}, "Directions")}>
+            {ds.length ? "Suggest again" : "Suggest directions"}
+          </button>
+        </div>
       </div>
       {!s.analysed && <div className="card empty-state">Analyse the footage first (step 1).</div>}
       <div className="grid directions">
@@ -285,6 +293,10 @@ function Directions({ s, run, busy }: { s: Summary; run: (p: string, b: unknown,
               {d.from_brief && <span className="chip acc">from your brief</span>}
             </div>
             <div className="small mute">{d.why}</div>
+            {s.previews?.[d.id] && (
+              <video src={mediaUrl(s.id, s.previews[d.id], s.previews[d.id])} controls muted loop playsInline preload="metadata"
+                style={{ width: "100%", maxHeight: 320, background: "#000", borderRadius: 8 }} aria-label={`Preview of ${d.name}`} />
+            )}
             <h3>Hooks</h3>
             {d.hooks.map((h) => (
               <div key={h.id} className="hook small row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>

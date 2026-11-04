@@ -85,7 +85,7 @@ def place_name(pt) -> str | None:
 
 
 # bump when days/places/genre logic changes: cached analyses get just this cheap stage re-run (no re-analysis)
-CONTEXT_VERSION = 2
+CONTEXT_VERSION = 4
 
 
 def cluster_context(pa: ProjectAnalysis) -> None:
@@ -166,6 +166,14 @@ def guess_genres(pa: ProjectAnalysis) -> list[GenreGuess]:
             f"{energy} in the B-roll" + (", and a high-energy track" if has_hype else "") + ("" if mean_motion > 0.08 else " — a hype cut would be a stretch"))
     if broll_t / video_t > 0.5 and (food_hint or (mean_motion < 0.25 and vertical)):
         add("aesthetic", 0.6 + 0.25 * food_hint, "calm close-ups / routine footage" + (" with food" if food_hint else ""))
+    # comedy: punchline-style talking + a meme/SFX kit in the folder (skits, roasts, reaction bits)
+    memes_n = len(k[AssetKind.MEME_IMAGE]) + len(k[AssetKind.MEME_VIDEO])
+    comedic_sfx = any(re.search(r"laugh|scratch|boom|bruh|fail|airhorn|rimshot", a.path, re.I) for a in k[AssetKind.SFX])
+    lines = [s for a in k[AssetKind.AROLL] if a.id in pa.clips and pa.clips[a.id].transcript for s in pa.clips[a.id].transcript.segments]
+    punchy = sum(1 for s in lines if s.text.strip().endswith("!") or len(s.text.split()) <= 4) / max(1, len(lines))
+    if aroll_t > 0 and (memes_n or comedic_sfx) and punchy >= 0.25 and broll_t / video_t < 0.35:   # skits are dialogue-driven
+        add("comedy", 0.7 + 0.15 * bool(memes_n) + 0.1 * comedic_sfx + 0.15 * min(1.0, punchy),
+            f"short punchy lines with {memes_n} meme(s)" + (" and comedy sound effects" if comedic_sfx else "") + " in the folder")
     if video_t > 45 and broll_t > 10:
         add("teaser", 0.4, "enough strong moments for a 15–30 s teaser that sells the full video")
     if not out:

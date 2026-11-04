@@ -33,6 +33,7 @@ class Playbook(BaseModel):
     music: dict = Field(default_factory=dict)
     memes: str = "never"
     transitions: dict = Field(default_factory=dict)
+    split_edits: dict = Field(default_factory=dict)   # J/L cut lengths in seconds, e.g. {j: 0.5, l: 0.4}; empty = none
     signature: list[str] = Field(default_factory=list)
     donts: list[str] = Field(default_factory=list)
     hooks: list[str] = Field(default_factory=list)
@@ -83,6 +84,22 @@ def emotions() -> dict:
 @lru_cache(maxsize=1)
 def sfx_vocab() -> dict:
     return yaml.safe_load((HERE / "sfx.yaml").read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def craft() -> list[dict]:
+    """Technique cards (knowledge/craft.yaml): trigger, recipe, guardrails, budget, source."""
+    return yaml.safe_load((HERE / "craft.yaml").read_text(encoding="utf-8"))
+
+
+def craft_brief(playbook: str | None = None) -> str:
+    """Compact craft notes for the AI brain's prompt (only the cards for this genre)."""
+    lines = []
+    for c in craft():
+        if playbook and "all" not in c["genres"] and playbook not in c["genres"]:
+            continue
+        lines.append(f"- {c['name']}: {c['recipe']} (not when: {c['guardrails']})")
+    return "\n".join(lines)
 
 
 @lru_cache(maxsize=1)

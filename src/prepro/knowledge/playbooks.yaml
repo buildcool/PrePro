@@ -12,6 +12,7 @@ story_vlog:
   music: {mode: mixed, bed_db: -20, front_db: -9, prefer: [chill, happy, upbeat, warm], avoid: [hype]}
   memes: comedic_only
   transitions: {default: cut, allowed: [cut, whip, dissolve], at: [place_change]}
+  split_edits: {j: 0.5, l: 0.4}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [establishing_first, location_cards, jcut_new_place, broll_advances_story, timelapse_travel]
   donts:
     - Opening with "hey guys, welcome back" before the hook
@@ -32,6 +33,7 @@ travel_film:
   music: {mode: front, bed_db: -18, front_db: -6, prefer: [epic, build-drop, happy, upbeat], avoid: []}
   memes: never
   transitions: {default: cut, allowed: [cut, whip, dissolve, zoom], at: [section_change, place_change]}
+  split_edits: {j: 0.6}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [cut_on_beat, motion_continuity, match_cut, natural_sound_accents, slowmo_on_peaks]
   donts: [Talking over the montage, Random effects not tied to the beat]
   hooks: [visual_spectacle, peak_moment]
@@ -64,6 +66,7 @@ aesthetic:
   music: {mode: light, bed_db: -22, front_db: -14, prefer: [calm, chill, warm, aesthetic], avoid: [hype, epic]}
   memes: never
   transitions: {default: dissolve, allowed: [cut, dissolve], at: [any]}
+  split_edits: {j: 0.5}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [hold_satisfying_actions, asmr_foley_up, slow_push_in, soft_small_text, speedup_long_steps]
   donts: [Cartoon SFX, Memes, Hard zooms, Loud music over natural sound]
   hooks: [result_first, visual_spectacle]
@@ -80,6 +83,7 @@ teaser:
   music: {mode: front, bed_db: -16, front_db: -5, prefer: [epic, build-drop, hype], avoid: [calm]}
   memes: never
   transitions: {default: cut, allowed: [cut, zoom, fade_black], at: [beat]}
+  split_edits: {j: 0.4}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [dialogue_as_beats, riser_silence_hit, button_after_silence, backtime_music, end_title_card]
   donts: [Giving away the payoff, Starting slow]
   hooks: [peak_moment, curiosity_gap]
@@ -96,6 +100,7 @@ talking_head:
   music: {mode: bed, bed_db: -22, front_db: -12, prefer: [chill, calm, upbeat], avoid: [epic]}
   memes: light
   transitions: {default: cut, allowed: [cut], at: []}
+  split_edits: {j: 0.3, l: 0.3}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [hook_first, jump_cut_punch_in_alternation, broll_on_nouns, number_callouts, list_counters]
   donts: [Logo intros, Zooming on every sentence, Music louder than the voice]
   hooks: [bold_claim, curiosity_gap, question, number_list]
@@ -112,6 +117,7 @@ podcast_clip:
   music: {mode: none, bed_db: -26, front_db: -14, prefer: [calm], avoid: [hype, epic]}
   memes: light
   transitions: {default: cut, allowed: [cut], at: []}
+  split_edits: {j: 0.25, l: 0.3}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [one_idea_per_clip, keep_qualifiers, speaker_locked_framing, text_hook_on_top]
   donts: [Cutting the qualifier from a claim, Switching framing every sentence]
   hooks: [bold_claim, curiosity_gap, question]
@@ -128,6 +134,7 @@ gaming:
   music: {mode: mixed, bed_db: -22, front_db: -8, prefer: [hype, energetic], avoid: [calm]}
   memes: allowed
   transitions: {default: cut, allowed: [cut, zoom, whip], at: [highlight]}
+  split_edits: {j: 0.3, l: 0.3}      # J/L cuts (s): sound leads / trails the picture at scene changes
   signature: [cut_dead_gameplay, facecam_punch_in_on_reactions, replay_slowmo, meme_after_reaction, montage_on_beat]
   donts: [Long looting/walking sections, Memes over important callouts]
   hooks: [peak_moment]

@@ -131,6 +131,17 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                 _insert_ref(s, pa, key[4:], "body")
             elif key.startswith("shot:"):
                 _insert_ref(s, pa, key[5:], "broll")
+            elif key.startswith("beat:"):
+                k = _find(s, key[5:])
+                if k is not None:
+                    s.items[k].note = (s.items[k].note + " nobeat").strip()
+            elif key.startswith("loop:"):
+                ref = key.split(":", 1)[1]
+                s.items = [it for it in s.items if not (it.ref == ref and it.role == "loop")]
+            elif key.startswith("open_loop:"):
+                ref = key.split(":", 1)[1]
+                s.items = [it for it in s.items if not (it.ref == ref and it.role == "flashforward")]
+                p.effects = [c for c in p.effects if not (c.type == "text" and c.intent == "open_loop" and c.at == ref)]
             elif key.startswith("whole:"):
                 k = _find(s, key[6:])
                 if k is not None:

@@ -6,6 +6,12 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
+- v0.6.0: Editor's Craft v2.
+  - `knowledge/craft.yaml` technique cards
+  - J/L splits (`compiler._apply_split_edits`), open loops and re-hooks (`basic._open_loop`/`_rehooks`)
+  - dead-zone fixes (`editlint._fix_deadzone`), comedy timing (`speech_pieces` lead/hold) and comedy detection
+  - montage flow + loop endings (`basic._flow_order`), cringe guard (`lint/ghinn.py`), path previews
+    (`previews.py`)
 - v0.5.0: Phase 2 has started.
   - `repurpose.py`: Long → Shorts.
   - `packaging.py`: thumbnails, titles, chapters, description.
@@ -79,12 +85,17 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   review is still needed before commercial distribution.
 
 ## Next steps
-1. **Phase 2** by value; see `docs/PLAN.md` §8. Next:
+1. **Genre packs (v0.7):**
+   - gaming event detection: game-audio transients, HUD flashes, facecam box, reaction loudness, with a fixture of
+     planted events
+   - lifestyle "satisfying moment" detection
+   - talking-head/podcast speaker switching
+2. **Phase 2**, more:
    - AI titles/thumbnail text through the brain, as a `package` pass
    - stock/GIF search
    - VO recording + scratch TTS
    - privacy blur
-2. UI ideas not done yet:
+3. UI ideas not done yet:
    - drag-to-trim on the timeline
    - a waveform in the voice lane
    - a meme/music browser with alternatives

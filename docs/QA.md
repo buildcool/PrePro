@@ -131,3 +131,25 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
   one block that was too tall: 0 % text. An outlined-text detector (bright letters tightly outlined in black) now
   reads 100 % there, 0 % on raw clips, and has the same false-positive rate on scenery. There is a unit regression
   test.
+
+### v0.6 (Editor's Craft v2): reviewed as an editor, genre by genre
+- **Talking heads.** 8 jump cuts on the same framing (the stitched look). The polish pass did add reframes, but the
+  over-stimulation lint counted them as zoom effects and stripped them. After that, the alternation followed a
+  parity counter, not the framing actually on screen, so it went 100 % → 100 % after contiguous lines. Fixed both.
+  All genres now score 10/10 `no_cringe`, except a brief that forbids zooms.
+- **Comedy.**
+  1. Comedy was never offered as a direction (genre detection had no comedy rule).
+  2. "first finish your homework" counted as a punchline (the "numbers" tag).
+  3. The hold after one line and the beat before the next both claimed the same pause, so it played twice.
+  4. Storyboard review found the opening text hook was the punchline ("MRBEAST ALSO NEVER FAILED MATHS 3?!").
+  5. The perfect "emotional damage" meme in the folder was unused.
+
+  All fixed. Now: premise text, beats before punchlines, the reaction meme after the roast, and the matching meme
+  after the button.
+- **A Hindi vlog read as comedy** after the comedy rule landed (memes plus short Hinglish lines). Comedy now requires
+  dialogue-led footage (B-roll under 35 %).
+- **Montages.**
+  - With few clips, two moments of the same angle could sit back to back. The flow order now penalises that.
+  - Vertical montages end on the opening image.
+- **Re-hook text**, first version: "Every viral video studied had", which was clipped and too short to read (the
+  cringe guard caught it). It is now number-centred ("3 parts") and on screen long enough to read.

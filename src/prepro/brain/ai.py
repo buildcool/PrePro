@@ -55,7 +55,7 @@ def enum(vals) -> dict:
 
 
 PLAYBOOKS = list(K.playbooks())
-EFFECT_TYPES = ["zoom", "sfx", "meme", "text", "speed", "transition", "broll", "emphasis", "bleep"]
+EFFECT_TYPES = ["zoom", "sfx", "meme", "text", "speed", "transition", "broll", "emphasis", "bleep", "split"]
 SCHEMAS = {
     "director": obj({"directions": arr(obj({
         "playbook": enum(PLAYBOOKS), "name": S, "aspect": enum(["9:16", "16:9", "1:1", "4:5"]), "target_seconds": N, "why": S,
@@ -89,7 +89,12 @@ Rules for your answers:
   assets like A02 / I01). Never invent IDs, file names, song titles or timestamps.
 - Every effect must state its motivation in "why" (the word, action, emotion beat or music hit that justifies it).
 - Respect the creator's brief rules exactly; when a rule conflicts with taste, the rule wins.
-- Output JSON only, matching the schema."""
+- Split edits: effect type "split" at "before:<ref>" with style "J" (next sound leads its picture) or "L" (the voice
+  runs under the next picture) and value = seconds (0.3–0.8).
+- Output JSON only, matching the schema.
+
+CRAFT (what top editors do — follow the recipe, respect the "not when"):
+{craft}"""
 
 
 class AIBrain(BasicBrain):
@@ -109,7 +114,7 @@ class AIBrain(BasicBrain):
         prov = self.providers.get(pass_name)
         if prov is None:
             return None
-        system = SYSTEM.format(constitution=K.constitution())
+        system = SYSTEM.format(constitution=K.constitution(), craft=K.craft_brief())
         user = (self.dossier() + "\n\n" if dossier else "") + instruction
         schema = SCHEMAS[pass_name if pass_name in SCHEMAS else "director"]
         for attempt in range(2):

@@ -113,7 +113,9 @@ def snap(ctx: Ctx, asset_id: str, t: float, lo: float, hi: float) -> float:
 
 # ------------------------------------------------------------------ speech pieces
 def speech_pieces(ctx: Ctx, seg: Segment, *, tightness: float, breath: float, max_pause: float,
-                  whole: bool = False) -> tuple[list[tuple[float, float]], list[Word], int]:
+                  whole: bool = False, lead: float = 0.0, hold: float = 0.0) -> tuple[list[tuple[float, float]], list[Word], int]:
+    """Cut a line into word-snapped pieces (pauses/fillers out). `lead`/`hold` keep a beat before the first word and
+    after the last one — comedy timing: the pause before a punchline and the beat after it are part of the joke."""
     words = {w.id: w for w in ctx.pa.words(seg.asset_id)}
     seq = [words[w] for w in seg.word_ids if w in words]
     all_words = sorted(ctx.pa.words(seg.asset_id), key=lambda w: w.t0)
@@ -131,14 +133,16 @@ def speech_pieces(ctx: Ctx, seg: Segment, *, tightness: float, breath: float, ma
         else:
             runs[-1].append(w)
     pieces = []
-    for run in runs:
+    for k, run in enumerate(runs):
         a, b = run[0].t0, run[-1].t1
+        pre = max(breath, lead) if k == 0 else breath
+        post = max(breath, hold) if k == len(runs) - 1 else breath
         prev_word = next((x for x in reversed(all_words) if x.t1 <= a - 0.01), None)
         next_word = next((x for x in all_words if x.t0 >= b + 0.01), None)
-        lo_a = max(prev_word.t1 if prev_word else 0.0, a - breath - 0.12)
-        hi_b = min(next_word.t0 if next_word else b + 1.0, b + breath + 0.15)
-        a2 = snap(ctx, seg.asset_id, max(lo_a, a - breath), lo_a, a - 0.02)
-        b2 = snap(ctx, seg.asset_id, min(hi_b, b + breath), b + 0.04, hi_b)
+        lo_a = max((prev_word.t1 + (0.05 if pre > breath else 0.0)) if prev_word else 0.0, a - pre - 0.12)
+        hi_b = min((next_word.t0 - (0.05 if post > breath else 0.0)) if next_word else b + 1.0, b + post + 0.15)
+        a2 = snap(ctx, seg.asset_id, max(lo_a, a - pre), lo_a, a - 0.02)
+        b2 = snap(ctx, seg.asset_id, min(hi_b, b + post), b + 0.04, hi_b)
         pieces.append((round(max(0.0, a2), 3), round(b2, 3)))
     merged: list[tuple[float, float]] = []
     for p in pieces:
@@ -289,7 +293,15 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         seg = _try(pa.segment, it.ref)
         shot = _try(pa.shot, it.ref)
         if seg is not None:
-            pieces, kept, removed = speech_pieces(ctx, seg, tightness=tight, breath=breath, max_pause=max_pause, whole=it.whole)
+            punch = (it.role == "punchline" or any(c.type == "meme" for c in cues.get(seg.id, []))) and "nobeat" not in (it.note or "")
+            pieces, kept, removed = speech_pieces(ctx, seg, tightness=tight, breath=breath, max_pause=max_pause, whole=it.whole,
+                                                  lead=0.45 if punch else 0.0, hold=0.4 if punch else 0.0)
+            if pieces and last_asset == seg.asset_id and last_src_out is not None and last_src_out - 0.3 < pieces[0][0] < last_src_out:
+                # the previous line's hold and this line's lead would both claim the same pause: play it once
+                pieces[0] = (round(last_src_out, 3), pieces[0][1])
+            if punch and pieces and k > 0:
+                ctx.suggest("timing", f"Comedy timing: a beat before “{_clip(seg.text, 40)}” and a hold after it — the pause is part of the joke",
+                            conf=0.8, t=t, payload={"key": f"beat:{seg.id}", "comedy": True})
             if it.role == "hook" and pieces and not it.whole:
                 pieces, kept, trimmed = tighten_hook(ctx, seg, pieces, kept)
                 if trimmed:
@@ -317,14 +329,20 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 base_tf = frame_for(ctx, asset.id, a, b)
                 if asset.info.has_video:
                     is_jump = last_asset == asset.id and last_src_out is not None and a > last_src_out + 0.05
+                    reframe = False
                     if is_jump and z == 1.0 and jump_cue and zoom_ok:
-                        zoom_toggle = not zoom_toggle
+                        prev_v = next((x for x in reversed(ctx.items) if x.track == "V1"), None)
+                        prev_zoom = prev_v.transform.zoom if prev_v is not None and prev_v.transform else 1.0
+                        zoom_toggle = prev_zoom < 1.01      # alternate against the framing actually on screen
                         z = (jump_cue.value or 1.12) if zoom_toggle else 1.0
+                        reframe = zoom_toggle
                         if zoom_toggle:
-                            ctx.suggest("zoom", "Alternate framing to hide a jump cut", conf=0.8, t=t, payload={"key": f"fx:zoom:{jump_cue.at}"})
+                            ctx.suggest("zoom", "Alternate framing to hide a jump cut", conf=0.8, t=t,
+                                        payload={"key": f"fx:zoom:{jump_cue.at}", "reframe": True})
                     base_tf.zoom = z
                     v = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
-                             transform=base_tf if not base_tf.is_identity else None, role=it.role, section=sec, ref=it.ref)
+                             transform=base_tf if not base_tf.is_identity else None, role=it.role, section=sec, ref=it.ref,
+                             note="reframe" if reframe else "")
                     if trans and j == 0 and ctx.items:
                         dur = TRANS_DUR.get(trans.style or "dissolve", 0.4)
                         v.transition_in, v.transition_dur = trans.style or "dissolve", dur
@@ -354,6 +372,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             a = it.t0 if it.t0 is not None else shot.t0
             b = it.t1 if it.t1 is not None else min(shot.t1, a + broll_len)
             speed_cue = next((c for c in cues.get(shot.id, []) if c.type == "speed"), None)
+            if it.role == "flashforward":
+                speed_cue = None             # the payoff later gets the slow-mo, not its preview
             if speed_cue and shot.id in ctx.speed_done:
                 speed_cue = None             # one slow-mo per shot: later uses of the same shot play at normal speed
             if (speed_cue and (speed_cue.value or 1.0) < 1 and it.t0 is not None and shot.action_peaks
@@ -401,6 +421,11 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             ctx.spans.setdefault(it.ref, []).append((t, t + v.rec_dur))
             t += v.rec_dur
             last_asset, last_src_out = asset.id, b
+            if it.role == "flashforward":
+                ctx.suggest("open_loop", it.note or "flash-forward of the payoff", conf=0.75, t=v.rec_in, items=[v.id],
+                            payload={"key": f"open_loop:{it.ref}", "ref": it.ref})
+            if it.role == "loop":
+                ctx.suggest("loop", it.note or "loop ending", conf=0.75, t=v.rec_in, items=[v.id], payload={"key": f"loop:{it.ref}", "ref": it.ref})
             if it.role in ("hook", "establishing"):
                 ctx.suggest(it.role if it.role == "hook" else "broll", it.note or it.role, conf=0.85, t=v.rec_in, items=[v.id],
                             payload={"key": "hook" if it.role == "hook" else f"item:{it.ref}", "ref": it.ref})
@@ -437,6 +462,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             t += mdur
             ctx.section_t[sec][1] = t
     total = t
+    _apply_split_edits(ctx, polish, no)
 
     # ---- B-roll overlays (V2) over talking beats
     for c in polish.effects:
@@ -608,6 +634,58 @@ def _try(fn, key):
         return fn(key)
     except KeyError:
         return None
+
+
+def _apply_split_edits(ctx: Ctx, polish: PolishPlan, no: set) -> None:
+    """Turn `split` cues into J/L cuts by moving only the picture cut. Audio items keep their word-snapped timing,
+    so no word is ever clipped: a J-cut delays the next picture (its sound already started), an L-cut brings the
+    next picture in early (the current voice carries on under it). Source frames must exist inside the same shot."""
+    if "split" in no:
+        return
+    v1 = sorted((i for i in ctx.items if i.track == "V1"), key=lambda i: i.rec_in)
+    for c in polish.effects:
+        if c.type != "split" or c.confidence < 0.5 or not c.at.startswith("before:"):
+            continue
+        ref = c.at.split(":", 1)[1]
+        k = next((j for j, i in enumerate(v1) if i.ref == ref), None)
+        if not k:
+            continue
+        pv, nx = v1[k - 1], v1[k]
+        if (pv.kind != "video" or nx.kind != "video" or abs(pv.rec_out - nx.rec_in) > 0.02 or nx.transition_in != "cut"
+                or nx.rec_in < 3.0 or "meme" in (pv.role, nx.role) or abs(pv.speed - 1) > 1e-3 or abs(nx.speed - 1) > 1e-3):
+            continue
+        d = float(c.value or 0.4)
+        if c.style == "J":
+            sh = _shot_containing(ctx, pv.asset_id, pv.src_out - 0.01)
+            room = (sh.t1 if sh else pv.src_out) - pv.src_out
+            if room < d or nx.rec_dur - d < 1.0:
+                continue
+            pv.src_out = round(pv.src_out + d, 3)
+            nx.src_in, nx.rec_in = round(nx.src_in + d, 3), round(nx.rec_in + d, 3)
+            _shift_keys(nx, -d)
+        else:
+            sh = _shot_containing(ctx, nx.asset_id, nx.src_in + 0.01)
+            room = nx.src_in - (sh.t0 if sh else nx.src_in)
+            if room < d or pv.rec_dur - d < 1.0:
+                continue
+            pv.src_out = round(pv.src_out - d, 3)
+            nx.src_in, nx.rec_in = round(nx.src_in - d, 3), round(nx.rec_in - d, 3)
+            _shift_keys(nx, d)
+        ctx.suggest("split", c.why, conf=c.confidence, t=nx.rec_in, items=[pv.id, nx.id],
+                    payload={"key": f"fx:split:{c.at}", "style": c.style, "lead": d})
+
+
+def _shot_containing(ctx: Ctx, asset_id: str | None, t: float):
+    if not asset_id or asset_id not in ctx.pa.clips:
+        return None
+    return next((s for s in ctx.pa.clips[asset_id].shots if s.t0 - 1e-3 <= t <= s.t1 + 1e-3), None)
+
+
+def _shift_keys(it: Item, dt: float) -> None:
+    """Keep reframing keys aligned with the picture when an item's start moves by -dt (keys are item-relative)."""
+    if it.transform and it.transform.keys:
+        keys = [k.model_copy(update={"t": round(k.t + dt, 3)}) for k in it.transform.keys]
+        it.transform.keys = [k for k in keys if k.t >= -1e-3] or keys[-1:]
 
 
 def _face_lookup(ctx: Ctx):

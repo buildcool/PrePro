@@ -46,10 +46,19 @@ def rules_critic(tl: Timeline, pa: ProjectAnalysis, d: Direction, findings) -> C
         present |= {"meme_after_joke", "meme_after_reaction"}
     if d.playbook == "aesthetic" and v1 and min(i.rec_dur for i in v1) >= 1.8:
         present |= {"hold_satisfying_actions"}
+    if any(s.type == "split" and s.status == "applied" for s in tl.suggestions):
+        present |= {"jcut_new_place", "split_edits"}
     fit = 6 + 4 * (len(sig & present) / max(1, len(sig)))
+    # the cringe guard: every check a viewer would notice, named when it fails
+    from .ghinn import checks, score
+
+    cs = checks(tl, pa, d)
     scores = {k: round(max(0.0, min(10.0, v)), 1) for k, v in
-              dict(hook=hook, clarity=clarity, pacing=pacing, sound=sound, restraint=restraint, quality=quality, genre_fit=fit).items()}
-    issues = [f.msg for f in findings if f.severity in ("error", "warn")][:12]
+              dict(hook=hook, clarity=clarity, pacing=pacing, sound=sound, restraint=restraint, quality=quality, genre_fit=fit,
+                   no_cringe=score(cs)).items()}
+    issues = [f"cringe check · {c.id.replace('_', ' ')}: {c.detail}" for c in cs if not c.ok]
+    issues += [f.msg for f in findings if f.severity in ("error", "warn")]
+    issues = issues[:12]
     overall = sum(scores.values()) / len(scores)
     summary = (f"{overall:.1f}/10 — " + ("ready for a quick human pass" if overall >= 8 else "needs attention: " + "; ".join(issues[:3])))
     return CriticReport(scores=scores, issues=issues, summary=summary, source="rules")
