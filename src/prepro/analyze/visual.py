@@ -32,6 +32,8 @@ class FrameStats:
     mag: float = 0.0         # mean flow magnitude (fraction of width per second)
     local: float = 0.0       # residual (subject) motion
     diff: float = 0.0        # mean abs frame difference (0..1)
+    cx: float | None = None  # centroid of local change (moving subject), normalised
+    cy: float | None = None
     faces: list[FaceBox] = field(default_factory=list)
 
 
@@ -104,6 +106,11 @@ def _flow(prev: np.ndarray, cur: np.ndarray, fs: FrameStats) -> None:
     fs.mag, fs.local = float(mag.mean() * k), float(np.percentile(resid, 99.5) * k)
     ad = np.abs(b.astype(np.float32) - a.astype(np.float32)) / 255.0
     fs.diff = float(ad.mean())
+    if fs.diff < 0.06:   # steady camera: locate the moving subject
+        thr = max(0.08, float(np.percentile(ad, 99)) * 0.5)
+        ys, xs = np.nonzero(ad > thr)
+        if xs.size > 6:
+            fs.cx, fs.cy = float(xs.mean() / ad.shape[1]), float(ys.mean() / ad.shape[0])
     # small fast subjects (a jump, a splash) defeat optical flow: use the localized change too
     fs.local = max(fs.local, float(np.percentile(ad, 99.5)) * 2.0 if fs.diff < 0.06 else 0.0)
 
@@ -209,6 +216,19 @@ def _peaks(fr: list[FrameStats]) -> list[float]:
     return [round(t, 2) for _, t in out[:2]]
 
 
+def _track(fr: list[FrameStats]) -> list[tuple[float, float, float]]:
+    """Subject position over time (~2 Hz): biggest face, else the centroid of local motion."""
+    out = []
+    step = max(1, int(FPS / 2))
+    for f in fr[::step]:
+        if f.faces:
+            b = max(f.faces, key=lambda x: x.w * x.h)
+            out.append((round(f.t, 2), round(b.x, 3), round(b.y, 3)))
+        elif f.cx is not None and f.local > 0.12:
+            out.append((round(f.t, 2), round(f.cx, 3), round(f.cy or 0.5, 3)))
+    return out
+
+
 def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float, fps: float | None, faces: bool = True) -> tuple[list[Shot], dict]:
     stats: list[FrameStats] = []
     prev_gray = None
@@ -271,7 +291,7 @@ def analyse_video(asset_id: str, src: Path, frames_dir: Path, *, duration: float
             whip_in=win, whip_out=wout, faces=[b for f in face_frames for b in f.faces][:24], face_ratio=round(face_ratio, 3),
             flags=flags, quality=round(max(0.0, q), 3), color=rgb,
             best=_best_windows(fr, t0, t1, med_sharp), action_peaks=_peaks(fr),
-            static_ratio=round(static_ratio, 3), hud=round(hud, 3),
+            static_ratio=round(static_ratio, 3), hud=round(hud, 3), track=_track(fr),
         ))
     # blur is relative (sharpness depends on content): flag shots far below the clip/project norm later too
     for s in shots:

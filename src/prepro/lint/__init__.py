@@ -1,1 +1,1 @@
-"""PrePro lint package."""
+"""Quality gate: EditLint + critic."""

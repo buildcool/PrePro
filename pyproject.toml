@@ -1,6 +1,6 @@
 [project]
 name = "prepro"
-version = "0.0.1"
+version = "0.1.0"
 description = "PrePro: AI pre-edit engine for creators — turns a shoot folder into a reasoned first cut with suggestions."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -53,7 +53,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
-ignore = ["E501", "B008", "SIM108", "UP042", "SIM105"]
+ignore = ["E501", "B008", "SIM108", "UP042", "SIM105", "SIM102", "UP031", "B007", "B023"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

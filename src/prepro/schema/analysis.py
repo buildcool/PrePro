@@ -105,6 +105,7 @@ class Shot(BaseModel):
     action_peaks: list[float] = Field(default_factory=list)   # source times of motion peaks
     static_ratio: float = 0.0          # share of pixels that never change (HUD / screen capture hint)
     hud: float = 0.0                   # edge density inside the static region (text/HUD overlays)
+    track: list[tuple[float, float, float]] = Field(default_factory=list)   # (t, x, y) subject position (face or moving subject), ~2 Hz
 
     @property
     def dur(self) -> float:

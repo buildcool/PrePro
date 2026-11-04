@@ -28,7 +28,7 @@ travel_film:
   structure: [intro, build, drop, break, outro]
   pacing: {aroll_shot: [3, 6], broll_shot: [1.2, 3.5], tightness: 0.6, breath: 0.12, max_pause: 0.5, dead_zone: 8}
   budgets: {zoom: 1, sfx: 3, meme: 0, transition: 2, text: 2, slowmo: 3}
-  captions: {default: off, words: [3, 6], lines: 1, max_cps: 17}
+  captions: {default: "off", words: [3, 6], lines: 1, max_cps: 17}
   music: {mode: front, bed_db: -18, front_db: -6, prefer: [epic, build-drop, happy, upbeat], avoid: []}
   memes: never
   transitions: {default: cut, allowed: [cut, whip, dissolve, zoom], at: [section_change, place_change]}

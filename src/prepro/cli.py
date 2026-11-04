@@ -149,6 +149,70 @@ def print_analysis(pa, verbose: bool = False) -> None:
                     console.print(f"  {sg.id:10s} {sg.t0:6.2f}-{sg.t1:6.2f} {sg.text[:80]!r} [dim]{flags}")
 
 
+@app.command()
+def directions(shoot: Path = typer.Argument(..., help="Shoot folder"), brief: str = typer.Option(None, help="Extra brief text")) -> None:
+    """Propose 2–4 creative directions (with hooks and coverage gaps) for a shoot."""
+    from .brain.basic import BasicBrain
+    from .engine import analysis, brief_for
+
+    pa = analysis(shoot)
+    b = brief_for(shoot, pa, extra_text=brief)
+    ds = BasicBrain(pa, b).directions()
+    for d in ds.directions:
+        console.rule(f"[bold]{d.id}[/] {d.name}  [dim](fit {d.fit_score:.2f}{' · from your brief' if d.from_brief else ''})")
+        console.print(f"[dim]why:[/] {d.why}")
+        for h in d.hooks:
+            console.print(f"  hook {h.id} [{h.kind}] {h.score:.2f}  {h.why}" + (f"  → text: “{h.text_hook}”" if h.text_hook else ""))
+        for o in d.outline:
+            console.print(f"  • {o}")
+        for g in d.coverage_gaps:
+            console.print(f"  [yellow]gap:[/] {g}")
+    if b.rules or b.questions:
+        console.rule("brief")
+        for r in b.rules:
+            console.print(f"  {'✓' if r.resolved else '?'} {r.kind} {r.target or ''} {('@' + r.anchor) if r.anchor else ''} [dim]{r.source.strip()[:70]}")
+        for q in b.questions:
+            console.print(f"  [yellow]question:[/] {q.text}")
+    console.print(f"[dim]{ds.notes}")
+
+
+@app.command()
+def build(
+    shoot: Path = typer.Argument(..., help="Shoot folder"),
+    direction: str = typer.Option("auto", help="Direction id (d1…) or playbook key"),
+    brief: str = typer.Option(None, help="Extra brief text"),
+    quality: str = typer.Option("preview", help="preview|final"),
+    no_render: bool = typer.Option(False, help="Plan + timeline only"),
+) -> None:
+    """Build the chosen direction into a first cut (timeline + preview render + storyboard)."""
+    from .engine import build as do_build
+
+    with console.status("Building first cut…"):
+        res = do_build(shoot, direction=direction, brief_text=brief, render=not no_render, quality=quality, extra_playbook=direction if direction not in ("auto",) and not direction.startswith("d") else None)
+    tl = res.timeline
+    console.rule(f"[bold]{res.direction.name}[/]")
+    console.print(f"duration {tl.duration:.1f}s · {len([i for i in tl.items if i.track == 'V1'])} shots · {len(tl.captions)} captions · "
+                  f"{len(tl.suggestions)} suggestions · timeline {res.timeline_path}")
+    applied = [s for s in tl.suggestions if s.status == "applied"]
+    optional = [s for s in tl.suggestions if s.status == "optional"]
+    for s in applied[:40]:
+        console.print(f"  [green]✓[/] {('%6.1fs' % s.t) if s.t is not None else '      '} {s.type:10s} {s.reason}")
+    for s in optional[:15]:
+        console.print(f"  [yellow]?[/] {('%6.1fs' % s.t) if s.t is not None else '      '} {s.type:10s} {s.reason}")
+    if res.lint:
+        console.rule("EditLint")
+        for f in res.lint:
+            col = {"error": "red", "warn": "yellow"}.get(f.severity, "dim")
+            console.print(f"  [{col}]{f.severity:5s}[/] {f.rule:10s} {f.msg}" + (f" @ {f.t:.1f}s" if f.t is not None else ""))
+    if res.critic:
+        console.print("Critic: " + ", ".join(f"{k} {v}" for k, v in res.critic.scores.items()) + f"  → {res.critic.summary}")
+    if res.render:
+        r = res.render
+        console.print(f"[bold green]render[/] {r.video}  ({r.duration:.1f}s, {r.lufs} LUFS, TP {r.true_peak_db} dBTP, voice/music {r.speech_to_music_db} dB)")
+        if r.storyboard:
+            console.print(f"storyboard {r.storyboard}")
+
+
 @testmedia_app.command("fetch")
 def testmedia_fetch(category: list[str] = typer.Option(None, help="Only these categories")) -> None:
     from .fixtures import realmedia

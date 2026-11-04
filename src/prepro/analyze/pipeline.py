@@ -20,7 +20,7 @@ from .sound import audio_report, music_info, musicality
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
 
-ANALYSIS_VERSION = 8
+ANALYSIS_VERSION = 9
 Progress = Callable[[str, int, int, str], None]
 
 
@@ -102,7 +102,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
     scan = proj.scan()
     prev = proj.load_json("ids.json", {}) or {}
     ids = assign_ids(scan.files, prev)
-    pa = ProjectAnalysis(root=str(proj.root))
+    pa = ProjectAnalysis(root=str(proj.root), version=ANALYSIS_VERSION)
     hints: dict[str, str | None] = {}
     n = len(scan.files)
     hash_to_id = {}
