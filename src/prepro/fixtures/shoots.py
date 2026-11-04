@@ -15,7 +15,7 @@ from pathlib import Path
 from . import audio as A
 from . import visual as V
 
-KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog"]
+KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog", "podcast_long"]
 
 GOA = "+15.5527+073.7517/"
 JAIPUR = "+26.9124+075.7873/"
@@ -241,6 +241,44 @@ def _build_talking_head(root, truth, *, face, md, quick, sidecars, with_brief):
     _broll(root, truth, "broll/B001.mp4", "room", seed=51, dur=5, move="push_in")
     _music(root, truth, "lofi_bed_85", bpm=85, mood="chill", seed=13, sections=[("intro", 2, 0.3), ("verse", 12, 0.45), ("outro", 2, 0.3)])
     truth["expect"] = {"playbooks": ["talking_head"], "hook_contains": "Three editing mistakes", "music_mode": "bed"}
+
+
+def _build_podcast_long(root, truth, *, face, md, quick, sidecars, with_brief):
+    """~2.5 min of talking with three planted Short-worthy moments (gold1–3) between rambling, for the Shorts finder."""
+    (root / "podcast").mkdir(parents=True, exist_ok=True)
+    L = A.Line
+    lines = [
+        L("Hey guys, welcome back to the podcast.", kind="greeting", keep=False, pause_after=0.8),
+        L("So, uh, yeah, today we're just gonna talk about, you know, stuff.", kind="aside", pause_after=0.9),
+        L("I lost ten thousand dollars on my first channel.", kind="hook", group="gold1", emphasis=["ten thousand"], pause_after=0.5),
+        L("I bought a fancy camera, a gimbal and three lenses before I had a single viewer.", group="gold1", pause_after=0.4),
+        L("Six months later I had forty subscribers.", group="gold1", emphasis=["forty"], pause_after=0.5),
+        L("The gear was never the problem. My first ten seconds were boring.", group="gold1", pause_after=0.4),
+        L("So here is the lesson: fix your hook before you buy anything.", kind="punchline", group="gold1", emphasis=["hook"], pause_after=1.2),
+        L("And then we kind of talked about it for a while and stuff.", kind="aside", pause_after=0.8),
+        L("Anyway, where was I, let me check my notes here.", kind="aside", pause_after=1.4),
+        L("Why do some videos get a million views from a phone camera?", kind="hook", group="gold2", emphasis=["million"], pause_after=0.5),
+        L("Because people don't watch cameras, they watch stories.", group="gold2", pause_after=0.4),
+        L("Every viral video I studied had the same three parts.", group="gold2", pause_after=0.4),
+        L("A promise in the first three seconds, a twist in the middle, and a payoff at the end.", group="gold2", pause_after=0.4),
+        L("That's it. That's the whole secret.", kind="punchline", group="gold2", emphasis=["secret"], pause_after=1.3),
+        L("Like I said before, it depends, it really depends on the niche I guess.", kind="aside", pause_after=1.0),
+        L("And also, you know, the algorithm and whatever.", kind="aside", pause_after=1.2),
+        L("The worst mistake beginners make is talking too slowly.", kind="hook", group="gold3", emphasis=["worst"], pause_after=0.5),
+        L("Cut every pause longer than half a second.", group="gold3", pause_after=0.4),
+        L("Cut every um, every so, every like.", group="gold3", pause_after=0.4),
+        L("Your video will feel twice as fast without losing a single idea.", group="gold3", emphasis=["twice"], pause_after=0.4),
+        L("Try it on your next upload and watch your retention.", kind="punchline", group="gold3", pause_after=1.2),
+        L("So yeah, that's kind of it for today I guess.", kind="aside", pause_after=0.6),
+        L("Thanks for listening, follow for more episodes.", kind="cta", pause_after=1.0),
+    ]
+    spoken = _aroll(root, truth, "podcast/EP12_cam_a.mp4", lines, face=face, seed=12, ct="2026-10-20T16:00:00Z", loc=None, sidecars=sidecars)
+    gold = {}
+    for s in spoken:
+        if s.group and s.group.startswith("gold"):
+            g = gold.setdefault(s.group, [s.t0, s.t1])
+            g[0], g[1] = min(g[0], s.t0), max(g[1], s.t1)
+    truth["expect"] = {"playbooks": ["podcast_clip", "talking_head"], "shorts": [{"id": k, "t0": v[0], "t1": v[1]} for k, v in sorted(gold.items())]}
 
 
 def _build_comedy_skit(root, truth, *, face, md, quick, sidecars, with_brief):

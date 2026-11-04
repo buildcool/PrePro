@@ -4,6 +4,38 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-04
+### Added
+- **Desktop app** (`desktop/`): an Electron shell for Linux and Windows that runs the frozen engine on a free
+  127.0.0.1 port and shows the review app in a sandboxed window.
+  - Security: context isolation, no Node in the page, and a two-call bridge (native folder picker, "Show in
+    folder"). External links open in the system browser.
+  - Runs a single instance; the engine stops when the window closes.
+- **Frozen engine** (`scripts/build_engine.py`): PyInstaller, one folder. It bundles fonts, knowledge files, the
+  built UI and the OTIO adapters. ffmpeg comes from the system or from `engine/bin`; CI bundles
+  checksum-verified static builds with their licence.
+- **Packaging:** Linux AppImage + .deb, built here and checked. The Windows NSIS installer is built in GitHub
+  Actions (`desktop.yml`), which `release.yml` calls for every new version and attaches to the GitHub
+  Release.
+- **Long → Shorts** (`prepro shorts`, "Shorts from long talks" in the Directions step). It finds self-contained
+  20–60 s moments in long talking footage:
+  - the first line has a number, question or claim, never "and so… like I said";
+  - one idea, ending on its landing;
+  - no overlap between Shorts.
+  Each becomes a vertical, captioned cut that can be reviewed, revised and exported like any other. On a planted
+  podcast fixture it found all three moments with exact boundaries and skipped the rambling.
+- The frozen engine is about 100 MB smaller: a stub replaces PyAV (we hand Whisper decoded audio).
+- `prepro doctor` now lists the available OTIO adapters.
+- Desktop smoke test (`tests/desktop`): Electron + frozen engine under Xvfb. It checks the bridge, that no Node
+  reaches the page, that the page is local-only, and that the engine stops on quit.
+### Fixed
+- **Kdenlive export in the frozen app.** It failed because OTIO loads plugin adapters from `.py` files by path;
+  they are now shipped as source. Kdenlive export failures are now reported instead of silently skipped.
+- **Kdenlive projects of vertical cuts** opened as 1920×1080 landscape (the adapter hard-codes it). The profile
+  is now rewritten to the cut's real size and frame rate.
+- **Duplicate OpenCV.** The unused `scenedetect` dependency pulled in a second OpenCV (`opencv-python` next to
+  `opencv-python-headless`), which can break `cv2`. It is removed.
+
 ## [0.3.0] — 2026-11-04
 ### Added
 - **Review app** (`prepro ui`): a React app served by a local FastAPI server on 127.0.0.1 only.

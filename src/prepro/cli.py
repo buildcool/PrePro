@@ -28,6 +28,29 @@ def version() -> None:
 
 
 @app.command()
+def shorts(
+    shoot: Path = typer.Argument(..., help="Shoot folder with long talking footage (podcast, vlog, interview)"),
+    count: int = typer.Option(3, help="How many Shorts"),
+    min_len: float = typer.Option(15.0, "--min", help="Shortest clip (s)"),
+    max_len: float = typer.Option(60.0, "--max", help="Longest clip (s)"),
+    render: bool = typer.Option(False, help="Also render a preview of each"),
+) -> None:
+    """Find the self-contained moments in long talks and cut each as a vertical Short (review them in `prepro ui`)."""
+    from .repurpose import build_shorts
+
+    with console.status("Finding Shorts…"):
+        res = build_shorts(shoot, count=count, min_len=min_len, max_len=max_len, render=render)
+    if not res:
+        console.print("[yellow]No self-contained moments found — is there enough talking footage?")
+        return
+    for c, tid in res:
+        console.rule(f"[bold]{c.id}[/] {c.dur:.0f}s · score {c.score:.2f} → timeline {tid}")
+        console.print(f"  “{c.hook}”")
+        for w in c.why:
+            console.print(f"  · {w}")
+
+
+@app.command()
 def ui(port: int = typer.Option(8765, help="Local port"), no_browser: bool = typer.Option(False, "--no-browser", help="Don't open a browser")) -> None:
     """Open the review app (runs on this computer only; footage is never uploaded)."""
     from .server import serve
@@ -65,6 +88,15 @@ def doctor() -> None:
         t.add_row("pocketsphinx", "[green]installed", "offline English fallback recogniser")
     except ImportError:
         t.add_row("pocketsphinx", "[yellow]not installed", "")
+    try:
+        import opentimelineio as otio
+
+        names = set(otio.adapters.available_adapter_names())
+        need = {"fcp_xml", "kdenlive"}
+        t.add_row("OTIO adapters", "[green]ok" if need <= names else "[yellow]partial",
+                  ", ".join(sorted(names)) + ("" if need <= names else f" (missing {', '.join(sorted(need - names))}: pip install prepro[export])"))
+    except Exception as e:  # pragma: no cover
+        t.add_row("OTIO adapters", "[red]error", str(e)[:120])
     face = ensure_model("face_res10", download=False)
     t.add_row("face model", "[green]cached" if face else "[yellow]not cached", "downloads on first analysis" if not face else str(face[1]))
     for exe in ("claude", "codex", "ollama", "espeak-ng", "melt"):
@@ -237,7 +269,6 @@ def export(
     from .lint.editlint import lint_timeline
     from .project import EXPORTS_DIR, Project
     from .schema.brief import CreatorBrief
-    from .schema.plan import DirectionSet
     from .schema.timeline import Timeline
 
     proj = Project(shoot)
@@ -250,8 +281,9 @@ def export(
         raise typer.Exit(1)
     tl = Timeline.model_validate_json(cands[-1].read_text(encoding="utf-8"))
     pa = analysis(shoot)
-    ds = proj.load_model("directions.json", DirectionSet)
-    d = next((x for x in ds.directions if x.id == tl.direction_id), None) if ds else None
+    from .repurpose import find_direction
+
+    d = find_direction(shoot, tl.direction_id)
     brief = proj.load_model("brief.json", CreatorBrief)
     findings = lint_timeline(tl, pa, d, brief) if d else []
     critic = rules_critic(tl, pa, d, findings) if d else None
@@ -266,6 +298,10 @@ def export(
                           lint=findings, direction=d, brief=brief)
     for k, v in made.items():
         console.print(f"  [green]✓[/] {k:16s} {v}")
+    from .export.nle import EXPORT_WARNINGS
+
+    for w in EXPORT_WARNINGS:
+        console.print(f"  [yellow]![/] {w}")
 
 
 @brains_app.command("list")

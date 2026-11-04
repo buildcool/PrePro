@@ -6,7 +6,12 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- v0.3.0: M0–M5 done. The review app is `prepro ui`:
+- v0.4.0: M0–M6 done. The desktop app has three parts:
+  - `desktop/`: Electron main/preload/splash + electron-builder config
+  - `scripts/build_engine.py`: PyInstaller, one folder → `dist/prepro-engine`
+  - CI (`.github/workflows/desktop.yml`, called by `release.yml`): AppImage + .deb + NSIS with bundled,
+    checksum-verified ffmpeg
+- v0.3.0: M0–M5. The review app is `prepro ui`:
   - `server/app.py`: FastAPI with jobs + SSE, token, Host guard
   - `ui/`: React + Vite + TS; the build goes to `src/prepro/server/static` and is committed
   - `revise.py`: suggestion keys, ops replay, comment rules, AI revise pass
@@ -49,14 +54,29 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 - `gh` CLI token is invalid in the container: git push works through the proxy, GitHub API calls do not —
   releases are created by the tag-triggered workflow.
 
+## Desktop notes
+- The frozen engine is about 810 MB unpacked:
+  - llvmlite 153 MB (numba, used by librosa)
+  - PyAV's ffmpeg 126 MB (used by faster-whisper)
+  - OpenCV 150 MB
+  - ctranslate2 140 MB
+- Ideas to trim it:
+  - stub `av` (we feed Whisper numpy audio)
+  - drop pocketsphinx from desktop builds
+  - UPX-compress on Windows
+- OTIO plugin adapters must ship as `.py` files: OTIO loads them by path.
+- electron-builder needs an `author.email`. It is set to `buildcool@users.noreply.github.com`; replace it with the
+  real contact before public distribution.
+- Not code-signed. Windows SmartScreen will warn until there is a signing certificate.
+- ffmpeg is GPL. It ships as separate executables with its licence text, which is mere aggregation. A legal
+  review is still needed before commercial distribution.
+
 ## Next steps
-1. **M6 desktop (v0.4).** Electron shell, PyInstaller engine, bundled ffmpeg, first-run model download,
-   AppImage/.deb here, Windows NSIS in CI.
-2. **Phase 2** by value; see `docs/PLAN.md` §8. Start with:
+1. **Phase 2** by value; see `docs/PLAN.md` §8. Start with:
    - long → Shorts repurposing
    - packaging: thumbnails, titles, chapters
    - Style DNA
-3. UI ideas not done yet:
+2. UI ideas not done yet:
    - drag-to-trim on the timeline
    - a waveform in the voice lane
    - a meme/music browser with alternatives

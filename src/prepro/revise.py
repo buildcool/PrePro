@@ -18,7 +18,7 @@ from . import knowledge as K
 from .project import Project
 from .schema.analysis import ProjectAnalysis
 from .schema.media import AssetKind
-from .schema.plan import Direction, DirectionSet, EffectCue, PolishPlan, StoryItem, StoryPlan
+from .schema.plan import Direction, EffectCue, PolishPlan, StoryItem, StoryPlan
 from .schema.timeline import Suggestion, Timeline
 
 OpKind = Literal["reject", "accept", "add", "drop", "trim", "speed", "whole", "swap_track", "music_gain", "captions", "hook"]
@@ -415,8 +415,11 @@ def recompile(root: str | Path, tl_id: str, rev: Revision | None = None, *, pa: 
     pa = pa or analysis(root)
     story = StoryPlan.model_validate_json(ps["story"].read_text(encoding="utf-8"))
     polish = PolishPlan.model_validate_json(ps["polish"].read_text(encoding="utf-8"))
-    ds = proj.load_model("directions.json", DirectionSet)
-    d = next(x for x in ds.directions if x.id == base.direction_id)
+    from .repurpose import find_direction
+
+    d = find_direction(root, base.direction_id)
+    if d is None:
+        raise KeyError(f"direction {base.direction_id} not found for {tl_id}")
     brief = proj.load_model("brief.json", CreatorBrief) or CreatorBrief()
     s2, p2, d2 = apply_ops(rev.ops, story, polish, d, pa)
     tl = compile_timeline(pa, d2, s2, p2, brief, project_root=root)
@@ -468,8 +471,11 @@ def add_comment(root: str | Path, tl_id: str, t: float, text: str, *, brain=None
     rev = load_revision(root, tl_id)
     tl = Timeline.model_validate_json(ps["tl"].read_text(encoding="utf-8"))
     pa = analysis(root)
-    ds = proj.load_model("directions.json", DirectionSet)
-    d = next(x for x in ds.directions if x.id == tl.direction_id)
+    from .repurpose import find_direction
+
+    d = find_direction(root, tl.direction_id)
+    if d is None:
+        raise KeyError(f"direction {tl.direction_id} not found")
     story = StoryPlan.model_validate_json(ps["story"].read_text(encoding="utf-8"))
     story, _, d = apply_ops(rev.ops, story, PolishPlan.model_validate_json(ps["polish"].read_text(encoding="utf-8")), d, pa)
     from .schema.brief import CreatorBrief

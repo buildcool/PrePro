@@ -408,14 +408,43 @@ def write_otio(tl: Timeline, pa: ProjectAnalysis, path: Path, *, project_root=No
     return path
 
 
-def write_kdenlive(otio_path: Path, path: Path) -> Path | None:
+EXPORT_WARNINGS: list[str] = []
+
+
+def write_kdenlive(otio_path: Path, path: Path, *, width: int | None = None, height: int | None = None, fps: float | None = None) -> Path | None:
+    """Kdenlive project via the OTIO Kdenlive adapter; a failure is reported, never silent.
+
+    The adapter always writes a 1920×1080 profile, so a vertical reel would open as landscape — the profile is
+    rewritten to the cut's real size and frame rate."""
     try:
         import opentimelineio as otio
 
         tl = otio.adapters.read_from_file(str(otio_path))
         otio.adapters.write_to_file(tl, str(path), adapter_name="kdenlive")
+        if width and height:
+            from math import gcd
+
+            root = ET.parse(path).getroot()
+            prof = root.find("profile")
+            if prof is not None:
+                g = gcd(width, height)
+                rate = fps or float(prof.get("frame_rate_num", "30")) / float(prof.get("frame_rate_den", "1"))
+                num, den = (int(round(rate * 1000)), 1000) if abs(rate - round(rate)) > 0.01 else (int(round(rate)), 1)
+                prof.set("width", str(width))
+                prof.set("height", str(height))
+                prof.set("display_aspect_num", str(width // g))
+                prof.set("display_aspect_den", str(height // g))
+                prof.set("frame_rate_num", str(num))
+                prof.set("frame_rate_den", str(den))
+                prof.set("description", f"PrePro {width}x{height} {rate:g} fps")
+                ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
         return path
-    except Exception:
+    except Exception as e:
+        import logging
+
+        msg = f"Kdenlive export skipped: {type(e).__name__}: {e} (the .otio file opens in Kdenlive too)"
+        EXPORT_WARNINGS.append(msg)
+        logging.getLogger("prepro").warning(msg)
         return None
 
 

@@ -44,6 +44,12 @@ export default function Home() {
             onKeyDown={(e) => e.key === "Enter" && open()}
             aria-label="Shoot folder path"
           />
+          {window.prepro?.pickFolder && (
+            <button className="btn" onClick={async () => {
+              const p = await window.prepro!.pickFolder();
+              if (p) setPath(p);
+            }}>Browse…</button>
+          )}
           <button className="btn primary" onClick={open} disabled={busy || !path.trim()}>
             Open
           </button>

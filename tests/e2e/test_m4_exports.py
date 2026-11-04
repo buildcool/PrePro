@@ -111,7 +111,9 @@ def test_otio_roundtrip(cut):
             assert Path(unquote(urlparse(c.media_reference.target_url).path)).exists()
     if "kdenlive" in made:
         k = ET.parse(made["kdenlive"]).getroot()
-        assert k.tag == "mlt" and k.findall("producer") or k.findall("chain")
+        assert k.tag == "mlt" and (k.findall("producer") or k.findall("chain"))
+        prof = k.find("profile")
+        assert (int(prof.get("width")), int(prof.get("height"))) == (tl.width, tl.height)   # vertical stays vertical
 
 
 def _playlist_frames(pl) -> int:

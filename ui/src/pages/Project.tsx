@@ -306,6 +306,7 @@ function Directions({ s, run, busy }: { s: Summary; run: (p: string, b: unknown,
           </div>
         ))}
       </div>
+      {s.analysed && s.talk_seconds >= 60 && <Shorts s={s} run={run} busy={busy} />}
       {s.timelines.length > 0 && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Your cuts</h3>
@@ -313,6 +314,52 @@ function Directions({ s, run, busy }: { s: Summary; run: (p: string, b: unknown,
             <div key={t.id} className="row small" style={{ justifyContent: "space-between" }}>
               <span>{t.name} <span className="dim">· {t.aspect} · {mmss(t.duration, 0)}</span></span>
               <button className="btn small" onClick={() => go({ page: "project", pid: s.id, tab: "review", tid: t.id })}>Review</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- long → Shorts
+function Shorts({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l: string) => Promise<any>; busy: boolean }) {
+  const [count, setCount] = useState(3);
+  const found = s.shorts?.directions ?? [];
+  const tidOf = (d: Direction) => `${d.id}-${d.playbook}`;
+  return (
+    <div className="card col">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Shorts from long talks</h2>
+          <div className="small mute">
+            {Math.round(s.talk_seconds / 60)} min of talking found. PrePro looks for moments that work on their own: a first line with a number, question
+            or claim, one idea, and a landing — then cuts each as a vertical Short with bold captions.
+          </div>
+        </div>
+        <div className="row">
+          <select value={count} onChange={(e) => setCount(+e.target.value)} style={{ width: "auto" }} aria-label="How many Shorts">
+            {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} Short{n > 1 ? "s" : ""}</option>)}
+          </select>
+          <button className="btn primary" disabled={busy} onClick={() => run(`/projects/${s.id}/shorts`, { count }, "Shorts")}>
+            {found.length ? "Find again" : "Find Shorts"}
+          </button>
+        </div>
+      </div>
+      {found.length > 0 && (
+        <div className="grid directions">
+          {found.map((d) => (
+            <div key={d.id} className="hook col small" style={{ gap: 4 }}>
+              <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}>
+                {d.hooks[0]?.refs[0] && <img src={frameUrl(s.id, refThumb(d.hooks[0].refs[0]))} alt="" style={{ width: 56, borderRadius: 5, flex: "none" }}
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />}
+                <div style={{ minWidth: 0 }}>
+                  <b>{d.name}</b>
+                  <div className="dim">~{Math.round(d.knobs.target_length ?? d.target_max)} s · fit {Math.round(d.fit_score * 100)}% · {d.why}</div>
+                </div>
+              </div>
+              <button className="btn small" style={{ alignSelf: "flex-start" }}
+                onClick={() => go({ page: "project", pid: s.id, tab: "review", tid: tidOf(d) })}>Review this Short</button>
             </div>
           ))}
         </div>

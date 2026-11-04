@@ -40,6 +40,9 @@ export default function Export({ pid, tid, run, busy }: { pid: string; tid: stri
         {!res ? <p className="small mute">Exports go to <code>PrePro_exports/{tid}</code> inside your shoot folder.</p> : (
           <div className="col small">
             <div className="dim" style={{ wordBreak: "break-all" }}>{res.folder}</div>
+            {window.prepro?.reveal && (
+              <button className="btn small" style={{ alignSelf: "flex-start" }} onClick={() => window.prepro!.reveal(res.folder)}>Show in folder</button>
+            )}
             {Object.entries(res.files).map(([k, rel]) => (
               <div key={k} className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
                 <span><span className="chip">{k}</span> <code>{rel.split("/").pop()}</code></span>

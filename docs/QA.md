@@ -82,3 +82,19 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
    back to the original.
 6. **"Keep this line" on a lone "uh" produced nothing.** Lines brought back by the creator are now kept as
    spoken.
+
+### v0.4 (M6 + Shorts): desktop app and Long → Shorts
+- **Frozen engine, run over its API** (analyse → directions → build + render → every export): 93 s, brief 100 %
+  met.
+- **Kdenlive was silently missing in the frozen app.** OTIO loads plugins from `.py` paths. Fixed, the failure is
+  now reported, and the Kdenlive profile now matches vertical cuts.
+- **Size.** 991 MB → 812 MB (removed the duplicate OpenCV pulled in by unused scenedetect) → 708 MB (PyAV stub).
+- **Packaged AppImage.** Extracted and launched under Xvfb: engine 0.4.0 started, the bridge was present and no
+  Node.js reached the page.
+- **Electron + frozen engine.** The page is local-only, a shoot opens, and quitting stops the engine.
+- **ASR fallback without sidecars (frozen).** PocketSphinx produced a rough transcript of the TTS podcast
+  ("…ten thousand dollars on like there's a tunnel i bought a fancy…"). Usable for segmentation; Whisper will
+  be far better on real installs.
+- **Shorts finder on the planted podcast** (3 gold moments between rambling, a greeting and "like I said"
+  asides): it picked exactly gold2, gold1 and gold3 (IoU ≈ 1.0). Every pick opens on its own claim or question and
+  ends on its lesson.

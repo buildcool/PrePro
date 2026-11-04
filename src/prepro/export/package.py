@@ -35,7 +35,7 @@ def export_all(tl: Timeline, pa: ProjectAnalysis, out_dir: Path, *, formats=FORM
     if "otio" in formats or "kdenlive" in formats:
         made["otio"] = nle.write_otio(tl, pa, out_dir / f"{base}.otio", project_root=root)
         if "kdenlive" in formats:
-            k = nle.write_kdenlive(made["otio"], out_dir / f"{base}.kdenlive")
+            k = nle.write_kdenlive(made["otio"], out_dir / f"{base}.kdenlive", width=tl.width, height=tl.height, fps=tl.fps)
             if k:
                 made["kdenlive"] = k
     if "mlt" in formats:

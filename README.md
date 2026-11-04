@@ -56,6 +56,23 @@ Five steps:
 
 UI development: `npm --prefix ui install && npm --prefix ui run build` (output goes to `src/prepro/server/static`).
 
+## Desktop app (Linux + Windows)
+
+Installers are attached to each GitHub Release:
+- Linux: `PrePro-x.y.z-linux-x86_64.AppImage` or `.deb`
+- Windows: `PrePro-x.y.z-win-x64.exe`
+
+To build one yourself:
+
+```bash
+uv pip install --python .venv -e ".[asr,ai,geo,export]" pyinstaller
+.venv/bin/python scripts/build_engine.py          # → dist/prepro-engine (frozen engine)
+npm --prefix desktop install
+cd desktop && npx electron-builder --linux AppImage deb    # or: --win nsis (on Windows)
+```
+
+The app starts a local engine on 127.0.0.1 and nothing is uploaded. Speech models download on first use.
+
 ## How it works
 
 ```

@@ -69,6 +69,8 @@ export interface Summary {
   genres: { playbook: string; score: number; why?: string }[];
   timelines: { id: string; name: string; duration: number; playbook: string; updated: number; aspect: string }[];
   directions: { directions: Direction[]; notes: string } | null;
+  shorts: { directions: Direction[]; notes: string } | null;
+  talk_seconds: number;
   brief: { text: string; parsed: Brief | null };
 }
 

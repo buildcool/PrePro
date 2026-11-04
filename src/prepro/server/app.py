@@ -156,6 +156,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             except Exception:
                 continue
         ds = proj.load_model("directions.json", DirectionSet)
+        shorts = proj.load_model("shorts.json", DirectionSet)
         brief = proj.load_model("brief.json", CreatorBrief)
         bt = proj.cache / "brief_text.md"
         counts: dict[str, int] = {}
@@ -171,6 +172,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "genres": [g.model_dump() for g in pa.genres] if pa else [],
                 "timelines": sorted(tls, key=lambda x: -x["updated"]),
                 "directions": ds.model_dump() if ds else None,
+                "shorts": shorts.model_dump() if shorts else None,
+                "talk_seconds": round(sum(a.info.duration for a in pa.assets if a.kind.value == "aroll"), 1) if pa else 0,
                 "brief": {"text": bt.read_text(encoding="utf-8") if bt.exists() else "", "parsed": brief.model_dump() if brief else None},
                 "jobs": [j.public() for j in jobs.jobs.values() if j.project == pid and j.status in ("queued", "running")]}
 
@@ -292,6 +295,21 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
 
         return jobs.submit("directions", pid, work).public()
 
+    @app.post("/api/projects/{pid}/shorts")
+    def make_shorts(pid: str, body: dict = Body(default={})):
+        root = project(pid)
+        if (j := jobs.running(pid, "shorts")) is not None:
+            return j.public()
+
+        def work(job: Job):
+            from ..repurpose import build_shorts
+
+            res = build_shorts(root, count=int(body.get("count", 3)), min_len=float(body.get("min", 15)), max_len=float(body.get("max", 60)),
+                               progress=job.progress)
+            return {"shorts": [{"id": c.id, "timeline": tid, "hook": c.hook, "dur": round(c.dur, 1), "score": c.score, "why": c.why} for c, tid in res]}
+
+        return jobs.submit("shorts", pid, work).public()
+
     @app.post("/api/projects/{pid}/build")
     def make_build(pid: str, body: dict = Body(default={})):
         root = project(pid)
@@ -300,10 +318,22 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
 
         def work(job: Job):
             from ..engine import build
+            from ..repurpose import find_direction, rebuild_short
             from ..revise import load_revision, recompile
 
+            did = body.get("direction") or "auto"
+            d0 = find_direction(root, did) if did != "auto" else None
+            if d0 is not None and str(did).startswith("s") and d0.playbook == "podcast_clip":
+                job.progress("build", 0.2, 1, "re-polishing the Short")
+                tid = rebuild_short(root, did, body.get("knobs") or None)
+                rev = load_revision(root, tid)
+                if rev.ops:
+                    recompile(root, tid, rev)
+                if body.get("render", True):
+                    _render(root, tid, "preview")
+                return {"timeline": tid, "warnings": [], "ai_calls": 0, "cost_usd": 0.0}
             job.progress("build", 0.1, 1, "story → polish → compile → lint")
-            res = build(root, direction=body.get("direction") or "auto", brief_text=_brief_text(root), render=False,
+            res = build(root, direction=did, brief_text=_brief_text(root), render=False,
                         knobs=body.get("knobs") or None, progress=job.progress)
             tid = res.timeline.id
             base = Project(root).cache / "timelines" / f"{tid}.base.json"
@@ -327,7 +357,6 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         from ..lint.editlint import compliance, lint_timeline
         from ..revise import load_revision
         from ..schema.brief import CreatorBrief
-        from ..schema.plan import DirectionSet
         from ..schema.timeline import Timeline
         from ..timeline.attention import attention_curve
 
@@ -337,8 +366,9 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             raise HTTPException(404, "no such timeline")
         tl = Timeline.model_validate_json(p.read_text(encoding="utf-8"))
         pa = load_analysis(root)
-        ds = proj.load_model("directions.json", DirectionSet)
-        d = next((x for x in ds.directions if x.id == tl.direction_id), None) if ds else None
+        from ..repurpose import find_direction
+
+        d = find_direction(root, tl.direction_id)
         brief = proj.load_model("brief.json", CreatorBrief) or CreatorBrief()
         findings = lint_timeline(tl, pa, d, brief) if d else []
         critic = rules_critic(tl, pa, d, findings) if d else None
@@ -454,14 +484,14 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             from ..lint.editlint import lint_timeline
             from ..project import EXPORTS_DIR
             from ..schema.brief import CreatorBrief
-            from ..schema.plan import DirectionSet
             from ..schema.timeline import Timeline
 
             proj = Project(root)
             tl = Timeline.model_validate_json((proj.cache / "timelines" / f"{tid}.json").read_text(encoding="utf-8"))
             pa = load_analysis(root)
-            ds = proj.load_model("directions.json", DirectionSet)
-            d = next((x for x in ds.directions if x.id == tl.direction_id), None) if ds else None
+            from ..repurpose import find_direction
+
+            d = find_direction(root, tl.direction_id)
             brief = proj.load_model("brief.json", CreatorBrief)
             findings = lint_timeline(tl, pa, d, brief) if d else []
             critic = rules_critic(tl, pa, d, findings) if d else None
