@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 import pytest
-from tests.conftest import needs_ffmpeg
+from tests.conftest import needs_ffmpeg, needs_tts
 
 import prepro.speech_models as sm
 
@@ -41,6 +41,7 @@ def test_status_lists_every_model_with_its_size():
     assert sm.repo_for("large-v3-turbo") != "Systran/faster-whisper-large-v3-turbo" or not sm.installed()
 
 
+@needs_tts
 @needs_ffmpeg
 def test_rough_transcripts_are_redone_when_whisper_arrives(shoot_factory, tmp_path, monkeypatch):
     import shutil
