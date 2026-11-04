@@ -42,3 +42,23 @@ Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / r
   2. "Let me show you how I did it" was followed by B-roll without costs (broken promise) → noted for the
      revise pass (story re-ordering is not auto-applied yet);
   3. ding + impact 1.3 s apart → critic fixes can now target `type:anchor` effects and are applied.
+
+### v0.2 (M4): exports, read back by independent tools
+- **FCP7 XML → OTIO `fcp_xml` adapter:** 10/10 V1 clips with the same cut points, 9/9 markers, 31.83 s vs 31.84 s.
+  - Bins by day · place come through: "B-roll · Day 1 · Calangute" and "B-roll · Day 2 · Jaipur".
+- **OTIO round-trip:** 31.87 s (2 frames of transition overlap).
+- **`melt` rendered the Shotcut file 6.4 s too long.** Two bugs:
+  1. Slow-mo entries were counted in source frames, so V1 came out 51 frames short of A1. Speed changes now use
+     MLT `timewarp` producers, so all tracks are 955 frames.
+  2. The `melt` CLI ignored the file's `<profile>` and rendered at 25 fps: 955 frames became 38.2 s. Shotcut reads
+     the profile; tests pass `-profile`.
+- **Phone pack came out H.264 4:4:4**, from the overlay/ASS pass. Phones and Instagram need 4:2:0. All outputs
+  are now `-pix_fmt yuv420p`.
+- **Editor brief, read as the person receiving it:**
+  1. "Missing material: a shot of spent / only / five / thousand" was keyword soup. It is now an editor's request
+     from a concept map: "close-up of the food being served … show the price too", with place-aware search terms.
+  2. Music sections that are silent by the brief still showed search terms. Those are hidden now.
+  3. Decisions were not in time order, and empty tables were blank. Both fixed.
+- **Re-ingest bug.** After an export into `<shoot>/PrePro_exports/`, the next build analysed our own rendered MP4s
+  and SFX as new footage, and a phone-pack file became the hook. The scanner now ignores `PrePro_exports/` (and
+  OS clutter folders). There is a regression test.

@@ -1,0 +1,52 @@
+# What a human editor asks the shooter for when a talking beat has no matching B-roll.
+# Each concept: words that trigger it (English, Hindi/Hinglish romanised), the shot to ask for, stock-search terms.
+# Concrete things (food, hotel, beach…) beat abstract ones (money, time): “this kachori cost 20 rupees” asks for the
+# kachori with its price, not a payment screen. `local: true` → stock search terms get the place name.
+- id: money
+  abstract: true
+  add: "show the price too"
+  words: [rupees, rupee, rs, inr, "₹", dollars, dollar, money, paisa, paise, cost, costs, price, prices, spent, spend, budget, paid, pay, cheap, expensive, kharcha, sasta, mehenga]
+  want: "proof of the money — a payment screen, cash in hand or the bill"
+  search: ["UPI payment on phone", "cash in hand close-up", "restaurant bill receipt"]
+- id: food
+  local: true
+  words: [food, eat, ate, eating, kachori, momos, lassi, chai, thali, biryani, dosa, samosa, breakfast, lunch, dinner, snack, restaurant, cafe, khana, street]
+  want: "close-up of the food being served, picked up or bitten"
+  search: ["street food close up", "food being served slow motion", "first bite reaction"]
+- id: stay
+  local: true
+  words: [hotel, room, hostel, stay, airbnb, homestay, resort, villa, checkin, checked]
+  want: "the stay — door opening, room reveal, view from the window"
+  search: ["hotel room reveal", "door opening to room", "view from hotel window"]
+- id: journey
+  local: true
+  words: [train, flight, bus, drive, drove, road, car, bike, scooter, airport, station, travelled, traveled, journey, trip, safar]
+  want: "the journey — window seat, road ahead, platform or take-off"
+  search: ["train window view", "road trip dashcam", "airport walking"]
+- id: water
+  local: true
+  words: [beach, sea, ocean, waves, lake, river, swim, swimming, boat, cliff, jump]
+  want: "wide of the water plus one detail (waves, feet in the sand, the jump)"
+  search: ["beach waves wide shot", "feet walking on sand", "cliff jump slow motion"]
+- id: landmark
+  local: true
+  words: [fort, palace, temple, market, bazaar, museum, monument, old, city, gate, mahal]
+  want: "establishing shot of the place — wide first, then a detail"
+  search: ["fort wide establishing shot", "market crowd timelapse", "architecture detail"]
+- id: people
+  words: [friends, friend, family, mom, dad, bhai, yaar, people, locals, guide, uncle, aunty]
+  want: "the people you mention — a reaction or a candid moment"
+  search: ["friends laughing candid", "local vendor portrait", "group selfie walking"]
+- id: time
+  abstract: true
+  words: [morning, night, sunrise, sunset, evening, day, days, week, hours, subah, raat, shaam]
+  want: "a time marker — sunrise/sunset, a clock or a quick time-lapse"
+  search: ["sunrise timelapse", "city night timelapse", "sunset silhouette"]
+- id: shopping
+  words: [bought, buy, buying, shopping, shop, souvenir, haul, purchase]
+  want: "the thing you bought — close-up in hand, price tag if any"
+  search: ["holding souvenir close-up", "shopping bags walking", "price tag close up"]
+- id: product
+  words: [phone, camera, laptop, product, review, unboxing, setup, app, screen]
+  want: "the product or screen — a clean insert close-up"
+  search: ["product close up turntable", "hands using phone close up", "screen recording"]

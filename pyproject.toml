@@ -1,6 +1,6 @@
 [project]
 name = "prepro"
-version = "0.1.0"
+version = "0.2.0"
 description = "PrePro: AI pre-edit engine for creators — turns a shoot folder into a reasoned first cut with suggestions."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -34,6 +34,7 @@ dependencies = [
 asr = ["faster-whisper>=1.0.3", "pocketsphinx>=5.0.3"]
 ai = ["anthropic>=0.40", "openai>=1.40", "google-genai>=1.0", "ollama>=0.3"]
 geo = ["reverse_geocoder>=1.5"]
+export = ["otio-fcp-adapter>=1.0", "otio-kdenlive-adapter>=0.0.3"]
 dev = ["pytest>=8.2", "pytest-timeout>=2.3", "ruff>=0.5", "mypy>=1.10", "types-PyYAML"]
 
 [project.scripts]

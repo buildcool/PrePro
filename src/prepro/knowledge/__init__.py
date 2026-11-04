@@ -86,5 +86,32 @@ def sfx_vocab() -> dict:
 
 
 @lru_cache(maxsize=1)
+def broll_concepts() -> list[dict]:
+    return yaml.safe_load((HERE / "broll.yaml").read_text(encoding="utf-8"))
+
+
+def broll_ask(text: str, place: str | None = None) -> tuple[str, list[str]]:
+    """Turn a line with no matching footage into the shot request a human editor would write."""
+    import re
+
+    words = {w.lower() for w in re.findall(r"[\w₹]+", text)}
+    hits = [c for c in broll_concepts() if words & {str(x).lower() for x in c["words"]}]
+    concrete = [c for c in hits if not c.get("abstract")]
+    if hits:
+        c = (concrete or hits)[0]
+        want = c["want"]
+        extra = next((h.get("add") for h in hits if h is not c and h.get("add")), None)
+        if extra:
+            want = f"{want} — {extra}"
+        terms = list(c["search"])
+        if place and c.get("local"):
+            terms = [f"{place} {terms[0]}"] + terms[1:]
+        return want, terms[:3]
+    if place:
+        return f"an establishing shot of {place} that matches what you say here", [f"{place} wide shot", f"{place} street detail"]
+    return "a cutaway that shows what you are talking about here", []
+
+
+@lru_cache(maxsize=1)
 def constitution() -> str:
     return (HERE / "constitution.md").read_text(encoding="utf-8")

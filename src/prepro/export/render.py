@@ -106,7 +106,7 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
         else:
             vf = f"[0:v]{speed}{_crop_filter(it, ds[0], ds[1], W, H, dur)},scale={W}:{H}:flags=bicubic{tail}[v]"
         args = ["-ss", f"{max(0.0, it.src_in):.3f}", "-t", f"{src_dur + 0.1:.3f}", "-i", str(src), "-filter_complex", vf, "-map", "[v]"]
-    args += ["-frames:v", str(nframes), "-an", "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-r", f"{fps}", str(out)]
+    args += ["-frames:v", str(nframes), "-an", "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
     run_ffmpeg(args, timeout=1800)
     return out
 
@@ -131,7 +131,7 @@ def _combine(segs: list[tuple[Item, Path]], out: Path, fps: float, crf: int, pre
         else:
             chain.append(f"{acc}[n{k}]concat=n=2:v=1:a=0,settb=AVTB{lab}")
         acc = lab
-    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-r", f"{fps}", str(out)]
+    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
     run_ffmpeg(args, timeout=3600)
     return out
 
@@ -163,7 +163,7 @@ def _overlay_pass(pa: ProjectAnalysis, proj: Project, tl: Timeline, base: Path, 
     if not chain:
         os.replace(base, out)
         return out
-    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-r", f"{fps}", str(out)]
+    args += ["-filter_complex", ";".join(chain), "-map", acc, "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-r", f"{fps}", str(out)]
     _ = (sx, sy)
     run_ffmpeg(args, timeout=3600)
     return out
@@ -230,13 +230,13 @@ def voice_polish_filter(pa: ProjectAnalysis, asset_id: str) -> str:
 
 
 def mix_audio(pa: ProjectAnalysis, proj: Project, tl: Timeline, out: Path, *, target_lufs: float = -14.0, true_peak: float = -1.0,
-              stems_dir: Path | None = None, polish_voice: bool = True) -> tuple[float | None, float | None, float | None]:
+              stems_dir: Path | None = None, polish_voice: bool = True, music: bool = True) -> tuple[float | None, float | None, float | None]:
     total = tl.duration + 0.25
     n = int(total * SR) + SR
     stems = {k: np.zeros((n, 2), np.float32) for k in ("dialogue", "music", "sfx")}
     bleeps = []
     for it in tl.items:
-        if it.kind != "audio":
+        if it.kind != "audio" or (not music and it.track == "A2"):
             continue
         if it.note.startswith("builtin:"):
             name = it.note.split(":", 1)[1]
@@ -336,7 +336,7 @@ def _limit(x: np.ndarray, ceiling: float) -> np.ndarray:
 
 # ------------------------------------------------------------------ main
 def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "preview", preview_height: int = 540, project_root=None,
-           stems: bool = False, storyboard: bool = True) -> RenderResult:
+           stems: bool = False, storyboard: bool = True, captions: bool = True, music: bool = True) -> RenderResult:
     proj = Project(project_root or pa.root)
     short = preview_height if quality == "preview" else min(tl.width, tl.height)
     scale = short / min(tl.width, tl.height)
@@ -354,11 +354,14 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
     _combine(segs, base, tl.fps, crf, preset)
     scaled = tl.model_copy(deep=True)
     scaled.width, scaled.height = W, H
-    ass = write_ass(scaled, out.with_suffix(".ass")) if (tl.captions or any(i.kind == "text" for i in tl.items)) else None
+    if not captions:
+        scaled.captions = []
+        scaled.items = [i for i in scaled.items if i.kind != "text"]
+    ass = write_ass(scaled, out.with_suffix(".ass")) if (scaled.captions or any(i.kind == "text" for i in scaled.items)) else None
     vid = out.with_name(out.stem + ".video.mp4")
     _overlay_pass(pa, proj, tl, base, ass, vid, W, H, tl.fps, crf, preset, look)
     wav = out.with_suffix(".wav")
-    lufs, tp, sm = mix_audio(pa, proj, tl, wav, stems_dir=(out.parent / f"{out.stem}_stems") if stems else None)
+    lufs, tp, sm = mix_audio(pa, proj, tl, wav, stems_dir=(out.parent / f"{out.stem}_stems") if stems else None, music=music)
     run_ffmpeg(["-i", str(vid), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                 "-shortest", "-movflags", "+faststart", str(out)], timeout=1800)
     for p in (base, vid):

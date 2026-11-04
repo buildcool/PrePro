@@ -215,6 +215,51 @@ def build(
             console.print(f"storyboard {r.storyboard}")
 
 
+@app.command()
+def export(
+    shoot: Path = typer.Argument(..., help="Shoot folder (after `prepro build`)"),
+    timeline: str = typer.Option(None, help="Timeline id (default: most recent)"),
+    formats: str = typer.Option("fcp7,otio,kdenlive,mlt,srt,overlay,report", help="Comma list (or 'all'): " + ",".join(("fcp7", "otio", "kdenlive", "mlt", "srt", "overlay", "phone", "report"))),
+    out: Path = typer.Option(None, help="Output folder (default: <shoot>/PrePro_exports/<timeline>)"),
+) -> None:
+    """Export the cut for Premiere/Resolve (FCP7 XML), Kdenlive (OTIO/.kdenlive), Shotcut (MLT), phone apps, SRT + editor brief."""
+    from .engine import analysis
+    from .export.package import FORMATS, export_all
+    from .lint.critic import rules_critic
+    from .lint.editlint import lint_timeline
+    from .project import EXPORTS_DIR, Project
+    from .schema.brief import CreatorBrief
+    from .schema.plan import DirectionSet
+    from .schema.timeline import Timeline
+
+    proj = Project(shoot)
+    tdir = proj.cache / "timelines"
+    cands = sorted((p for p in tdir.glob("*.json") if p.name.count(".") == 1), key=lambda p: p.stat().st_mtime)
+    if timeline:
+        cands = [p for p in cands if p.stem == timeline]
+    if not cands:
+        console.print("[red]no timeline — run `prepro build` first")
+        raise typer.Exit(1)
+    tl = Timeline.model_validate_json(cands[-1].read_text(encoding="utf-8"))
+    pa = analysis(shoot)
+    ds = proj.load_model("directions.json", DirectionSet)
+    d = next((x for x in ds.directions if x.id == tl.direction_id), None) if ds else None
+    brief = proj.load_model("brief.json", CreatorBrief)
+    findings = lint_timeline(tl, pa, d, brief) if d else []
+    critic = rules_critic(tl, pa, d, findings) if d else None
+    out = out or (proj.root / EXPORTS_DIR / tl.id)
+    with console.status("Exporting…"):
+        fmts = list(FORMATS) if formats.strip() == "all" else [f.strip() for f in formats.split(",")]
+        bad = [f for f in fmts if f not in FORMATS]
+        if bad:
+            console.print(f"[red]unknown format(s): {', '.join(bad)} — choose from {', '.join(FORMATS)} or 'all'")
+            raise typer.Exit(2)
+        made = export_all(tl, pa, out, formats=fmts, project_root=shoot, critic=critic,
+                          lint=findings, direction=d, brief=brief)
+    for k, v in made.items():
+        console.print(f"  [green]✓[/] {k:16s} {v}")
+
+
 @brains_app.command("list")
 def brains_list() -> None:
     """Show connectors (configured + detected), availability, routing and training badges."""

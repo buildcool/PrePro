@@ -78,6 +78,11 @@ class ScanResult:
     sidecars: dict[str, Path]     # media rel path (without ext) → transcript sidecar
 
 
+EXPORTS_DIR = "PrePro_exports"
+# our own outputs (and tool clutter) must never be re-ingested as footage
+IGNORED_DIRS = frozenset({EXPORTS_DIR, "node_modules", "__pycache__", "$RECYCLE.BIN", "System Volume Information"})
+
+
 class Project:
     """A shoot folder plus its ``.prepro`` cache."""
 
@@ -115,7 +120,7 @@ class Project:
         notes_files: list[Path] = []
         sidecars: dict[str, Path] = {}
         for dirpath, dirnames, filenames in os.walk(self.root):
-            dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d not in ("node_modules", "__pycache__"))
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d not in IGNORED_DIRS)
             dpath = Path(dirpath)
             rel_dir = dpath.relative_to(self.root)
             hint = None

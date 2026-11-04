@@ -22,7 +22,7 @@ jobs:
       - name: Install
         run: |
           uv venv --python 3.12 .venv
-          uv pip install --python .venv -e ".[asr,ai,geo,dev]"
+          uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
       - name: Lint
         run: uv run --python .venv ruff check src tests
       - name: Tests

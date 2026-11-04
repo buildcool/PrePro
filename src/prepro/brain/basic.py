@@ -704,8 +704,10 @@ class BasicBrain:
                     pp.effects.append(EffectCue(type="broll", at=s.id, asset=shot.id, dur=round(min(3.2, (s.t1 - s.t0) * 0.45), 2),
                                                 why="cover the talking beat with what is being talked about", confidence=0.7))
                 elif d.playbook in ("story_vlog", "talking_head"):
-                    kw = [w for w in re.findall(r"[A-Za-z]{4,}", s.text) if w.lower() not in STOP][:4]
-                    pp.broll_gaps.append(BrollGap(at=s.id, want=f"a shot of {' / '.join(kw) or 'what you describe'}", search_terms=kw))
+                    want, terms = K.broll_ask(s.text, self.pa.clips[s.asset_id].place)
+                    line = s.text.strip()
+                    line = line if len(line) <= 48 else line[:46].rsplit(" ", 1)[0] + "…"
+                    pp.broll_gaps.append(BrollGap(at=s.id, want=f"{want} (for “{line}”)", search_terms=terms))
         # memes
         meme_ok = pb.memes in ("allowed", "light", "comedic_only") and k.humour != "off" and "meme" not in self.no
         if pb.memes == "comedic_only" and k.humour == "light" and d.playbook == "story_vlog":

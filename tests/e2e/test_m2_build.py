@@ -116,10 +116,11 @@ def test_preview_render_meets_delivery_specs(shoot_factory):
     res = build(root, render=True)
     r = res.render
     assert r.video.exists()
-    info = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height:format=duration", "-of", "json",
+    info = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height,pix_fmt:format=duration", "-of", "json",
                                       str(r.video)], capture_output=True, text=True).stdout)
     v = next(s for s in info["streams"] if s["codec_type"] == "video")
     assert (v["width"], v["height"]) == (540, 960)
+    assert v["pix_fmt"] == "yuv420p"          # 4:4:4 H.264 won't play on most phones / gets re-encoded badly by Instagram
     assert abs(float(info["format"]["duration"]) - res.timeline.duration) < 0.4
     assert r.lufs is not None and abs(r.lufs + 14) <= 1.0
     assert r.true_peak_db is not None and r.true_peak_db <= -0.7

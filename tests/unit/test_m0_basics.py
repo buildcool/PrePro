@@ -60,3 +60,29 @@ def test_demo_shoot_scan_and_probe(shoot_factory):
     a = probe(root / "footage/day1/IMG_2041.mp4")
     assert a.has_audio and a.duration > 5
     assert len(gt["clips"]["footage/day1/IMG_2041.mp4"]["lines"]) == 5
+
+
+def test_broll_requests_read_like_an_editor_wrote_them():
+    from prepro import knowledge as K
+
+    want, terms = K.broll_ask("This kachori cost me twenty rupees.", "Jaipur")
+    assert want.startswith("close-up of the food") and "price" in want      # the thing, with its price — not a payment screen
+    assert terms[0].startswith("Jaipur")
+    want, terms = K.broll_ask("I spent only five thousand rupees for three full days.", "Calangute")
+    assert "payment" in want and not terms[0].startswith("Calangute")       # abstract money proof is not place-specific
+    want, _ = K.broll_ask("Honestly the vibe here is unreal.", "Jaipur")
+    assert "Jaipur" in want
+    for c in K.broll_concepts():
+        assert c["want"] and c["search"] and c["words"]
+
+
+def test_scan_never_ingests_our_own_exports(tmp_path):
+    (tmp_path / "footage").mkdir()
+    (tmp_path / "footage" / "a.mp4").write_bytes(b"\0" * 64)
+    out = tmp_path / "PrePro_exports" / "d1-story_vlog" / "phone_pack"
+    out.mkdir(parents=True)
+    (out / "1_captioned.mp4").write_bytes(b"\0" * 64)
+    (out.parent / "sfx").mkdir()
+    (out.parent / "sfx" / "pop.wav").write_bytes(b"\0" * 64)
+    rels = {f.rel for f in Project(tmp_path).scan().files}
+    assert rels == {"footage/a.mp4"}
