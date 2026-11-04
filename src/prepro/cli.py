@@ -16,6 +16,8 @@ from . import __version__
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="PrePro — AI pre-edit engine: shoot folder → reasoned first cut.")
 testmedia_app = typer.Typer(help="Download / list real test media (dev only).")
 app.add_typer(testmedia_app, name="testmedia")
+brains_app = typer.Typer(help="AI connectors: list, add, keys, routing, test, compare.")
+app.add_typer(brains_app, name="brains")
 console = Console()
 
 
@@ -211,6 +213,93 @@ def build(
         console.print(f"[bold green]render[/] {r.video}  ({r.duration:.1f}s, {r.lufs} LUFS, TP {r.true_peak_db} dBTP, voice/music {r.speech_to_music_db} dB)")
         if r.storyboard:
             console.print(f"storyboard {r.storyboard}")
+
+
+@brains_app.command("list")
+def brains_list() -> None:
+    """Show connectors (configured + detected), availability, routing and training badges."""
+    from .brain.providers import detect_connectors, make_provider
+    from .config import Settings
+
+    s = Settings.load()
+    conns = {**detect_connectors(), **s.connectors}
+    t = Table(title=f"Brains · privacy level: {s.privacy}")
+    for c in ("name", "kind", "model", "ready", "training / data use"):
+        t.add_column(c, overflow="fold")
+    t.add_row("basic", "rules", "-", "[green]yes", "Nothing is sent — rules only, on this PC.")
+    for name, cfg in conns.items():
+        p = make_provider(name, cfg, privacy=s.privacy)
+        ok, why = p.available()
+        t.add_row(name, cfg.kind, cfg.model or "default", ("[green]yes" if ok else "[yellow]no") + f" [dim]{why}", p.training_badge())
+    console.print(t)
+    console.print("Routing: " + ", ".join(f"{k}→{v}" for k, v in s.routing.model_dump().items()))
+
+
+@brains_app.command("add")
+def brains_add(name: str, kind: str = typer.Option(..., help="claude_code|codex|anthropic|openai|xai|openrouter|gemini|ollama"),
+               model: str = typer.Option(None), tier: str = typer.Option(None, help="gemini: free|paid"),
+               max_usd: float = typer.Option(2.0, help="per-project cap")) -> None:
+    from .config import ConnectorConfig, Settings
+
+    s = Settings.load()
+    s.connectors[name] = ConnectorConfig(kind=kind, model=model, max_usd_per_project=max_usd, extra={"tier": tier} if tier else {})
+    s.save()
+    console.print(f"added {name} ({kind})")
+
+
+@brains_app.command("key")
+def brains_key(provider: str = typer.Argument(..., help="anthropic|openai|xai|openrouter|gemini"), value: str = typer.Option(..., prompt=True, hide_input=True)) -> None:
+    """Store an API key in the OS keychain."""
+    from .config import set_secret
+
+    set_secret(f"{provider}_api_key", value)
+    console.print(f"stored {provider} key in the keychain")
+
+
+@brains_app.command("route")
+def brains_route(pass_name: str = typer.Argument(..., help="vision|director|story|polish|critic|brief|revise|all"), connector: str = typer.Argument(...)) -> None:
+    from .config import Settings
+
+    s = Settings.load()
+    keys = list(s.routing.model_dump()) if pass_name == "all" else [pass_name]
+    for k in keys:
+        setattr(s.routing, k, connector)
+    s.save()
+    console.print("Routing: " + ", ".join(f"{k}→{v}" for k, v in s.routing.model_dump().items()))
+
+
+@brains_app.command("privacy")
+def brains_privacy(level: str = typer.Argument(..., help="local|text|thumbs")) -> None:
+    from .config import Settings
+
+    s = Settings.load()
+    s.privacy = level  # type: ignore[assignment]
+    s.save()
+    console.print(f"privacy level → {level}")
+
+
+@brains_app.command("compare")
+def brains_compare(shoot: Path, connectors: list[str] = typer.Option(None, "--connector", "-c")) -> None:
+    """Build the same shoot with each brain and compare scorecards (the 'which brain is best?' report)."""
+    from .brain.providers import detect_connectors
+    from .config import Settings
+    from .engine import build as do_build
+
+    s = Settings.load()
+    names = connectors or ["basic"] + list({**detect_connectors(), **s.connectors})
+    t = Table(title="Which brain is best?")
+    for c in ("brain", "direction", "dur", "hook", "clarity", "pacing", "restraint", "genre_fit", "lint errors", "cost"):
+        t.add_column(c)
+    for n in names:
+        try:
+            res = do_build(shoot, render=False, routing={k: n for k in s.routing.model_dump()} if n != "basic" else {k: "basic" for k in s.routing.model_dump()})
+        except Exception as e:  # keep comparing
+            t.add_row(n, f"[red]failed: {str(e)[:60]}", *[""] * 8)
+            continue
+        sc = res.critic.scores if res.critic else {}
+        t.add_row(n, res.direction.playbook, f"{res.timeline.duration:.0f}s", *[str(sc.get(k, "-")) for k in ("hook", "clarity", "pacing", "restraint", "genre_fit")],
+                  str(sum(1 for f in res.lint if f.severity == "error")), f"${res.cost_usd:.3f}" + (" + plan" if any(c["usage"].get("plan_usage") for c in res.ai_calls) else ""))
+    console.print(t)
 
 
 @testmedia_app.command("fetch")

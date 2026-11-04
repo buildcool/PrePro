@@ -51,7 +51,7 @@ def chunk_words(words: list[CaptionWord], *, min_w: int, max_w: int, max_gap: fl
             full = len(cur) >= max_w or chars > max_chars
             soft = _w(w) in CLAUSE and len(cur) >= (2 if max_w <= 4 else min_w + 1)
             # orphan guard: if only one word of this sentence is left, keep it with the current chunk
-            rest_one = (i + 1 == n or re.search(r"[.!?।]$", w.text)) and len(cur) <= max_w and chars <= max_chars + 6
+            rest_one = (i + 1 == n or re.search(r"[.!?।]$", w.text)) and len(cur) <= max_w and chars <= max_chars + 4
             if gap > max_gap or (end_punct and len(cur) >= min_w) or soft or (full and not (rest_one and re.search(r"[.!?।]$", w.text))):
                 if len(cur) > 1 and _w(cur[-1]) in GLUE and gap <= max_gap and not end_punct:
                     carry = cur.pop()

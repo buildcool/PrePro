@@ -145,6 +145,34 @@ def speech_pieces(ctx: Ctx, seg: Segment, *, tightness: float, breath: float, ma
     return merged, kept, removed
 
 
+NUMWORD = re.compile(r"\d|₹|\$|%|\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|fifty|hundred|thousand|lakh|crore|"
+                     r"only|never|best|worst|secret|mistake|unreal|insane)\b", re.I)
+
+
+def tighten_hook(ctx: Ctx, seg: Segment, pieces, kept):
+    """Enter late: when the payload of a long hook line comes after 1.5 s, start at the clause that carries it."""
+    if not kept or (kept[-1].t1 - kept[0].t0) < 3.5:
+        return pieces, kept, ""
+    first = next((i for i, w in enumerate(kept) if NUMWORD.search(w.text)), None)
+    if first is None or kept[first].t0 - kept[0].t0 < 1.5:
+        return pieces, kept, ""
+    start = first
+    for j in range(first, 0, -1):   # walk back to the clause start (after punctuation / before a conjunction)
+        prev = kept[j - 1].text
+        if re.search(r"[,.;:!?]$", prev) or re.sub(r"[^\w]", "", kept[j].text.lower()) in ("and", "but", "so", "because"):
+            start = j + (1 if re.sub(r"[^\w]", "", kept[j].text.lower()) in ("and", "but", "so") else 0)
+            break
+        start = j - 1
+    if start == 0 or kept[-1].t1 - kept[start].t0 < 2.0:
+        return pieces, kept, ""
+    t_new = kept[start].t0
+    lo, hi = (kept[start - 1].t1 if start else t_new - 0.2), t_new - 0.02
+    a_new = snap(ctx, seg.asset_id, t_new - 0.08, lo, hi) if hi - lo > 0.03 else max(lo, t_new - 0.03)
+    a_new = min(max(a_new, lo), t_new)
+    out = [(max(a, a_new), b) for a, b in pieces if b > a_new + 0.1]
+    return out, kept[start:], " ".join(w.text for w in kept[start:start + 5])
+
+
 # ------------------------------------------------------------------ framing
 def reframe_path(pts: list[tuple[float, float, float]], t0: float, t1: float, crop_w: float) -> list[tuple[float, float]]:
     """Camera-operator reframing: hold steady; re-centre smoothly only when the subject nears the crop edge.
@@ -252,6 +280,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         shot = _try(pa.shot, it.ref)
         if seg is not None:
             pieces, kept, removed = speech_pieces(ctx, seg, tightness=tight, breath=breath, max_pause=max_pause)
+            if it.role == "hook" and pieces:
+                pieces, kept, trimmed = tighten_hook(ctx, seg, pieces, kept)
+                if trimmed:
+                    ctx.suggest("hook", f"Hook enters late: starts at “{trimmed}” so the promise lands in the first seconds", conf=0.8, t=0.0)
             if removed:
                 ctx.suggest("filler", f"Removed {removed} filler word(s)/pause(s) inside “{seg.text[:40]}”", conf=0.9, t=t)
             asset = pa.asset(seg.asset_id)

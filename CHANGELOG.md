@@ -3,6 +3,15 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+### Added
+- M3 AI brain: provider-neutral contract with connectors for Claude Code CLI (your Claude plan), Codex CLI (your
+  ChatGPT plan), Anthropic API (claude-opus-5-5, structured outputs, prompt caching, server-side refusal fallback),
+  OpenAI, xAI Grok, OpenRouter (data_collection=deny), Gemini (free/paid), Ollama (local) and a stub.
+- AI passes (vision tags from contact sheets, director, story, polish, critic, brief parsing) that improve the rules
+  draft; strict JSON schemas, ID validation, one repair round, fallback to rules on any failure; brief rules always win.
+- Privacy levels (local / text / thumbs, optional face blur), sent-data log (`.prepro/sent/`), training badges,
+  cost/plan-usage meter; `prepro brains list|add|key|route|privacy|compare`.
+- Hook tightening (enter late at the payload clause); critic fixes targetable by `type:anchor`.
 
 ## [0.1.0] — 2026-11-04
 ### Added

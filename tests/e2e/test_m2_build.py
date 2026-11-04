@@ -54,7 +54,9 @@ def test_editor_decisions_match_ground_truth(travel_brief):
     # hook first
     first = sorted((i for i in tl.items if i.track == "A1"), key=lambda i: i.rec_in)[0]
     hook_line = next(ln for ln in gt["clips"]["footage/day1/IMG_2041.mp4"]["lines"] if ln["kind"] == "hook")
-    assert first.asset_id == by_path["footage/day1/IMG_2041.mp4"].id and abs(first.src_in - hook_line["t0"]) < 0.4
+    # the hook comes from the hook line and keeps its payload (it may enter late, at the clause with the numbers)
+    assert first.asset_id == by_path["footage/day1/IMG_2041.mp4"].id
+    assert hook_line["t0"] - 0.4 <= first.src_in <= hook_line["t1"] - 2.0
     # bad shots never used
     used = {i.asset_id for i in tl.items if i.track in ("V1", "V2")}
     for rel in gt["expect"]["bad_shots"]:

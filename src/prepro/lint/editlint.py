@@ -109,7 +109,7 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
     vertical = tl.height > tl.width
     for c in tl.captions:
         chars = sum(len(w.text) + 1 for w in c.words)
-        if chars > (26 if vertical else 44):
+        if chars > (28 if vertical else 46):
             out.append(Finding(rule="caption", severity="warn", msg=f"caption too long ({chars} chars)", t=c.t0))
         if c.t1 - c.t0 > 0 and chars / (c.t1 - c.t0) > max_cps * 1.6:
             out.append(Finding(rule="caption", severity="info", msg="caption flashes by faster than people can read", t=c.t0))
@@ -186,7 +186,7 @@ def compliance(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: CreatorBr
             first = sorted((i for i in tl.items if i.track in ("V1", "A1")), key=lambda i: i.rec_in)[:2]
             try:
                 seg = pa.segment(r.target)
-                ok = any(i.asset_id == seg.asset_id and i.src_in <= seg.t0 + 0.6 for i in first)
+                ok = any(i.asset_id == seg.asset_id and seg.t0 - 0.6 <= i.src_in < seg.t1 for i in first)
             except KeyError:
                 ok = shot_used(r.target) and bool(first)
             detail = "" if ok else "the hook is not at the start"
@@ -289,6 +289,9 @@ def apply_fixes(findings: list[Finding], polish: PolishPlan, story: StoryPlan, p
         elif op.op == "drop_item":
             s.items = [it for it in s.items if it.ref != op.target]
             p.effects = [c for c in p.effects if c.asset != op.target]
+        elif op.op == "drop_effect" and ":" in op.target and not op.target.startswith("sfx@"):
+            typ, at = op.target.split(":", 1)
+            p.effects = [c for c in p.effects if not (c.confidence < 1.0 and c.type == typ and (c.at == at or c.asset == at))]
         elif op.op == "drop_effect" and op.target.startswith("sfx@"):
             # drop the later of two identical sfx: lower its confidence below the apply threshold
             t = float(op.target.split("@", 1)[1])

@@ -18,6 +18,31 @@ from .schema.timeline import Timeline
 from .timeline.compiler import compile_timeline
 
 
+def make_brain(pa: ProjectAnalysis, brief: CreatorBrief, settings: Settings, root: str | Path, *, overrides: dict | None = None):
+    """BasicBrain when every pass is routed to 'basic', otherwise an AIBrain with one provider per pass."""
+    from .brain.providers import make_provider
+
+    routing = settings.routing.model_dump()
+    routing.update(overrides or {})
+    if all(v in ("basic", None, "") for v in routing.values()):
+        return BasicBrain(pa, brief)
+    from .brain.ai import AIBrain
+
+    sent = Project(root).sub("sent")
+    providers = {}
+    for pass_name, conn in routing.items():
+        if conn in ("basic", None, ""):
+            providers[pass_name] = None
+            continue
+        cfg = settings.connectors.get(conn)
+        if cfg is None:
+            from .brain.providers import detect_connectors
+
+            cfg = detect_connectors().get(conn)
+        providers[pass_name] = make_provider(conn, cfg, sent_dir=sent, privacy=settings.privacy) if cfg else None
+    return AIBrain(pa, brief, providers, settings=settings)
+
+
 @dataclass
 class BuildResult:
     directions: DirectionSet
@@ -30,6 +55,12 @@ class BuildResult:
     render: object | None = None
     brief: CreatorBrief | None = None
     timeline_path: Path | None = None
+    ai_calls: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
+
+    @property
+    def cost_usd(self) -> float:
+        return round(sum(c["usage"].get("usd", 0.0) for c in self.ai_calls if not c["usage"].get("plan_usage")), 4)
 
 
 def analysis(root: str | Path, *, settings: Settings | None = None, force: bool = False, progress=None) -> ProjectAnalysis:
@@ -94,15 +125,22 @@ def choose(ds: DirectionSet, which: str | None) -> Direction:
 
 
 def build(root: str | Path, *, direction: str | None = "auto", settings: Settings | None = None, brief_text: str | None = None,
-          render: bool = True, quality: str = "preview", lint: bool = True, progress=None, extra_playbook: str | None = None) -> BuildResult:
+          render: bool = True, quality: str = "preview", lint: bool = True, progress=None, extra_playbook: str | None = None,
+          routing: dict | None = None) -> BuildResult:
     settings = settings or Settings.load()
     pa = analysis(root, settings=settings, progress=progress)
     brief = brief_for(root, pa, extra_text=brief_text, settings=settings)
-    brain = BasicBrain(pa, brief)
-    ds = brain.directions()
-    if extra_playbook and extra_playbook not in [d.playbook for d in ds.directions]:
+    if extra_playbook:
         brief.prefs.playbook = extra_playbook
-        ds = BasicBrain(pa, brief).directions()
+    brain = make_brain(pa, brief, settings, root, overrides=routing)
+    if hasattr(brain, "vision_tags") and brain.vision_tags(root):
+        Project(root).save_model("analysis.json", pa)
+    if hasattr(brain, "parse_brief") and brief.raw_text and brain.providers.get("brief"):
+        brief = brain.parse_brief(brief.raw_text)
+        resolve(brief, pa)
+        brain.brief = brief
+        brain.rules = brief.rules
+    ds = brain.directions()
     d = choose(ds, direction)
     story = brain.story(d)
     polish = brain.polish(d, story)
@@ -121,6 +159,23 @@ def build(root: str | Path, *, direction: str | None = "auto", settings: Setting
         from .lint.critic import rules_critic
 
         res.critic = rules_critic(tl, pa, d, findings)
+        if hasattr(brain, "critic") and brain.providers.get("critic"):
+            from .brain.ai import paper_edit
+            from .lint.editlint import Finding
+
+            ai = brain.critic(paper_edit(tl, pa), res.critic, res.polish.effects)
+            if ai.source == "ai":
+                safe = [Finding(rule="critic", severity="info", msg=f.why, fix=f) for f in ai.fixes if f.op in ("drop_effect", "drop_item", "lower_density")
+                        and f.target not in {r.target for r in brief.rules}]
+                if safe:
+                    polish3, story3 = apply_fixes(safe, res.polish, res.story, pa, d)
+                    tl = compile_timeline(pa, d, story3, polish3, brief, project_root=root)
+                    res.story, res.polish, res.timeline = story3, polish3, tl
+                    res.lint = lint_timeline(tl, pa, d, brief)
+                ai.scores = {**res.critic.scores, **ai.scores}
+                res.critic = ai
+    if hasattr(brain, "calls"):
+        res.ai_calls, res.warnings = brain.calls, brain.warnings
     proj = Project(root)
     res.timeline_path = proj.save_model(f"timelines/{tl.id}.json", res.timeline)
     proj.save_model("directions.json", ds)

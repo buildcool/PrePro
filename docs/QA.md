@@ -29,3 +29,16 @@ Storyboard review rounds, as an editor would give notes:
 7. *Hang* in music layout when < 1 s of a section remained → bounded loop.
 Result: brief 100 % met, critic hook 10 / clarity 10 / pacing 9.4 / sound 10 / restraint 10, −14.2 LUFS,
 −1.1 dBTP.
+
+### v0.2 (M3) — live AI editor (Claude Code on the user's plan, privacy "text")
+4 calls (director, story, polish, critic) · 174 s · ≈ $1.55 equivalent billed to the plan · no warnings.
+- Directions were sharper than the rules engine's (named "₹5,000 for 3 Days: Goa → Jaipur Budget Breakdown",
+  a teaser built on the "most expensive hotel" part-2 promise) and coverage gaps were genuinely useful
+  ("show a UPI payment screen to prove the ₹5,000 claim", "transport shots to motivate Goa → Jaipur").
+- Story was written as but/therefore beats; polish added "Kachori = ₹20" + ding, punch-in on "Twenty!".
+- The AI critic was harder than the rules critic (hook 6.5, story 5.0) and right:
+  1. the hook's payload ("₹5,000") was only spoken at 2.6 s → **hook tightening**: a long hook line now enters
+     late at the clause that carries the numbers/claim;
+  2. "Let me show you how I did it" was followed by B-roll without costs (broken promise) → noted for the
+     revise pass (story re-ordering is not auto-applied yet);
+  3. ding + impact 1.3 s apart → critic fixes can now target `type:anchor` effects and are applied.
