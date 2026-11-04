@@ -2,7 +2,13 @@
 """Fake Codex CLI: writes the canned reply to the -o file like `codex exec --output-schema … -o file`."""
 import json, os, sys
 args = sys.argv[1:]
-sys.stdin.read()
+prompt = sys.stdin.buffer.read().decode("utf-8")
 out = args[args.index("-o") + 1]
-canned = json.loads(open(os.environ["FAKE_CODEX_REPLY"]).read()) if os.environ.get("FAKE_CODEX_REPLY") else {"ok": True}
-open(out, "w").write(json.dumps(canned))
+canned = {"ok": True}
+if os.environ.get("FAKE_CODEX_REPLY"):
+    with open(os.environ["FAKE_CODEX_REPLY"], encoding="utf-8") as f:
+        canned = json.load(f)
+if os.environ.get("FAKE_CODEX_ECHO"):      # hand the prompt back so tests can check it arrived intact
+    canned = {**canned, "prompt": prompt}
+with open(out, "w", encoding="utf-8") as f:
+    f.write(json.dumps(canned, ensure_ascii=False))

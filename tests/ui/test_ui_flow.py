@@ -56,9 +56,10 @@ def test_review_ui_end_to_end(shoot_factory, tmp_path):
             except Exception:
                 time.sleep(0.5)
         (tmp_path / "shots").mkdir()
-        flow = (HERE / "flow.js").read_text().replace("http://127.0.0.1:8765", f"http://127.0.0.1:{port}")
-        (tmp_path / "flow.js").write_text(flow)
-        r = subprocess.run(["node", str(tmp_path / "flow.js"), str(tmp_path), str(shoot)], capture_output=True, text=True, timeout=1800)
+        flow = (HERE / "flow.js").read_text(encoding="utf-8").replace("http://127.0.0.1:8765", f"http://127.0.0.1:{port}")
+        (tmp_path / "flow.js").write_text(flow, encoding="utf-8")
+        r = subprocess.run(["node", str(tmp_path / "flow.js"), str(tmp_path), str(shoot)], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=1800)
         assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
         assert "ERRORS: []" in r.stdout, r.stdout[-1500:]
         assert "mobile horizontal overflow px: 0" in r.stdout

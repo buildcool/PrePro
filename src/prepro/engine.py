@@ -74,7 +74,9 @@ def analysis(root: str | Path, *, settings: Settings | None = None, force: bool 
         scan = proj.scan()
         if {f.rel for f in scan.files} != {a.path for a in pa.assets}:
             pa = None
-    if pa is not None and any(c.transcript and c.transcript.backend == "pocketsphinx" for c in pa.clips.values()):
+    from .analyze.asr import can_improve
+
+    if pa is not None and any(can_improve(c.transcript) for c in pa.clips.values()):
         s = settings or Settings.load()
         from .analyze.asr import whisper_available
 

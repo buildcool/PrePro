@@ -145,6 +145,57 @@ def _parse_json(text: str) -> dict:
 
 
 # ---------------------------------------------------------------- subscription CLIs
+CLAUDE_INSTALL_HINT = ("install Claude Code (Windows: winget install Anthropic.ClaudeCode, or in PowerShell "
+                       "irm https://claude.ai/install.ps1 | iex; macOS/Linux: curl -fsSL https://claude.ai/install.sh | bash), "
+                       "then run `claude` once to sign in")
+
+
+def launch_command(exe: str, *, windows: bool | None = None) -> list[str]:
+    """How to start a CLI that was found on PATH.
+
+    On Windows, npm installs ``.cmd`` shims. Running one goes through cmd.exe, which re-parses the command line
+    (quotes inside JSON, ``%``, ``&``, ``<``, ``>``) and caps it at 8191 characters — the JSON schema we pass
+    arrives broken. So a shim is resolved to the program it launches (the package's ``.exe``, or ``node`` + its
+    script) and that is run directly. Anything that can't be resolved is returned unchanged."""
+    windows = os.name == "nt" if windows is None else windows
+    p = Path(exe)
+    if not windows or p.suffix.lower() not in (".cmd", ".bat"):
+        return [exe]
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return [exe]
+    import re
+
+    targets = re.findall(r'"%~?dp0%?\\?([^"%]+?\.(?:exe|js|cjs|mjs))"', text, re.I)
+    for rel in reversed(targets):                 # the launched program comes last; node.exe is only the runner
+        t = p.parent / rel.replace("\\", "/")
+        if t.name.lower() == "node.exe" or not t.exists():
+            continue
+        if t.suffix.lower() == ".exe":
+            return [str(t)]
+        node = p.parent / "node.exe"
+        runner = str(node) if node.exists() else shutil.which("node")
+        if runner:
+            return [runner, str(t)]
+    return [exe]
+
+
+def _run_cli(cmd: list[str], stdin_text: str, *, cwd: str, timeout: float, env: dict | None = None) -> subprocess.CompletedProcess:
+    """Run a CLI with the prompt on stdin, as UTF-8 bytes both ways: transcripts carry ₹, “quotes” and Hindi, and on
+    Windows text-mode pipes would use cp1252 and turn every newline into CRLF."""
+    p = subprocess.run(cmd, input=stdin_text.encode("utf-8"), capture_output=True, cwd=cwd, env=env, timeout=timeout)
+    return subprocess.CompletedProcess(p.args, p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace"))
+
+
+def _cli_prefix(cfg: ConnectorConfig, exe: str | None) -> list[str] | None:
+    """``extra.command`` (a full launcher, e.g. ``["wsl", "claude"]`` or an interpreter + script) wins over the exe."""
+    cmd = cfg.extra.get("command")
+    if cmd:
+        return [str(c) for c in cmd] if isinstance(cmd, list | tuple) else [str(cmd)]
+    return launch_command(exe) if exe else None
+
+
 @dataclass
 class ClaudeCodeCLI(Provider):
     """The user's own Claude Code CLI, signed in with their Claude plan (Anthropic's own login).
@@ -155,12 +206,17 @@ class ClaudeCodeCLI(Provider):
 
     def available(self) -> tuple[bool, str]:
         exe = self.exe()
-        return (True, exe) if exe else (False, "Claude Code CLI not found (npm i -g @anthropic-ai/claude-code, then run `claude` once to sign in)")
+        if self.cfg.extra.get("command"):
+            return True, " ".join(map(str, self.cfg.extra["command"]))
+        return (True, exe) if exe else (False, f"Claude Code CLI not found — {CLAUDE_INSTALL_HINT}")
 
     def _complete(self, system, user, schema, images, effort):
-        exe = self.exe()
-        if not exe:
+        prefix = _cli_prefix(self.cfg, self.exe())
+        if not prefix:
             raise ProviderError("claude CLI not installed")
+        if Path(prefix[0]).suffix.lower() in (".cmd", ".bat"):
+            raise ProviderError(f"{prefix[0]} is a Windows .cmd shim PrePro can't hand the request to safely (cmd.exe breaks "
+                                f"the JSON it needs) — {CLAUDE_INSTALL_HINT}, or set this connector's path to claude.exe")
         with tempfile.TemporaryDirectory(prefix="prepro-cc-") as td:
             names = []
             for i, p in enumerate(images):
@@ -170,7 +226,10 @@ class ClaudeCodeCLI(Provider):
             prompt = user
             if names:
                 prompt += "\n\nContact sheets to look at (read them with the Read tool): " + ", ".join(names)
-            cmd = [exe, "-p", "--output-format", "json", "--json-schema", json.dumps(schema), "--system-prompt", system,
+            # the system prompt goes in a file: Windows caps command lines (32 767 chars) and it is the longest part
+            sp = Path(td) / "system_prompt.txt"
+            sp.write_text(system, encoding="utf-8")
+            cmd = [*prefix, "-p", "--output-format", "json", "--json-schema", json.dumps(schema), "--system-prompt-file", str(sp),
                    "--permission-mode", "dontAsk"]
             cmd += ["--allowedTools", "Read"] if names else ["--allowedTools", ""]
             if self.cfg.model:
@@ -179,8 +238,7 @@ class ClaudeCodeCLI(Provider):
                 cmd += ["--max-budget-usd", str(self.cfg.max_usd_per_project)]
             env = dict(os.environ)
             env.pop("ANTHROPIC_API_KEY", None) if self.cfg.extra.get("plan_only", True) else None
-            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=td, env=env,
-                               timeout=float(self.cfg.extra.get("timeout", 900)))
+            p = _run_cli(cmd, prompt, cwd=td, env=env, timeout=float(self.cfg.extra.get("timeout", 900)))
         out = p.stdout.strip()
         try:
             res = json.loads(out.splitlines()[-1]) if out else {}
@@ -209,24 +267,25 @@ class CodexCLI(Provider):
 
     def available(self) -> tuple[bool, str]:
         exe = self.exe()
+        if self.cfg.extra.get("command"):
+            return True, " ".join(map(str, self.cfg.extra["command"]))
         return (True, exe) if exe else (False, "Codex CLI not found (npm i -g @openai/codex, then `codex login` → Sign in with ChatGPT)")
 
     def _complete(self, system, user, schema, images, effort):
-        exe = self.exe()
-        if not exe:
+        prefix = _cli_prefix(self.cfg, self.exe())
+        if not prefix:
             raise ProviderError("codex CLI not installed")
         with tempfile.TemporaryDirectory(prefix="prepro-codex-") as td:
             sp = Path(td) / "schema.json"
             sp.write_text(json.dumps(schema), encoding="utf-8")
             outp = Path(td) / "last.txt"
-            cmd = [exe, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "--output-schema", str(sp), "-o", str(outp)]
+            cmd = [*prefix, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "--output-schema", str(sp), "-o", str(outp)]
             for p in images:
                 cmd += ["-i", str(p)]
             if self.cfg.model:
                 cmd += ["-m", self.cfg.model]
             cmd.append("-")
-            p = subprocess.run(cmd, input=f"{system}\n\n{user}", capture_output=True, text=True, cwd=td,
-                               timeout=float(self.cfg.extra.get("timeout", 900)))
+            p = _run_cli(cmd, f"{system}\n\n{user}", cwd=td, timeout=float(self.cfg.extra.get("timeout", 900)))
             txt = outp.read_text(encoding="utf-8") if outp.exists() else p.stdout
         if p.returncode != 0 and not txt.strip():
             msg = (p.stderr or p.stdout)[-400:]

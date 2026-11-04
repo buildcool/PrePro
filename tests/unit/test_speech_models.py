@@ -41,6 +41,39 @@ def test_status_lists_every_model_with_its_size():
     assert sm.repo_for("large-v3-turbo") != "Systran/faster-whisper-large-v3-turbo" or not sm.installed()
 
 
+def test_broken_recogniser_is_reported_not_silent():
+    """A recogniser that can't even load (pocketsphinx's DLL on Windows) must surface as a warning with the fix,
+    and those clips get transcribed again once Whisper is there."""
+    from prepro.analyze.asr import can_improve, failed_note
+    from prepro.schema.analysis import Transcript, Word
+
+    broken = Transcript(asset_id="C01", backend="none", note="pocketsphinx failed: DLL load failed while importing _pocketsphinx")
+    assert "DLL load failed" in failed_note(broken) and can_improve(broken)
+    fine = Transcript(asset_id="C01", backend="pocketsphinx", words=[Word(id="C01.w0", t0=0, t1=0.4, text="hi")])
+    assert failed_note(fine) is None and can_improve(fine)
+    silent = Transcript(asset_id="C01", backend="none")          # nothing to recognise: no warning
+    assert failed_note(silent) is None and not can_improve(silent)
+
+
+def test_doctor_tells_broken_from_missing(monkeypatch):
+    import importlib
+
+    from prepro.cli import _import_state
+
+    assert _import_state("json")[0].endswith("installed")
+    assert "not installed" in _import_state("surely_not_a_module_xyz")[0]
+    real = importlib.import_module
+
+    def boom(name, *a, **k):
+        if name == "json":
+            raise ImportError("DLL load failed while importing _json: The specified module could not be found.")
+        return real(name, *a, **k)
+
+    monkeypatch.setattr(importlib, "import_module", boom)
+    state, detail = _import_state("json")
+    assert "won't load" in state and "DLL load failed" in detail
+
+
 @needs_tts
 @needs_ffmpeg
 def test_rough_transcripts_are_redone_when_whisper_arrives(shoot_factory, tmp_path, monkeypatch):

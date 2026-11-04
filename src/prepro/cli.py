@@ -122,6 +122,25 @@ def ui(port: int = typer.Option(8765, help="Local port"), no_browser: bool = typ
     serve(port=port, open_browser=not no_browser)
 
 
+def _import_state(module: str) -> tuple[str, str]:
+    """(status, detail) for an optional module: installed, missing, or installed but broken (e.g. a DLL that won't
+    load on Windows), so a broken install is never reported as simply "not installed"."""
+    import importlib
+    import importlib.util
+
+    try:
+        importlib.import_module(module)
+        return "[green]installed", ""
+    except Exception as e:
+        try:
+            missing = importlib.util.find_spec(module) is None
+        except Exception:
+            missing = False
+        if missing:
+            return "[yellow]not installed", "pip install prepro[asr]"
+        return "[red]won't load", f"installed but importing it fails: {e}"
+
+
 @app.command()
 def doctor() -> None:
     """Check the local toolchain (ffmpeg, recognisers, models, AI connectors)."""
@@ -140,18 +159,14 @@ def doctor() -> None:
         t.add_row("ffmpeg filters", "[green]ok" if not missing else "[yellow]partial", ", ".join(sorted(missing)) or "all required filters present")
     except FFmpegError as e:
         t.add_row("ffmpeg", "[red]missing", str(e))
-    try:
-        import faster_whisper  # noqa: F401
+    from .speech_models import SIZES_MB, cached
 
-        t.add_row("faster-whisper", "[green]installed", "models download on first use (huggingface.co)")
-    except ImportError:
-        t.add_row("faster-whisper", "[yellow]not installed", "pip install prepro[asr]")
-    try:
-        import pocketsphinx  # noqa: F401
-
-        t.add_row("pocketsphinx", "[green]installed", "offline English fallback recogniser")
-    except ImportError:
-        t.add_row("pocketsphinx", "[yellow]not installed", "")
+    models = [n for n in SIZES_MB if cached(n)]
+    for mod, ok_detail in (("faster_whisper", "speech models here: " + (", ".join(models) if models else
+                                                                     "none yet (prepro models --download small)")),
+                           ("pocketsphinx", "offline English fallback recogniser")):
+        state, detail = _import_state(mod)
+        t.add_row(mod.replace("_", "-"), state, ok_detail if state == "[green]installed" else detail)
     try:
         import opentimelineio as otio
 

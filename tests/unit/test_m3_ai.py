@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -77,7 +78,7 @@ def test_ai_output_is_validated_and_brief_survives(ctx):
     # sent-data log: written, and never contains footage file names or raw GPS
     logs = list((Path(root) / ".prepro" / "sent").glob("*_director_stub.json"))
     assert logs
-    sent = json.loads(logs[-1].read_text())["user_text"]
+    sent = json.loads(logs[-1].read_text(encoding="utf-8"))["user_text"]
     assert "IMG_20" not in sent and "+15.55" not in sent and "Calangute" in sent
 
 
@@ -106,19 +107,29 @@ def test_text_only_privacy_strips_images(tmp_path):
     assert p.log[-1]["images"] == []
 
 
+def _stub_cli(name: str) -> list[str]:
+    return [sys.executable, str(STUBS / name)]      # runs the Python stub on every OS (Windows can't exec a #! script)
+
+
+TRICKY = "₹5000 for 3 days — “Goa → Jaipur”, 100 % real & <no> cap | यह वडा पाव सिर्फ पंद्रह रुपये का है ^ !"
+
+
 def test_claude_code_cli_connector(tmp_path, monkeypatch):
     reply = tmp_path / "reply.json"
-    reply.write_text(json.dumps({"directions": []}))
+    reply.write_text(json.dumps({"directions": [], "text": "₹ → हाँ"}, ensure_ascii=False), encoding="utf-8")
     log = tmp_path / "log.jsonl"
     monkeypatch.setenv("FAKE_CLAUDE_REPLY", str(reply))
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
-    p = ClaudeCodeCLI(name="claude-plan", cfg=ConnectorConfig(kind="claude_code", extra={"path": str(STUBS / "claude")}))
-    rep = p.complete_json("sys", "user text", {"type": "object"}, pass_name="director")
-    assert rep.data == {"directions": []} and rep.usage.plan_usage
-    call = json.loads(log.read_text().splitlines()[-1])
+    p = ClaudeCodeCLI(name="claude-plan", cfg=ConnectorConfig(kind="claude_code", extra={"command": _stub_cli("claude")}))
+    schema = {"type": "object", "description": TRICKY, "properties": {"directions": {"type": "array"}}}
+    rep = p.complete_json("system: " + TRICKY, "user: " + TRICKY, schema, pass_name="director")
+    assert rep.data == {"directions": [], "text": "₹ → हाँ"} and rep.usage.plan_usage        # UTF-8 back from the CLI
+    call = json.loads(log.read_text(encoding="utf-8").splitlines()[-1])
     assert not call["has_bare"]                        # subscription login needs the non-bare mode
     assert "prepro-cc-" in call["cwd"]                  # runs in an empty temp folder
     assert "--json-schema" in call["args"] and "dontAsk" in call["args"]
+    assert "--system-prompt-file" in call["args"] and "--system-prompt" not in call["args"]   # long text never on the command line
+    assert call["system"] == "system: " + TRICKY and call["prompt"] == "user: " + TRICKY and call["schema"] == schema
     monkeypatch.setenv("FAKE_CLAUDE_MODE", "limit")
     with pytest.raises(ProviderError, match="limit"):
         p.complete_json("sys", "user", {"type": "object"})
@@ -126,10 +137,65 @@ def test_claude_code_cli_connector(tmp_path, monkeypatch):
 
 def test_codex_cli_connector(tmp_path, monkeypatch):
     reply = tmp_path / "reply.json"
-    reply.write_text(json.dumps({"ok": True}))
+    reply.write_text(json.dumps({"ok": True}), encoding="utf-8")
     monkeypatch.setenv("FAKE_CODEX_REPLY", str(reply))
-    p = CodexCLI(name="chatgpt-plan", cfg=ConnectorConfig(kind="codex", extra={"path": str(STUBS / "codex")}))
+    p = CodexCLI(name="chatgpt-plan", cfg=ConnectorConfig(kind="codex", extra={"command": _stub_cli("codex")}))
     assert p.complete_json("sys", "u", {"type": "object"}).data == {"ok": True}
+    monkeypatch.setenv("FAKE_CODEX_ECHO", "1")
+    assert p.complete_json("sys", TRICKY, {"type": "object"}).data["prompt"] == "sys\n\n" + TRICKY
+
+
+NPM_SHIM_JS = r"""@ECHO off
+GOTO start
+:find_dp0
+SET dp0=%~dp0
+EXIT /b
+:start
+SETLOCAL
+CALL :find_dp0
+
+IF EXIST "%dp0%\node.exe" (
+  SET "_prog=%dp0%\node.exe"
+) ELSE (
+  SET "_prog=node"
+  SET PATHEXT=%PATHEXT:;.JS;=;%
+)
+
+endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\node_modules\@openai\codex\bin\codex.js" %*
+"""
+NPM_SHIM_EXE = """@ECHO off
+GOTO start
+:find_dp0
+SET dp0=%~dp0
+EXIT /b
+:start
+SETLOCAL
+CALL :find_dp0
+"%dp0%\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe"   %*
+"""
+
+
+def test_windows_npm_shims_are_run_directly(tmp_path):
+    """npm's .cmd shims go through cmd.exe, which mangles the JSON we pass — run what they launch instead."""
+    from prepro.brain.providers import launch_command
+
+    npm = tmp_path / "npm"
+    (npm / "node_modules/@openai/codex/bin").mkdir(parents=True)
+    (npm / "node_modules/@openai/codex/bin/codex.js").write_text("// cli", encoding="utf-8")
+    (npm / "node_modules/@anthropic-ai/claude-code/bin").mkdir(parents=True)
+    (npm / "node_modules/@anthropic-ai/claude-code/bin/claude.exe").write_bytes(b"MZ")
+    (npm / "node.exe").write_bytes(b"MZ")
+    (npm / "codex.cmd").write_text(NPM_SHIM_JS, encoding="utf-8")
+    (npm / "claude.cmd").write_text(NPM_SHIM_EXE, encoding="utf-8")
+    js = launch_command(str(npm / "codex.cmd"), windows=True)
+    assert [Path(x).name for x in js] == ["node.exe", "codex.js"]                  # node beside the shim, then the script
+    assert launch_command(str(npm / "claude.cmd"), windows=True) == [str(npm / "node_modules/@anthropic-ai/claude-code/bin/claude.exe")]
+    assert launch_command(str(npm / "claude.cmd"), windows=False) == [str(npm / "claude.cmd")]   # only on Windows
+    (npm / "odd.cmd").write_text("@echo off\r\nsomething %*\r\n", encoding="utf-8")
+    p = ClaudeCodeCLI(name="claude-plan", cfg=ConnectorConfig(kind="claude_code", extra={"path": str(npm / "odd.cmd")}))
+    if os.name == "nt":                                 # an unknown shim is refused with a clear fix, not a JSON error
+        with pytest.raises(ProviderError, match="install Claude Code"):
+            p.complete_json("sys", "u", {"type": "object"})
 
 
 def test_paper_edit_reads_like_an_edit(ctx):

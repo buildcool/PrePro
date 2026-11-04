@@ -147,6 +147,18 @@ def read_sidecar(path: Path) -> tuple[list[RawWord], str | None]:
 _WHISPER_CACHE: dict = {}
 
 
+def can_improve(tr: Transcript | None) -> bool:
+    """A transcript Whisper would redo: the rough offline recogniser's, or one where recognition failed outright."""
+    return tr is not None and (tr.backend == "pocketsphinx" or (tr.backend == "none" and "failed" in (tr.note or "")))
+
+
+def failed_note(tr: Transcript | None) -> str | None:
+    """Why speech in a clip couldn't be recognised at all (None when it was, or when there was nothing to do)."""
+    if tr is None or tr.words or tr.backend != "none" or "failed" not in (tr.note or ""):
+        return None
+    return tr.note
+
+
 def whisper_available(model: str = "small") -> bool:
     try:
         import faster_whisper  # noqa: F401

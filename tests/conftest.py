@@ -13,7 +13,7 @@ import pytest
 from prepro.fixtures import realmedia, shoots
 
 CACHE = Path(os.environ.get("PREPRO_TEST_SHOOTS") or Path(tempfile.gettempdir()) / "prepro-test-shoots")
-FIXTURE_VERSION = "3"
+FIXTURE_VERSION = "4"     # 4: TTS text goes to espeak-ng as a UTF-8 file (Hindi lines were noise on Windows)
 
 
 def have(exe: str) -> bool:
@@ -27,14 +27,16 @@ needs_ffmpeg = pytest.mark.skipif(not have("ffmpeg"), reason="ffmpeg not install
 @pytest.fixture(scope="session")
 def shoot_factory():
     def make(kind: str, *, brief: bool = False, sidecars: bool = True, quick: bool = True) -> Path:
-        key = f"v{FIXTURE_VERSION}-{'sc' if sidecars else 'nosc'}-{'q' if quick else 'full'}"
+        # shoots built with downloaded real media (faces…) differ from fully drawn ones, so they are cached apart:
+        # fetching test media later must not leave the drawn shoots in place under the same key
+        md = realmedia.cache_dir() if realmedia.available() else None
+        key = f"v{FIXTURE_VERSION}-{'sc' if sidecars else 'nosc'}-{'q' if quick else 'full'}-{'rm' if md else 'syn'}"
         out = CACHE / key
         root = out / (kind + ("_brief" if brief else ""))
         marker = root / ".built"
         if not marker.exists():
             if root.exists():
                 shutil.rmtree(root)
-            md = realmedia.cache_dir() if realmedia.available() else None
             shoots.build(kind, out, media_dir=md, with_brief=brief, sidecars=sidecars, quick=quick)
             marker.write_text("ok")
         return root

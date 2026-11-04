@@ -73,8 +73,13 @@ def tts(text: str, *, lang: str = "en-us", speed: int = 165, pitch: int = 45, am
         raise RuntimeError("espeak-ng is required for synthetic speech fixtures (apt install espeak-ng)")
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "t.wav"
+        # the text goes in as a UTF-8 file (-b 1): on Windows a command-line argument reaches espeak-ng through the
+        # ANSI code page, so Devanagari became "????" and the Hindi lines were 0.3 s of noise instead of speech
+        src = Path(td) / "t.txt"
+        src.write_text(text, encoding="utf-8")
         subprocess.run(
-            [exe, "-v", lang, "-s", str(speed), "-p", str(pitch), "-a", str(amplitude), "-g", str(gap), "-w", str(out), text],
+            [exe, "-v", lang, "-s", str(speed), "-p", str(pitch), "-a", str(amplitude), "-g", str(gap), "-b", "1", "-f", str(src),
+             "-w", str(out)],
             check=True, capture_output=True,
         )
         y, sr = sf.read(str(out), dtype="float32")

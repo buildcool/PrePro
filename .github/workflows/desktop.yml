@@ -38,22 +38,46 @@ jobs:
       - name: Bundle ffmpeg (Linux, static build, checksum-verified)
         if: runner.os == 'Linux'
         shell: bash
+        # v0.6.0 shipped without Linux installers because this one download failed once. Retry it, and fall back to
+        # BtbN's static GPL build on GitHub (checked against its published sha256) when johnvansickle.com is down.
         run: |
-          base=https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-          curl -fsSLO "$base" && curl -fsSLO "$base.md5"
-          md5sum -c ffmpeg-release-amd64-static.tar.xz.md5
+          set -euo pipefail
           mkdir -p ff dist/prepro-engine/bin
-          tar -xJf ffmpeg-release-amd64-static.tar.xz -C ff --strip-components=1
+          get() { curl -fsSL --retry 5 --retry-delay 15 --retry-all-errors --connect-timeout 30 -o "$2" "$1"; }
+          jvs() {
+            local base=https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+            get "$base" ff.tar.xz || return 1
+            get "$base.md5" ff.tar.xz.md5 || return 1
+            [ "$(cut -d' ' -f1 ff.tar.xz.md5)" = "$(md5sum ff.tar.xz | cut -d' ' -f1)" ] || { echo "md5 mismatch"; return 1; }
+            tar -xJf ff.tar.xz -C ff --strip-components=1 || return 1
+            cp ff/GPLv3.txt dist/prepro-engine/bin/FFMPEG-LICENSE.txt || return 1
+            cp ff/readme.txt dist/prepro-engine/bin/FFMPEG-README.txt || true
+          }
+          btbn() {
+            local rel=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest
+            local name
+            name=$(curl -fsSL --retry 5 -H "Authorization: Bearer ${{ github.token }}" \
+                     https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest \
+                   | jq -r '.assets[].name' | grep -E '^ffmpeg-n[0-9.]+-latest-linux64-gpl-[0-9.]+\.tar\.xz$' | sort -V | tail -1)
+            [ -n "$name" ] || { echo "no BtbN linux64 release build listed"; return 1; }
+            get "$rel/$name" ff.tar.xz || return 1
+            get "$rel/checksums.sha256" checksums.sha256 || return 1
+            [ "$(grep " $name\$" checksums.sha256 | cut -d' ' -f1)" = "$(sha256sum ff.tar.xz | cut -d' ' -f1)" ] || { echo "sha256 mismatch"; return 1; }
+            tar -xJf ff.tar.xz -C ff --strip-components=1 || return 1
+            mv ff/bin/ffmpeg ff/bin/ffprobe ff/ || return 1
+            cp ff/LICENSE.txt dist/prepro-engine/bin/FFMPEG-LICENSE.txt || return 1
+            echo "FFmpeg static build $name from github.com/BtbN/FFmpeg-Builds" > dist/prepro-engine/bin/FFMPEG-README.txt
+          }
+          jvs || { echo "::warning::johnvansickle.com failed; using BtbN's build"; rm -rf ff ff.tar.xz*; mkdir -p ff; btbn; }
           cp ff/ffmpeg ff/ffprobe dist/prepro-engine/bin/
-          cp ff/GPLv3.txt dist/prepro-engine/bin/FFMPEG-LICENSE.txt
-          cp ff/readme.txt dist/prepro-engine/bin/FFMPEG-README.txt || true
+          dist/prepro-engine/bin/ffmpeg -hide_banner -version | head -1
       - name: Bundle ffmpeg (Windows, gyan.dev essentials, checksum-verified)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $u = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-          Invoke-WebRequest $u -OutFile ff.zip
-          $want = (Invoke-WebRequest "$u.sha256").Content.Trim().Split(" ")[0].ToUpper()
+          Invoke-WebRequest $u -OutFile ff.zip -MaximumRetryCount 5 -RetryIntervalSec 15
+          $want = (Invoke-WebRequest "$u.sha256" -MaximumRetryCount 5 -RetryIntervalSec 15).Content.Trim().Split(" ")[0].ToUpper()
           $got = (Get-FileHash ff.zip -Algorithm SHA256).Hash.ToUpper()
           if ($want -ne $got) { throw "ffmpeg checksum mismatch: $got vs $want" }
           Expand-Archive ff.zip -DestinationPath ff

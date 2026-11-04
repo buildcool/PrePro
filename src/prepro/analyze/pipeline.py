@@ -15,7 +15,7 @@ from ..project import Project, assign_ids, fast_hash
 from ..schema.analysis import ClipAnalysis, ProjectAnalysis, Shot
 from ..schema.media import Asset, AssetKind, MediaInfo
 from . import context
-from .asr import invert, load_wav16, transcribe, vad
+from .asr import can_improve, failed_note, invert, load_wav16, transcribe, vad
 from .sound import audio_report, music_info, musicality
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
@@ -147,8 +147,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
             try:
                 data = key.read_text(encoding="utf-8")
                 ca = ClipAnalysis.model_validate_json(data)
-                if (ca.transcript and ca.transcript.backend == "pocketsphinx" and settings.asr.backend == "auto"
-                        and _whisper_ready(settings)):
+                if can_improve(ca.transcript) and settings.asr.backend == "auto" and _whisper_ready(settings):
                     raise ValueError("a better speech model is now available")
                 musical[a.id] = proj.load_json(f"analysis/{key.stem}.mus.json", {}).get("m") if (proj.cache / "analysis" / f"{key.stem}.mus.json").exists() else None
             except Exception:
@@ -176,6 +175,10 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
     for a in pa.assets:
         for e in pa.clips[a.id].errors:
             pa.warnings.append(f"{a.path}: {e}")
+        why = failed_note(pa.clips[a.id].transcript)
+        if why:                     # talking footage with no words would be cut blind — say so, and how to fix it
+            pa.warnings.append(f"{a.path}: the speech couldn't be recognised ({why}). Download a speech model "
+                               "(Brains & privacy → Speech recognition, or `prepro models --download small`).")
     proj.save_model("analysis.json", pa)
     progress("done", 1, 1, "analysis saved")
     return pa
