@@ -178,6 +178,45 @@ def failed_reason(name: str) -> str | None:
         return _FAILED.get(name)
 
 
+def encode_frames(frames, size: tuple[int, int], fps: float, build, *, prefer: Encoder | None = None, timeout: float | None = None) -> Encoder:
+    """``encode`` for pictures drawn in Python: ``frames()`` yields BGR uint8 arrays of ``size`` (w, h), piped to ffmpeg
+    as raw video; ``build(encoder)`` gives the output options and the file. A GPU failure is redone on the CPU."""
+    enc = prefer or choose()
+    with _LOCK:
+        if enc.gpu and enc.name in _FAILED:
+            enc = CPU
+
+    def run(e: Encoder) -> None:
+        w, h = size
+        cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}",
+               "-r", f"{fps}", "-i", "-", *build(e)]
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        try:
+            for fr in frames():
+                proc.stdin.write(fr.tobytes())
+            proc.stdin.close()
+        except OSError:                                   # ffmpeg quit early: its error message says why
+            pass
+        try:
+            err = proc.communicate(timeout=timeout)[1]
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            err = proc.communicate()[1]
+        if proc.returncode != 0:
+            raise FFmpegError(f"ffmpeg failed ({proc.returncode}): {(err or b'').decode('utf-8', 'replace')[-400:]}\ncmd: {' '.join(cmd)}")
+
+    try:
+        run(enc)
+        return enc
+    except FFmpegError as e:
+        if not enc.gpu:
+            raise
+        with _LOCK:
+            _FAILED.setdefault(enc.name, str(e).splitlines()[0][:200])
+        run(CPU)
+        return CPU
+
+
 def encode(build, *, prefer: Encoder | None = None, timeout: float | None = None) -> Encoder:
     """Run ``run_ffmpeg(build(encoder))`` with ``prefer`` (or the general choice); if a GPU encoder fails, redo it on
     the CPU and stop using that GPU for this run. Returns the encoder that produced the file."""

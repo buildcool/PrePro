@@ -81,23 +81,33 @@ def music_info(y: np.ndarray, sr: int) -> MusicInfo:
     onset = librosa.onset.onset_strength(y=y, sr=sr)
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset, sr=sr, units="frames", tightness=120)
     bpm = float(np.atleast_1d(tempo)[0])
-    times = librosa.frames_to_time(beats, sr=sr)
-    # librosa tends to double/halve: prefer 70–180 BPM
+    beats = np.asarray(beats, dtype=int)
+    # librosa tends to double/halve: prefer 70–180 BPM (the beat list follows, so beats and BPM always agree)
     while bpm > 180:
         bpm /= 2
-        times = times[::2]
+        beats = beats[::2]
     while 0 < bpm < 70:
         bpm *= 2
-    # downbeat phase: the beat phase (mod 4) with the most low-frequency energy
+        beats = np.unique(np.r_[beats, (beats[:-1] + beats[1:]) // 2])
+    times = librosa.frames_to_time(beats, sr=sr)
+    # downbeat phase (which beat mod 4 starts the bar): chords change on the bar line and the kick is heaviest there.
+    # Low end alone cannot tell beat 1 from beat 3 when the kick plays both, so the harmonic change entering each beat
+    # decides, with low-frequency energy as the tie-break
     S = np.abs(librosa.stft(y, n_fft=2048, hop_length=512))
     freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
     low = S[freqs < 150].sum(axis=0)
-    phase_score = []
-    for ph in range(4):
-        idx = beats[ph::4]
-        idx = idx[idx < len(low)]
-        phase_score.append(float(low[idx].mean()) if len(idx) else 0.0)
-    ph = int(np.argmax(phase_score)) if any(phase_score) else 0
+    bidx = beats[beats < S.shape[1]]
+    change = np.zeros(len(bidx))
+    if len(bidx) > 8:
+        chroma = librosa.feature.chroma_stft(S=S**2, sr=sr, n_fft=2048, hop_length=512)
+        ends = list(bidx[1:]) + [S.shape[1]]
+        cs = np.stack([np.median(chroma[:, a:max(a + 1, b)], axis=1) for a, b in zip(bidx, ends, strict=True)], axis=1)
+        cs = cs / (np.linalg.norm(cs, axis=0, keepdims=True) + 1e-9)
+        change = np.r_[0.0, np.linalg.norm(np.diff(cs, axis=1), axis=0)]
+    lows = [float(low[bidx[ph::4]].mean()) if len(bidx[ph::4]) else 0.0 for ph in range(4)]
+    chords = [float(change[ph::4][1 if ph == 0 else 0:].mean()) if len(change[ph::4]) > 1 else 0.0 for ph in range(4)]
+    score = 0.5 * np.array(lows) / (max(lows) + 1e-9) + np.array(chords) / (max(chords) + 1e-9)
+    ph = int(np.argmax(score)) if any(lows) or any(chords) else 0
     downbeats = times[ph::4]
     # energy curve @2 Hz
     hop = sr // 2

@@ -29,10 +29,24 @@ class Transform(BaseModel):
     cy: float = 0.5
     zoom: float = 1.0
     keys: list[TransformKey] = Field(default_factory=list)
+    fit: bool = False                 # photos: the whole picture on a soft blurred copy of itself (a group photo is never cut)
 
     @property
     def is_identity(self) -> bool:
         return not self.keys and abs(self.zoom - 1) < 1e-3 and abs(self.cx - 0.5) < 1e-3 and abs(self.cy - 0.5) < 1e-3
+
+    def at(self, t: float) -> tuple[float, float, float]:
+        """(cx, cy, zoom) at item time t: straight lines between keys, held before the first and after the last."""
+        ks = self.keys
+        if not ks:
+            return self.cx, self.cy, self.zoom
+        if t <= ks[0].t:
+            return ks[0].cx, ks[0].cy, ks[0].zoom
+        for a, b in zip(ks, ks[1:], strict=False):
+            if t <= b.t:
+                f = (t - a.t) / max(b.t - a.t, 1e-6)
+                return a.cx + (b.cx - a.cx) * f, a.cy + (b.cy - a.cy) * f, a.zoom + (b.zoom - a.zoom) * f
+        return ks[-1].cx, ks[-1].cy, ks[-1].zoom
 
 
 class Item(BaseModel):
@@ -59,6 +73,8 @@ class Item(BaseModel):
     text: str | None = None
     style: str | None = None
     position: str | None = None
+    text_y: float | None = None       # text: centre height (0..1) when placed in the free space beside a face
+    text_scale: float | None = None   # text: size relative to its style, when set smaller to fit the space beside a face
     duration: float | None = None     # for text/image/color items
     role: str | None = None
     section: str | None = None

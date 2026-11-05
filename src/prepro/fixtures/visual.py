@@ -142,6 +142,110 @@ def scenery(kind: str, w: int = 3200, h: int = 1800, seed: int = 0) -> Image.Ima
     return img.filter(ImageFilter.GaussianBlur(1.2))
 
 
+def photo(img: Image.Image, out: Path, *, taken: str | None = None, gps: tuple[float, float] | None = None, orientation: int = 1,
+          offset: str | None = "+05:30", quality: int = 90) -> Path:
+    """Save a JPEG the way a phone does: EXIF capture time (local time + its UTC offset), GPS and an orientation tag.
+    With orientation 6/8/3 the pixels are stored sideways (as phones do) and the tag says how to turn them upright."""
+    from PIL.TiffImagePlugin import IFDRational
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    stored = {6: Image.Transpose.ROTATE_90, 8: Image.Transpose.ROTATE_270, 3: Image.Transpose.ROTATE_180}.get(orientation)
+    pixels = img.transpose(stored) if stored is not None else img
+    ex = Image.Exif()
+    ex[0x0112] = orientation
+    if taken:                                             # "2026:10:10 08:02:00"
+        ex[0x0132] = taken
+        sub = {36867: taken, 36868: taken}
+        if offset:
+            sub[36881] = offset
+        ex[0x8769] = sub
+    if gps:
+        def dms(v: float) -> tuple:
+            v = abs(v)
+            d = int(v)
+            m = int((v - d) * 60)
+            s = ((v - d) * 60 - m) * 60
+            return (IFDRational(d, 1), IFDRational(m, 1), IFDRational(round(s * 100), 100))
+
+        lat, lon = gps
+        ex[0x8825] = {1: "N" if lat >= 0 else "S", 2: dms(lat), 3: "E" if lon >= 0 else "W", 4: dms(lon)}
+    pixels.convert("RGB").save(out, "JPEG", quality=quality, exif=ex)
+    return out
+
+
+def photo_face(img: Image.Image, cx: float, cy: float, fw: float, *, skin=(222, 180, 145), hair=(45, 32, 24), top=(60, 70, 110)) -> None:
+    """A person drawn for a *photo*, with the cues a face detector learned from real photos (shaded skin, brows, eye
+    whites and irises, a nose shadow, lips, ears, a neck, hair framing the forehead): found at ~0.97–1.0 confidence
+    even at 14 % of a photo's width, where the flat presenter face is missed."""
+    fh = fw * 1.3
+    d = ImageDraw.Draw(img)
+    d.rectangle([cx - fw * 0.22, cy + fh * 0.35, cx + fw * 0.22, cy + fh * 0.75], fill=tuple(int(c * 0.82) for c in skin))     # neck
+    d.rounded_rectangle([cx - fw * 0.95, cy + fh * 0.66, cx + fw * 0.95, cy + fh * 2.6], radius=int(fw * 0.42), fill=top)       # shoulders
+    d.ellipse([cx - fw * 0.62, cy - fh * 0.62, cx + fw * 0.62, cy + fh * 0.25], fill=hair)                                    # hair behind
+    for sx in (-1, 1):                                                                                                       # ears
+        d.ellipse([cx + sx * fw * 0.5 - fw * 0.09, cy - fh * 0.06, cx + sx * fw * 0.5 + fw * 0.09, cy + fh * 0.14],
+                  fill=tuple(int(c * 0.9) for c in skin))
+    x0, y0, x1, y1 = int(cx - fw / 2), int(cy - fh / 2), int(cx + fw / 2), int(cy + fh / 2)                                   # shaded head
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    r = np.sqrt(((xx - cx) / (fw / 2)) ** 2 + ((yy - cy) / (fh / 2)) ** 2)
+    arr = np.asarray(img).copy()
+    sub = arr[y0:y1, x0:x1]
+    patch = (np.array(skin)[None, None, :] * np.clip(1.08 - 0.32 * r ** 2, 0.6, 1.1)[:, :, None]).clip(0, 255).astype(np.uint8)
+    sub[r <= 1.0] = patch[r <= 1.0]
+    img.paste(Image.fromarray(arr))
+    d = ImageDraw.Draw(img)
+    d.chord([cx - fw * 0.52, cy - fh * 0.56, cx + fw * 0.52, cy - fh * 0.05], 180, 360, fill=hair)                           # hairline
+    s = fw / 300
+    for sx in (-1, 1):
+        ex, ey = cx + sx * fw * 0.2, cy - fh * 0.02
+        d.line([ex - 40 * s, ey - 34 * s, ex, ey - 44 * s, ex + 40 * s, ey - 36 * s], fill=(40, 28, 20), width=max(2, int(12 * s)))
+        d.ellipse([ex - 34 * s, ey - 15 * s, ex + 34 * s, ey + 15 * s], fill=(245, 242, 238))
+        d.ellipse([ex - 15 * s, ey - 15 * s, ex + 15 * s, ey + 15 * s], fill=(85, 55, 35))
+        d.ellipse([ex - 7 * s, ey - 7 * s, ex + 7 * s, ey + 7 * s], fill=(15, 10, 8))
+        d.arc([ex - 36 * s, ey - 18 * s, ex + 36 * s, ey + 14 * s], 190, 350, fill=(60, 40, 30), width=max(1, int(5 * s)))
+    d.line([cx + 6 * s, cy, cx + 14 * s, cy + fh * 0.17], fill=tuple(int(c * 0.72) for c in skin), width=max(2, int(9 * s)))
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * 20 * s - 9 * s, cy + fh * 0.19 - 6 * s, cx + sx * 20 * s + 9 * s, cy + fh * 0.19 + 6 * s],
+                  fill=tuple(int(c * 0.55) for c in skin))
+    my = cy + fh * 0.31
+    d.ellipse([cx - 52 * s, my - 14 * s, cx + 52 * s, my + 16 * s], fill=(170, 80, 80))
+    d.line([cx - 50 * s, my, cx + 50 * s, my], fill=(110, 45, 50), width=max(1, int(5 * s)))
+
+
+def portrait(kind: str, *, size=(1500, 2000), seed: int = 0, face_video: Path | None = None, at: float = 0.5,
+             face_frac: float = 0.3) -> Image.Image:
+    """A photo of someone in a place: a frame of the real face video when there is one (a real person), else the
+    scenery with a drawn person standing in it (face centre at x = `at`)."""
+    w, h = size
+    if face_video and Path(face_video).exists():
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            png = Path(td) / "f.png"
+            run_ffmpeg(["-ss", f"{1.0 + seed % 5}", "-i", str(face_video), "-frames:v", "1", str(png)], timeout=120)
+            fr = Image.open(png).convert("RGB")
+            fw, fh = fr.size
+            cw = min(fw, int(fh * w / h))
+            left = int(min(max(fw * at - cw / 2, 0), fw - cw))
+            return fr.crop((left, 0, left + cw, fh)).resize((w, h), Image.Resampling.LANCZOS)
+    img = scenery(kind, w=w, h=h, seed=seed)
+    photo_face(img, w * at, h * 0.4, w * face_frac)
+    return img.filter(ImageFilter.GaussianBlur(0.8))
+
+
+def group_photo(kind: str, *, n: int = 3, size=(2000, 1500), seed: int = 0) -> Image.Image:
+    """Friends in a row across a landscape photo: faces spread over most of the width (a filled 9:16 crop would cut
+    the people at the sides out)."""
+    w, h = size
+    img = scenery(kind, w=w, h=h, seed=seed)
+    looks = [((222, 180, 145), (45, 32, 24), (60, 70, 110)), ((165, 118, 85), (25, 18, 14), (150, 45, 55)),
+             ((238, 205, 175), (120, 80, 40), (45, 110, 75))]
+    for k in range(n):
+        skin, hair, top = looks[k % len(looks)]
+        photo_face(img, w * (0.2 + 0.6 * k / max(1, n - 1)), h * 0.42, w * 0.14, skin=skin, hair=hair, top=top)
+    return img.filter(ImageFilter.GaussianBlur(0.8))
+
+
 def _moves(move: str, dur: float, out_w: int, out_h: int) -> str:
     D = max(0.1, dur)
     # scale the 16:9 scenery so it covers the output frame with room to move (works for 9:16 too)

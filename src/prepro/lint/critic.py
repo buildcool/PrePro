@@ -54,6 +54,24 @@ def rules_critic(tl: Timeline, pa: ProjectAnalysis, d: Direction, findings) -> C
             present.add("text_callouts")
     if any(s.type == "split" and s.status == "applied" for s in tl.suggestions):
         present |= {"jcut_new_place", "split_edits"}
+    photos = [i for i in v1 if i.kind == "image" and i.asset_id and pa.asset(i.asset_id).kind.value == "image"]
+    if photos:
+        if v1[0] in photos and v1[0].role == "hook":
+            present.add("cover_photo_first")
+        if any(i.transform and i.transform.keys for i in photos):
+            present.add("slow_push_in_on_stills")
+        if any(i.kind == "text" and any(p.rec_in <= i.rec_in < p.rec_out for p in photos) for i in tl.items):
+            present.add("text_on_photo")
+        if v1[-1].role == "loop" and v1[-1].asset_id == v1[0].asset_id:
+            present.add("loop_back_to_cover")
+        if len(v1) == 1:                                 # one photo: nothing to loop back to
+            sig.discard("loop_back_to_cover")
+        music = next((i for i in tl.items if i.track == "A2" and i.asset_id and pa.clips.get(i.asset_id) and pa.clips[i.asset_id].music), None)
+        if music is not None:                            # every cut (one photo: every new line) within a frame or two of a beat
+            beats = [b - music.src_in + music.rec_in for b in pa.clips[music.asset_id].music.beats]
+            cuts = [i.rec_in for i in v1[1:]] or sorted(i.rec_in for i in tl.items if i.kind == "text")[1:]
+            if cuts and all(min(abs(c - b) for b in beats) <= 0.07 for c in cuts):
+                present.add("cut_on_the_beat")
     fit = 6 + 4 * (len(sig & present) / max(1, len(sig)))
     # the cringe guard: every check a viewer would notice, named when it fails
     from .ghinn import checks, score

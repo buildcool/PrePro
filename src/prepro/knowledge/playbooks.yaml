@@ -154,3 +154,19 @@ comedy:
   signature: [hold_before_punchline, cut_fast_to_reaction, meme_after_joke, dramatic_zoom_on_reaction]
   donts: [Meme or SFX over the punchline itself, Explaining the joke with text]
   hooks: [peak_moment, curiosity_gap]
+
+photo_reel:
+  name: Photo reel
+  aspect: "9:16"
+  target: [6, 30]
+  keep_ratio: 1.0
+  structure: [cover_photo, beat_cut_photos, loop_back]
+  pacing: {aroll_shot: [1, 3], broll_shot: [0.6, 2.4], tightness: 0.5, breath: 0.1, max_pause: 0.5, dead_zone: 20}
+  budgets: {zoom: 0, sfx: 0, meme: 0, transition: 1, text: 6, slowmo: 0}
+  captions: {default: "off", words: [2, 4], lines: 2, max_cps: 14}
+  music: {mode: front, bed_db: -20, front_db: -6, prefer: [upbeat, happy, warm, chill], avoid: []}
+  memes: never
+  transitions: {default: cut, allowed: [cut], at: [beat]}
+  signature: [cover_photo_first, cut_on_the_beat, slow_push_in_on_stills, text_on_photo, loop_back_to_cover]
+  donts: [Photos on screen too briefly to see, Cuts off the beat, Frozen stills with no movement, Text that covers faces]
+  hooks: [visual_spectacle]

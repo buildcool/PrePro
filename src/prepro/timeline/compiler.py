@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from .. import knowledge as K
+from ..analyze.visual import photo_fills
 from ..assist.music import best_offset
 from ..project import Project
 from ..schema.analysis import ProjectAnalysis, Segment, Shot, Word
@@ -57,6 +58,7 @@ class Ctx:
     on_screen: dict = field(default_factory=dict)                                  # two-shots: asset → seat framed now
     turns: dict = field(default_factory=dict)                                      # line → length of that speaker's turn
     layout_top: float | None = None                                                # stacked layout: the top panel's height
+    n_photos: int = 0                                                              # photos placed so far (motion alternates)
     caption_words: list[CaptionWord] = field(default_factory=list)
     section_t: dict[str, list[float]] = field(default_factory=dict)
     speech_spans: list[tuple[float, float]] = field(default_factory=list)
@@ -236,6 +238,91 @@ def frame_for(ctx: Ctx, asset_id: str, src_t0: float, src_t1: float) -> Transfor
     if len({round(k[1], 3) for k in path}) > 1:
         tf.keys = [TransformKey(t=t, cx=x, cy=0.5, zoom=1.0) for t, x in path]
     return tf
+
+
+def photo_motion(ctx: Ctx, shot, dur: float, idx: int) -> Transform | None:
+    """A still that moves like a camera (Ken Burns), never a frozen frame: a wide photo in a narrow frame pans gently onto
+    its subject; otherwise a slow push-in (or pull-out, alternating so it never feels mechanical) on the face or the
+    centre. Holds under 0.7 s stay still — motion that fast reads as jitter. A group photo whose faces don't all fit a
+    filled frame (or a panorama, of which a filled frame would show under a third) is shown whole on a blurred copy of
+    itself instead: never cut a person out of a group photo."""
+    ds = ctx.pa.asset(shot.asset_id).info.display_size or (ctx.W, ctx.H)
+    src_ar, out_ar = ds[0] / ds[1], ctx.W / ctx.H
+    face = max(shot.faces, key=lambda f: f.w * f.h) if shot.faces else None
+    fx, fy = (face.x, face.y) if face else (0.5, 0.45)
+    crop_w = out_ar / src_ar
+    if not photo_fills(ds, shot.faces, out_ar):
+        if dur < 0.7:
+            return Transform(fit=True)
+        z0, z1 = (1.0, 1.04) if idx % 2 == 0 else (1.04, 1.0)
+        return Transform(fit=True, zoom=z0, keys=[TransformKey(t=0.0, zoom=z0), TransformKey(t=round(dur, 3), zoom=z1)])
+    if dur < 0.7:                                       # framed like the others, just not moving
+        return Transform(cx=round(min(max(fx, crop_w / 2), 1 - crop_w / 2), 4) if crop_w < 1 else 0.5, cy=0.5 if crop_w < 1 else round(fy, 4))
+    if crop_w < 0.75:                                   # much wider than the frame: pan across, ending on the subject
+        lo, hi = crop_w / 2, 1 - crop_w / 2
+        end = min(max(fx, lo), hi)
+        # a drift, not a sweep: about 6 % of the frame's width a second, like the push-ins
+        span = min(0.06 * crop_w * dur, 0.08, (hi - lo) / 2) * (1 if idx % 2 else -1)
+        start = min(max(end - span, lo), hi)
+        if abs(end - start) < 0.01:
+            start = min(max(end + span, lo), hi)
+        return Transform(cx=round(start, 4), cy=0.5, zoom=1.0, keys=[TransformKey(t=0.0, cx=round(start, 4), cy=0.5, zoom=1.0),
+                                                                     TransformKey(t=round(dur, 3), cx=round(end, 4), cy=0.5, zoom=1.0)])
+    z0, z1 = (1.0, 1.07) if idx % 2 == 0 else (1.07, 1.0)
+    cx, cy = round(min(max(fx, 0.35), 0.65), 4), round(min(max(fy, 0.35), 0.6), 4)
+    return Transform(cx=cx, cy=cy, zoom=z0, keys=[TransformKey(t=0.0, cx=cx, cy=cy, zoom=z0), TransformKey(t=round(dur, 3), cx=cx, cy=cy, zoom=z1)])
+
+
+def _beside_face(ctx: Ctx, fb, text: str, pos: str) -> tuple[str, float | None, float]:
+    """Where words on a photo go, and at what size: the middle when it's free (or the top, for a title), else the
+    larger free band above the head (leaving room for hair) or below the chin, inside the platform's safe area —
+    never across a face. A tight close-up leaves little room: the words get a little smaller (down to 76 %) to fit."""
+    from .captions import SAFE, text_block
+
+    top_safe, bottom_safe, _ = SAFE["9:16" if ctx.H > ctx.W else "16:9"]
+    lo_y, hi_y = top_safe + 0.02, 1 - bottom_safe - 0.01          # the text block must sit inside [lo_y, hi_y]
+
+    def clamp(y: float, h: float) -> float:
+        return round(min(max(y, lo_y + h / 2), hi_y - h / 2), 4)
+
+    h = text_block(text, "photo", ctx.W, ctx.H)[1]
+    want = 0.46 if pos == "center" else lo_y + h / 2
+    if fb is None:
+        return pos, clamp(want, h), 1.0
+    face_top, face_bot = fb[1] - fb[3] / 2 - 0.3 * fb[3], fb[1] + fb[3] / 2 + 0.03       # hair above, a breath below the chin
+    if want + h / 2 < face_top or want - h / 2 > face_bot:                                # the wanted place is already clear
+        return pos, clamp(want, h), 1.0
+    above, below = face_top - lo_y, hi_y - face_bot
+    for scale in (1.0, 0.92, 0.84, 0.76):
+        h = text_block(text, "photo", ctx.W, ctx.H, scale)[1]
+        if above >= h and (above >= below or pos == "upper"):
+            return "upper", round(max(lo_y + h / 2, min((lo_y + face_top) / 2, face_top - h / 2)), 4), scale
+        if below >= h:
+            return "lower", round(min(hi_y - h / 2, max((face_bot + hi_y) / 2, face_bot + h / 2)), 4), scale
+    # even small it won't fit (an extreme close-up): the bigger band, against its outer edge
+    h = text_block(text, "photo", ctx.W, ctx.H, 0.76)[1]
+    return ("upper", clamp(lo_y + h / 2, h), 0.76) if above >= below else ("lower", clamp(hi_y - h / 2, h), 0.76)
+
+
+def _seamless_loop(ctx: Ctx) -> None:
+    """A Reel that ends on its cover should replay without a seam: the closing clip carries the cover's own move at
+    the same speed and stops exactly on the cover's first frame, so the replay continues the motion. A push-in cannot
+    be continued backwards (it would have to zoom out past the full photo), so the cover pulls out instead."""
+    v1 = [i for i in ctx.items if i.track == "V1"]
+    loop = next((i for i in v1 if i.role == "loop"), None)
+    cover = next((i for i in v1 if loop is not None and i.role == "hook" and i.asset_id == loop.asset_id), None)
+    if loop is None or cover is None or not cover.transform or len(cover.transform.keys) < 2:
+        return
+    k0, k1 = cover.transform.keys[0], cover.transform.keys[-1]
+    if k1.zoom > k0.zoom + 1e-3:
+        k0, k1 = k0.model_copy(update={"zoom": k1.zoom}), k1.model_copy(update={"zoom": k0.zoom})
+        cover.transform = cover.transform.model_copy(update={"cx": k0.cx, "cy": k0.cy, "zoom": k0.zoom, "keys": [k0, k1]})
+    f = loop.rec_dur / max(k1.t - k0.t, 1e-3)
+    start = TransformKey(t=0.0, cx=round(k0.cx - (k1.cx - k0.cx) * f, 4), cy=round(k0.cy - (k1.cy - k0.cy) * f, 4),
+                         zoom=round(max(1.0, k0.zoom - (k1.zoom - k0.zoom) * f), 4))
+    end = TransformKey(t=round(loop.rec_dur, 3), cx=k0.cx, cy=k0.cy, zoom=k0.zoom)
+    loop.transform = cover.transform.model_copy(update={"cx": start.cx, "cy": start.cy, "zoom": start.zoom, "keys": [start, end]})
+    loop.note = "kenburns"
 
 
 MIN_SPEAKER_HOLD = 1.2      # never cut to someone for less than this: a quick "yeah" stays on the current speaker
@@ -480,6 +567,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             if asset.info.is_image or asset.kind in (AssetKind.IMAGE, AssetKind.MEME_IMAGE):
                 v = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=asset.id, rec_in=t, duration=b - a, role=it.role, section=sec,
                          ref=it.ref)
+                if asset.kind == AssetKind.IMAGE:          # photos move like a camera, never freeze ("no zooms": framed, still)
+                    v.transform = photo_motion(ctx, shot, 0.0 if "zoom" in no else b - a, ctx.n_photos)
+                    v.note = "kenburns" if v.transform and v.transform.keys else v.note
+                    ctx.n_photos += 1
             else:
                 v = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=asset.id, src_in=a, src_out=b, rec_in=t, speed=speed,
                          transform=tf if not tf.is_identity else None, role=it.role, section=sec, ref=it.ref)
@@ -593,7 +684,9 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             ctx.suggest("broll", c.why, conf=c.confidence, t=start, status="optional", payload={"shot": sh.id, "key": f"fx:broll:{c.at}",
                                                                                                 "acceptable": True})
 
+    _seamless_loop(ctx)
     # ---- text (T1)
+    face_at = _face_lookup(ctx)
     for c in polish.effects:
         if c.type != "text" or not c.text:
             continue
@@ -611,12 +704,28 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             t0 = ctx.spans[c.at][0][0]
         elif c.at in ctx.word_t:
             t0 = ctx.word_t[c.at]
+        elif c.at.startswith("t:"):                       # an exact time (photo reels: lines land on the beat grid)
+            t0 = float(c.at[2:])
         else:
             continue
         dur = min(dur, max(0.8, total - t0))
         key = f"fx:text:{c.at}|{c.text[:24]}"
+        pos, text_y, text_scale = c.position, None, None
+        if pos in ("center", "upper") and c.style == "photo":
+            # the face wherever it goes while the words are up (a push-in grows it): clear of both ends of the move
+            ends = [b for b in (face_at(t0 + 0.05), face_at(t0 + dur - 0.05)) if b]
+            fb = None
+            if ends:
+                top, bot = min(b[1] - b[3] / 2 for b in ends), max(b[1] + b[3] / 2 for b in ends)
+                fb = (ends[0][0], (top + bot) / 2, max(b[2] for b in ends), bot - top)
+            pos, text_y, text_scale = _beside_face(ctx, fb, c.text, pos)
+            text_scale = text_scale if text_scale < 0.999 else None
+        elif pos == "center":                             # never across a face: above or below it instead
+            fb = face_at(t0 + 0.2)
+            if fb and fb[1] - fb[3] / 2 < 0.54 and fb[1] + fb[3] / 2 > 0.38:
+                pos = "upper" if fb[1] > 0.46 else "lower"
         txt = Item(id=ctx.iid("t"), track="T1", kind="text", text=c.text, style=c.style or "title", rec_in=round(t0, 3), duration=round(dur, 3), role="text",
-                   ref=key)
+                   ref=key, position=pos, text_y=text_y, text_scale=text_scale)
         if c.confidence < applied_conf:
             ctx.suggest("text", f"{c.why}: “{c.text}”", conf=c.confidence, t=t0, status="optional", payload={"key": key, "acceptable": True})
         else:
@@ -871,13 +980,13 @@ def _shift_keys(it: Item, dt: float) -> None:
 def _face_lookup(ctx: Ctx):
     """t → the face on screen at timeline time t, as (x, y, w, h) in *output* coordinates (after the crop and any
     punch-in), or None. In a two-shot that is the person in the frame, not simply the biggest face in the source."""
-    v1 = [i for i in ctx.items if i.track == "V1" and i.kind == "video"]
+    v1 = [i for i in ctx.items if i.track == "V1" and (i.kind == "video" or (i.kind == "image" and i.transform is not None))]
 
     def at(t: float):
         for it in v1:
             if not (it.rec_in <= t < it.rec_out):
                 continue
-            st = it.src_in + (t - it.rec_in) * it.speed
+            st = 0.0 if it.kind == "image" else it.src_in + (t - it.rec_in) * it.speed
             sh = next((s for s in ctx.pa.clips[it.asset_id].shots if s.t0 - 1e-3 <= st <= s.t1 + 1e-3), None)
             if sh is None:
                 return None
@@ -894,9 +1003,19 @@ def _face_lookup(ctx: Ctx):
                     return None
             ds = ctx.pa.asset(it.asset_id).info.display_size or (ctx.W, ctx.H)
             src_ar, out_ar = ds[0] / ds[1], ctx.W / ctx.H
-            z = max(1.0, it.transform.zoom if it.transform else 1.0)
+            if it.transform is not None and it.transform.fit:       # the whole photo, a little above the middle
+                s = min(ctx.W / ds[0], ctx.H / ds[1])
+                fw, fh = ds[0] * s / ctx.W, ds[1] * s / ctx.H
+                left, top = (1 - fw) / 2, (1 - fh) * 0.45
+                shown = [(left + x * fw, top + y * fh, w * fw, h * fh) for x, y, w, h in boxes]
+                return min(shown, key=lambda b: abs(b[1] - 0.46)) if shown else None
+            if it.kind == "image" and it.transform is not None:     # a photo's own move: where it is at time t
+                cx, cy, z = it.transform.at(t - it.rec_in)
+                z = max(1.0, z)
+            else:
+                z = max(1.0, it.transform.zoom if it.transform else 1.0)
+                cx, cy = (it.transform.cx, it.transform.cy) if it.transform else (0.5, 0.5)
             cw, ch = ((out_ar / src_ar) / z, 1.0 / z) if src_ar > out_ar else (1.0 / z, (src_ar / out_ar) / z)
-            cx, cy = (it.transform.cx, it.transform.cy) if it.transform else (0.5, 0.5)
             left, top = min(max(cx - cw / 2, 0.0), 1 - cw), min(max(cy - ch / 2, 0.0), 1 - ch)
             shown = [((x - left) / cw, (y - top) / ch, w / cw, h / ch) for x, y, w, h in boxes if left <= x <= left + cw]
             return min(shown, key=lambda b: abs(b[0] - 0.5)) if shown else None
@@ -948,7 +1067,11 @@ def _lay_music(ctx: Ctx, total: float) -> None:
         m = ctx.pa.clips[track].music
         drop_sec = ctx.section_t.get("drop") or ctx.section_t.get("climax")
         align = (drop_sec[0] - g0) if drop_sec and g0 <= drop_sec[0] < g1 else None
-        off, why = best_offset(m, a.info.duration, need, align_drop_at=align) if m else (0.0, "start of track")
+        fixed = next((p[2].offset for p in parts if p[2].offset is not None), None)
+        if fixed is not None:                     # the cut was built on this track's beats: start exactly there
+            off, why = fixed, f"starts at {fixed:.1f}s, where the cut's beat grid begins"
+        else:
+            off, why = best_offset(m, a.info.duration, need, align_drop_at=align) if m else (0.0, "start of track")
         # envelope: sampled every 50 ms — section level, ducked (or muted) under speech with smooth ramps
         mute_speech = any(r.kind == "no_music_under_speech" for r in ctx.brief.rules)
 

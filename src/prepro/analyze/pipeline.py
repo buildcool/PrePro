@@ -21,7 +21,8 @@ from .speakers import assign_speakers
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
 
-ANALYSIS_VERSION = 11          # 10: seats + mouth movement, a speaker per line; 11: the facecam of screen recordings
+ANALYSIS_VERSION = 12          # 10: seats + mouth movement, a speaker per line; 11: the facecam of screen recordings;
+                               # 12: photos — upright copy, EXIF time/place, sharpness, faces, striking score
 Progress = Callable[[str, int, int, str], None]
 
 
@@ -29,26 +30,70 @@ def _noop(stage: str, i: int, n: int, msg: str) -> None:  # pragma: no cover
     pass
 
 
-def _image_shot(proj: Project, a: Asset) -> list[Shot]:
+PHOTO_MAX = 2560          # upright working copy of each photo, long side (enough for a 1080×1920 reel with a push-in)
+
+
+def photo_copy(proj: Project, a: Asset) -> Path:
+    """Where the upright, resized working copy of a photo lives (the renderer uses it when it exists)."""
+    return proj.sub("photos") / f"{a.id}.jpg"
+
+
+def _image_shot(proj: Project, a: Asset, *, faces: bool = True) -> list[Shot]:
+    import cv2
     import imagehash
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     src = proj.path(a.path)
     dst = proj.sub("frames") / f"{a.id}.k0_1.jpg"
     try:
         im = Image.open(src)
         im.seek(0)
+        im = ImageOps.exif_transpose(im) if a.kind == AssetKind.IMAGE else im      # upright, whatever EXIF says
         im = im.convert("RGB")
+        if a.kind == AssetKind.IMAGE:
+            big = im.copy()
+            big.thumbnail((PHOTO_MAX, PHOTO_MAX))
+            big.save(photo_copy(proj, a), quality=92)
         im.thumbnail((480, 480))
         im.save(dst, quality=88)
         ph = str(imagehash.phash(im))
         arr = np.asarray(im, dtype=np.float32) / 255.0
         rgb = tuple(float(x) for x in arr.reshape(-1, 3).mean(axis=0))
         bright = float(arr.mean())
+        gray = cv2.cvtColor((arr * 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
+        lap = cv2.Laplacian(gray, cv2.CV_64F)
+        sharp = float(lap.var())
+        contrast = float(gray.std() / 255.0)
+        rg, yb = arr[:, :, 0] - arr[:, :, 1], 0.5 * (arr[:, :, 0] + arr[:, :, 1]) - arr[:, :, 2]
+        colourful = float(np.sqrt(rg.std() ** 2 + yb.std() ** 2) + 0.3 * np.sqrt(rg.mean() ** 2 + yb.mean() ** 2))
+        boxes = []
+        if faces and a.kind == AssetKind.IMAGE:
+            from .visual import face_detector
+
+            boxes = face_detector()(np.asarray(im), 0.0)
+        if a.kind == AssetKind.IMAGE:
+            # a photo is as sharp as its sharpest part (the face, if there is one): a portrait-mode background is soft
+            # on purpose, so the whole-frame measure would throw out exactly the photos people like most
+            h, w = gray.shape
+            tiles = sorted(float(lap[i * h // 4:(i + 1) * h // 4, j * w // 4:(j + 1) * w // 4].var()) for i in range(4) for j in range(4))
+            on_face = [float(lap[max(0, int((b.y - b.h / 2) * h)):int((b.y + b.h / 2) * h), max(0, int((b.x - b.w / 2) * w)):int((b.x + b.w / 2) * w)].var())
+                       for b in boxes if b.w * w >= 8 and b.h * h >= 8]
+            sharp = max([sharp, tiles[-2], *on_face])
     except Exception:
         return []
+    flags = []
+    if bright < 0.17:
+        flags.append("dark")
+    if sharp < (20 if a.kind == AssetKind.IMAGE else 25):
+        flags.append("blurry")
+    q = max(0.0, 1.0 - 0.4 * ("dark" in flags) - 0.4 * ("blurry" in flags))
+    # what makes a photo stop the scroll: colour, contrast, sharpness and a face
+    striking = round(min(1.0, colourful * 2.2) * 0.35 + min(1.0, contrast * 4) * 0.25 + min(1.0, sharp / 400) * 0.2
+                     + 0.2 * bool(boxes), 3)
     return [Shot(id=f"{a.id}.k0", asset_id=a.id, t0=0.0, t1=max(a.info.duration, 0.0), keyframes=[0.0], phash=ph,
-                 color=rgb, brightness=round(bright, 3), quality=1.0, shot_type="still")]
+                 color=rgb, brightness=round(bright, 3), contrast=round(contrast, 3), sharpness=round(sharp, 2), quality=round(q, 3),
+                 flags=flags, faces=boxes[:6], face_ratio=1.0 if boxes else 0.0, aesthetic=striking, shot_type="still",
+                 track=[(0.0, round(b.x, 3), round(b.y, 3)) for b in sorted(boxes, key=lambda b: -b.w * b.h)[:1]])]
 
 
 def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Settings, faces: bool = True) -> tuple[ClipAnalysis, float | None]:
@@ -97,7 +142,7 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
                 for sh in ca.shots:
                     sh.flags = []      # memes are designed that way (dark/blurry is intentional)
         elif a.info.is_image or kind in (AssetKind.IMAGE, AssetKind.MEME_IMAGE):
-            ca.shots = _image_shot(proj, a)
+            ca.shots = _image_shot(proj, a, faces=faces)
     except Exception as e:  # never let one bad file kill the project
         ca.errors.append(f"{type(e).__name__}: {e}")
     return ca, mus
@@ -172,6 +217,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
         context.refine_kind(a, pa.clips[a.id], musical.get(a.id), hints.get(a.id))
     relative_blur([s for a in pa.assets if a.kind == AssetKind.BROLL for s in pa.clips[a.id].shots])
     duplicate_groups([s for a in pa.assets if a.kind == AssetKind.BROLL for s in pa.clips[a.id].shots])
+    duplicate_groups([s for a in pa.assets if a.kind == AssetKind.IMAGE for s in pa.clips[a.id].shots], max_dist=12, prefix="burst")
     context.cluster_context(pa)
     pa.genres = context.guess_genres(pa)
     pa.stats["context_version"] = context.CONTEXT_VERSION

@@ -301,7 +301,15 @@ class BasicBrain:
                                            why=f"open on the best play ({e['kind'].replace('+', ' + ')} at {e['t']:.1f} s)" +
                                                (f" — “{r.text.strip()[:40]}”" if r else ""),
                                            score=round(min(1.0, 0.55 + 0.3 * min(1.0, e["score"] / 1.5)), 3)))
-        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic")
+        if playbook == "photo_reel":
+            shots = self.photos()
+            if shots:
+                cover = max(shots, key=self._cover_score)
+                opts.append(HookOption(id=f"h{len(opts)}", kind="visual_spectacle", refs=[cover.id], text_hook=self.photo_title(),
+                                       why=f"open on your most striking photo ({cover.asset_id}): colour, contrast"
+                                           + (" and a face" if cover.faces else "") + " stop the scroll",
+                                       score=round(0.6 + 0.4 * (cover.aesthetic or 0), 3)))
+        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic", "photo_reel")
         if talk_ok:
             per_clip = defaultdict(int)
             cands = []
@@ -431,6 +439,9 @@ class BasicBrain:
             est = 15.0 if broll_ok >= 12 else max(8.0, broll_ok * 0.8)
         elif pbk == "teaser":
             est = 20.0
+        elif pbk == "photo_reel":                # ≈ 1.2 s a photo + a held cover; one photo: two to four phrases
+            n = len(self.photos())
+            est = 10.0 + 3.5 * max(0, len(self.text_lines()) - 2) if n <= 1 else 2.4 + 1.2 * n
         else:  # aesthetic
             est = min(45.0, broll_ok * 0.6 + speech_ok)
         if pbk == "talking_head" and est > 90:
@@ -1166,11 +1177,188 @@ class BasicBrain:
                          why="cold open on the best play, highlights in order with a 3 s build-up into each, a slow-mo replay of the best, "
                              "dead gameplay cut")
 
+    # ------------------------------------------------------------ photo reels
+    def photos(self) -> list[Shot]:
+        """Usable photos in the order they were taken: one per burst (the sharpest, most striking), dark or blurry ones
+        out unless the brief asks for them."""
+        imgs = [a for a in self.pa.assets if a.kind == AssetKind.IMAGE and self.pa.clips.get(a.id) and self.pa.clips[a.id].shots]
+        imgs.sort(key=lambda a: (a.info.creation_time.timestamp() if a.info.creation_time else float("inf"), a.path))
+        out = []
+        for a in imgs:
+            sh = self.pa.clips[a.id].shots[0]
+            if a.id in self.excluded or sh.id in self.excluded:
+                continue
+            forced = a.id in self.included or sh.id in self.included
+            if not forced and ((sh.dup_group and sh.dup_rank > 0) or set(sh.flags) & {"dark", "blurry"}):
+                continue
+            out.append(sh)
+        return out
+
+    def text_lines(self) -> list[str]:
+        """The creator's own on-screen lines, in order (a "Text:" block, POV lines, quoted lines)."""
+        return [r.target for r in sorted((r for r in self.rules if r.kind == "text_line"), key=lambda r: float(r.value or 0))]
+
+    def photo_title(self) -> str | None:
+        """Words for the cover: the creator's first line, else where and when from the photos' GPS/EXIF ("Goa · Oct 2026",
+        "Goa → Jaipur"), else nothing (a generic "photo dump" adds nothing)."""
+        lines = self.text_lines()
+        if lines:
+            return lines[0]
+        start = next((r.target for r in self.rules if r.kind == "add_text" and r.anchor == "start"), None)
+        if start:
+            return start
+        shots = self.photos()
+        places = list(dict.fromkeys(p for p in (self.pa.clips[s.asset_id].place for s in shots)
+                                    if p and not re.match(r"^Place \d+$", p)))
+        when = next((self.pa.asset(s.asset_id).info.creation_time for s in shots if self.pa.asset(s.asset_id).info.creation_time), None)
+        where = " → ".join(places[:3]) if len(places) > 1 else (places[0] if places else "")
+        if where and when:
+            return f"{where} · {when.strftime('%b %Y')}"
+        return where or None
+
+    def _reel_grid(self, need: float) -> dict:
+        """The song and the beat grid a photo reel is cut on: a downbeat at the start of the song's strongest part (its
+        drop/chorus) that leaves enough music after it."""
+        tid, m = self._music_plan(Direction(id="x", playbook="photo_reel", name="x", aspect="9:16"), need)
+        if m is None or len(m.beats) < 8:
+            return {"track": tid, "offset": 0.0, "beat": 0.5, "beats": [k * 0.5 for k in range(400)], "label": None, "bpm": 120.0}
+        dur = self.pa.asset(tid).info.duration
+        downs = m.downbeats or m.beats[::4]
+        best = None
+        for sec in sorted(m.sections, key=lambda s: -s.energy):
+            cand = next((b for b in downs if b >= sec.t0 - 0.05), None)
+            if cand is not None and cand + min(need, 8.0) <= dur:
+                best = (cand, sec.label)
+                break
+        start, label = best if best else (downs[0], None)
+        beats = [round(b - start, 3) for b in m.beats if b >= start - 1e-3]
+        period = float(np.median(np.diff(beats[:64]))) if len(beats) > 4 else 60.0 / max(60.0, m.bpm)
+        return {"track": tid, "offset": round(start, 3), "beat": period, "beats": beats, "label": label, "bpm": m.bpm}
+
+    def _cover_score(self, s: Shot) -> tuple[float, float]:
+        """What makes the first frame of a Reel: a striking photo with a person in it that fills the 9:16 frame edge
+        to edge (a portrait-orientation photo does), never one that has to be shown framed on a blurred fill."""
+        from ..analyze.visual import photo_fills
+
+        ds = self.pa.asset(s.asset_id).info.display_size
+        fills = photo_fills(ds, s.faces, 9 / 16)
+        tall = bool(ds and ds[1] > ds[0])
+        return ((s.aesthetic or 0) + 0.15 * bool(s.faces) + 0.08 * tall - (0.6 if not fills else 0.0), s.sharpness)
+
+    @staticmethod
+    def _beat_at(grid: dict, j: int) -> float:
+        """Time of beat j of the reel's grid (beats counted from the start of the cut); past the analysed beats the
+        grid carries on at the song's tempo."""
+        beats = grid["beats"]
+        if j < len(beats):
+            return beats[j]
+        return (beats[-1] if beats else 0.0) + (j - len(beats) + 1) * grid["beat"]
+
+    def _story_photo_reel(self, d: Direction) -> StoryPlan:
+        shots = self.photos()
+        if not shots:
+            return self._story_story_vlog(d)
+        lines = self.text_lines()
+        grid = self._reel_grid(need=float(d.knobs.target_length or 15.0))
+        p = grid["beat"]
+        k = min((1, 2, 4), key=lambda n: abs(n * p - 1.2))   # ≈ 1.2 s a photo, in whole beats (100 BPM → 2 beats)
+        j = 0                                                 # beats used so far: every cut lands on a detected beat
+
+        def take(n: int) -> float:
+            nonlocal j
+            a, b = self._beat_at(grid, j), self._beat_at(grid, j + n)
+            j += n
+            return round(b - a, 3)
+
+        def beats_for(text: str | None, base: int, unit: int) -> int:
+            n = base
+            if text:                                     # long enough to read: ≈ 3 words a second + time to find it
+                while n * p < 0.75 + len(text.split()) / 3.0:
+                    n += unit
+            return n
+
+        items: list[StoryItem] = []
+        if len(shots) == 1:
+            # one photo, your words, the song: your first line is on the first frame (it is the hook), every next line
+            # arrives on the beat, half a bar at a time, and stays up long enough to read; the last one holds to the end
+            unit = 2 if p >= 0.45 else 4
+            slots = []
+            for t in lines:
+                n = beats_for(t, unit, unit)
+                slots.append((j, j + n))
+                j += n
+            tail = 2 * unit if lines else 16                 # no words: four bars of the photo and the song
+            j += tail
+            total = round(self._beat_at(grid, j) - self._beat_at(grid, 0), 3)
+            items.append(StoryItem(ref=shots[0].id, role="hook", t0=0.0, t1=total, section="reel",
+                                   note="one photo held while your lines land on the music's beat"))
+            self._reel = {**grid, "lines": lines, "slots": slots, "end": j}
+            return StoryPlan(direction_id=d.id, items=items, sections=[StorySection(name="reel", music_mode="front")],
+                             why="one photo, your words and the song: your first line from the first frame, each next line on the beat")
+        cover = max(shots, key=self._cover_score)
+        rest = [s for s in shots if s.id != cover.id]
+        target = float(d.target_max or (d.knobs.target_length or 30) * 1.15)
+        # too many photos for the length: the least striking middle ones go (the order stays the order they were taken)
+        while rest and (2 * k + len(rest) * k + (k if len(shots) >= 4 else 0)) * p > target and len(rest) > 2:
+            rest.remove(min(rest[1:-1] or rest, key=lambda s: s.aesthetic or 0))
+        texts = [lines[i] if i < len(lines) else None for i in range(1 + len(rest))]
+        items.append(StoryItem(ref=cover.id, role="hook", t0=0.0, t1=take(beats_for(texts[0], 2 * k, k)), section="reel",
+                               note="cover: your most striking photo first"))
+        for i, s in enumerate(rest, start=1):
+            n = beats_for(texts[i], 2 * k if i == len(rest) else k, k)
+            items.append(StoryItem(ref=s.id, role="photo", t0=0.0, t1=take(n), section="reel",
+                                   note="the last photo holds a little longer" if i == len(rest) else ""))
+        if len(shots) >= 4 and "loop" not in self.no:
+            items.append(StoryItem(ref=cover.id, role="loop", t0=0.0, t1=take(k), section="reel",
+                                   note="loop ending: back to the cover so the Reel replays seamlessly"))
+        self._reel = {**grid, "k": k, "lines": lines}
+        return StoryPlan(direction_id=d.id, items=items, sections=[StorySection(name="reel", music_mode="front")],
+                         why=(f"cut on the beat of the song ({grid['bpm']:.0f} BPM, from {'its ' + grid['label'] if grid['label'] else 'a downbeat'}):"
+                              f" every photo lasts {k} beat(s)"))
+
+    def _polish_photo_reel(self, d: Direction, story: StoryPlan, pp: PolishPlan) -> None:
+        """Music fixed on the reel's beat grid; your lines (or where/when) on the photos, readable and off the faces."""
+        reel = getattr(self, "_reel", None) or {**self._reel_grid(15.0), "k": 2, "lines": self.text_lines()}
+        if reel["track"] and "music" not in self.no:
+            label = f", the {reel['label']}" if reel.get("label") else ""
+            pp.music = [MusicCue(section="reel", mode="front", track_id=reel["track"], offset=reel["offset"],
+                                 why=f"{reel['bpm']:.0f} BPM — the photos change on its beats; it starts at {reel['offset']:.1f}s{label}")]
+        if "text" in self.no:
+            return
+        lines = reel["lines"]
+        t, starts = 0.0, []
+        for it in story.items:
+            starts.append((t, it))
+            t += (it.t1 or 0) - (it.t0 or 0)
+        if len(story.items) == 1 and lines and reel.get("slots"):
+            # one photo: each line replaces the last on the beat; the last one stays until the end
+            for i, (line, (a, b)) in enumerate(zip(lines, reel["slots"], strict=False)):
+                t0 = self._beat_at(reel, a) - self._beat_at(reel, 0)
+                t1 = self._beat_at(reel, reel["end"] if i == len(lines) - 1 else b) - self._beat_at(reel, 0)
+                pp.effects.append(EffectCue(type="text", at=f"t:{t0:.3f}", text=line, style="photo", dur=round(t1 - t0 - 0.05, 3),
+                                            position="center", confidence=1.0, intent="brief",
+                                            why=f"your line {i + 1}" + (", from the first frame: it is the hook" if i == 0 else ", on the beat")))
+            return
+        title = self.photo_title()
+        if lines:
+            for i, (t0, it) in enumerate(starts):
+                if i < len(lines) and it.role != "loop":
+                    pp.effects.append(EffectCue(type="text", at=f"t:{t0:.3f}", text=lines[i], style="photo", position="center",
+                                                dur=round((it.t1 or 0) - 0.05, 3), confidence=1.0, intent="brief",
+                                                why=f"your line {i + 1} on photo {i + 1}"))
+        elif title:
+            dur = (story.items[0].t1 or 2.0) - 0.05
+            pp.effects.append(EffectCue(type="text", at="t:0.000", text=title, style="photo", position="upper", dur=round(dur, 3),
+                                        confidence=0.8, why="where and when, from your photos — on the cover only"))
+
     # ------------------------------------------------------------ polish
     def polish(self, d: Direction, story: StoryPlan) -> PolishPlan:
         pb = K.playbook(d.playbook)
         k = d.knobs
         pp = PolishPlan(direction_id=d.id, look=None if "look" in self.no else k.look)
+        if d.playbook == "photo_reel":            # the photos, the song's beat and your words — nothing else
+            self._polish_photo_reel(d, story, pp)
+            return pp
         target = k.target_length or 60
         # ---- music per section
         sec_speech: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0])

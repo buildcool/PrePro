@@ -81,8 +81,9 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
     events = sorted({0.0, dur} | {i.rec_in for i in tl.items if i.track in ("V1", "V2", "V3", "T1")} |
                     {i.rec_out for i in tl.items if i.track in ("V2", "V3", "T1")})
     for a, b in zip(events, events[1:], strict=False):
-        # slow push-ins count as change
-        moving = any(i.transform and any(k.zoom > 1.01 for k in i.transform.keys) and i.rec_in <= a < i.rec_out for i in v1)
+        # slow push-ins and pans count as change
+        moving = any(i.transform and (any(k.zoom > 1.01 for k in i.transform.keys) or len({(k.cx, k.cy) for k in i.transform.keys}) > 1)
+                     and i.rec_in <= a < i.rec_out for i in v1)
         for i in v1:                       # the picture itself changes: gameplay, pans, action — not dead air
             if i.asset_id and i.rec_in <= (a + b) / 2 < i.rec_out and i.asset_id in pa.clips:
                 sh = next((x for x in pa.clips[i.asset_id].shots if x.t0 - 1e-3 <= i.src_in <= x.t1), None)
@@ -98,7 +99,7 @@ def lint_timeline(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: Creato
     # effect density vs budget
     counts = defaultdict(int)
     for i in v1:
-        if i.transform and i.transform.zoom > 1.01 and i.note != "reframe":   # jump-cut reframes are framing, not effects
+        if i.transform and i.transform.zoom > 1.01 and i.note not in ("reframe", "kenburns"):   # reframes and a photo's own slow move are not effects
             counts["zoom"] += 1
         if i.transition_in != "cut":
             counts["transition"] += 1
@@ -248,6 +249,10 @@ def compliance(tl: Timeline, pa: ProjectAnalysis, d: Direction, brief: CreatorBr
             detail = "" if ok else f"music plays under {bad:.1f}s of talking"
         elif r.kind == "add_text":
             ok = any(i.kind == "text" and r.target.lower()[:12] in (i.text or "").lower() for i in tl.items)
+        elif r.kind == "text_line":                       # your own words, on screen word for word
+            want = " ".join(r.target.split()).lower()
+            ok = any(i.kind == "text" and " ".join((i.text or "").split()).lower() == want for i in tl.items)
+            detail = "" if ok else "this line of yours is not on screen as written"
         elif r.kind == "add_meme":
             ok = any(i.role == "meme" for i in v) or any(s.type == "meme" for s in tl.suggestions)
         elif r.kind == "add_sfx":

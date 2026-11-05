@@ -17,6 +17,7 @@ class HardRule(BaseModel):
         "use_music",         # target = music asset id; scope = section name or "all"
         "no_music_under_speech",
         "add_text",          # text at anchor (phrase / segment / "start" / "end")
+        "text_line",         # one of the creator's on-screen lines, in order (value = index): photo reels, POV text
         "add_meme",          # target = meme asset/catalogue id; anchor = phrase / segment
         "add_sfx",
         "speed",             # target = shot/asset; value = factor

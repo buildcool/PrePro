@@ -41,6 +41,38 @@ def _clean(s: str) -> str:
     return s.strip().strip(".!,;:'\"“”‘’ ").strip()
 
 
+TEXT_BLOCK = re.compile(r"^(?:on[- ]screen\s+)?(?:text|lines|words|text on (?:the )?(?:photo|photos|picture|video|reel))\s*:\s*(.*)$", re.I)
+KEY_LINE = re.compile(r"^[A-Za-z][\w ]{0,24}:\s")
+TEXT_LIKE = re.compile(r"^(pov|me when|when you|that one|tell me)\b", re.I)
+
+
+def _text_lines(raw: str) -> tuple[list[str], str]:
+    """The creator's own on-screen lines, in order, and the rest of the brief. A "Text:" (or "Lines:") block — one
+    line each, until a blank line or another "Key:" line — plus any "POV: …" line or a line in quotes."""
+    out, rest, block = [], [], False
+    for ln in raw.splitlines():
+        s = ln.strip()
+        m = TEXT_BLOCK.match(s)
+        if m:
+            block = True
+            if _clean(m.group(1)):
+                out.append(m.group(1).strip().strip("\"“”"))
+            continue
+        if block:
+            if not s:
+                block = False
+                continue
+            if not (KEY_LINE.match(s) and not TEXT_LIKE.match(s)):
+                out.append(s.strip(" -•*\t").strip("\"“”").strip())
+                continue
+            block = False
+        if TEXT_LIKE.match(s) or (len(s) > 2 and s[0] in "\"“" and s[-1] in "\"”"):
+            out.append(s.strip("\"“”").strip())
+            continue
+        rest.append(ln)
+    return [x for x in out if x], "\n".join(rest)
+
+
 def parse_text(text: str, brief: CreatorBrief | None = None) -> CreatorBrief:
     b = brief or CreatorBrief()
     p = b.prefs
@@ -48,6 +80,9 @@ def parse_text(text: str, brief: CreatorBrief | None = None) -> CreatorBrief:
     if not raw:
         return b
     b.raw_text = (b.raw_text + "\n" + raw).strip()
+    lines, raw = _text_lines(raw)
+    for k, t in enumerate(lines):
+        b.rules.append(HardRule(kind="text_line", target=t, value=k, source=t))
     for line in re.split(r"[\n]+|(?<=[.!?])\s+(?=[A-Z])", raw):
         line = line.strip(" -•*\t")
         if not line:

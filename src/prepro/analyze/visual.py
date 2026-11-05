@@ -66,6 +66,16 @@ class FaceDetector:
         return out
 
 
+def photo_fills(display_size: tuple[int, int] | None, faces: list, out_ar: float) -> bool:
+    """Whether a photo can fill a frame of aspect ``out_ar`` without cutting anyone out: not a group photo whose faces
+    spread wider than the crop window, and not a panorama of which a filled frame would show under a third."""
+    if not display_size or not display_size[1]:
+        return True
+    crop_w = out_ar / (display_size[0] / display_size[1])
+    span = (max(f.x + f.w / 2 for f in faces) - min(f.x - f.w / 2 for f in faces)) if len(faces) >= 2 else 0.0
+    return not (span > 0.92 * min(1.0, crop_w) or crop_w < 0.3)
+
+
 _FACE: FaceDetector | None = None
 
 
@@ -482,7 +492,8 @@ def relative_blur(shots: list[Shot]) -> None:
             s.quality = round(max(0.0, s.quality - 0.4), 3)
 
 
-def duplicate_groups(shots: list[Shot], *, max_dist: int = 10) -> None:
+def duplicate_groups(shots: list[Shot], *, max_dist: int = 10, prefix: str = "dup") -> None:
+    """Near-identical shots (or a burst of photos) share a group; rank 0 is the one to use (sharpest, best)."""
     import imagehash
 
     hs = [(s, imagehash.hex_to_hash(s.phash)) for s in shots if s.phash]
@@ -492,7 +503,7 @@ def duplicate_groups(shots: list[Shot], *, max_dist: int = 10) -> None:
             if a.asset_id == b.asset_id:
                 continue
             if ha - hb <= max_dist:
-                g = a.dup_group or b.dup_group or f"dup{gid}"
+                g = a.dup_group or b.dup_group or f"{prefix}{gid}"
                 if not (a.dup_group or b.dup_group):
                     gid += 1
                 a.dup_group = b.dup_group = g
@@ -500,7 +511,9 @@ def duplicate_groups(shots: list[Shot], *, max_dist: int = 10) -> None:
     for s in shots:
         if s.dup_group:
             groups.setdefault(s.dup_group, []).append(s)
+    photo = prefix == "burst"            # a burst of photos: keep the sharpest, most striking frame
     for members in groups.values():
-        members.sort(key=lambda s: (-(s.quality + 0.1 * (s.camera_move != "static")), s.t0))
+        members.sort(key=lambda s: (-(s.quality + 0.1 * (s.camera_move != "static")
+                                      + (0.3 * (s.aesthetic or 0) + min(0.3, 0.0005 * s.sharpness) if photo else 0.0)), s.t0))
         for r, s in enumerate(members):
             s.dup_rank = r

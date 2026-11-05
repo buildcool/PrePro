@@ -21,7 +21,7 @@ from ..media import encoders as enc
 from ..media.ffmpeg import ffmpeg_bin, run_ffmpeg
 from ..project import Project
 from ..schema.analysis import ProjectAnalysis
-from ..schema.timeline import Item, Timeline
+from ..schema.timeline import Item, Timeline, Transform, TransformKey
 from ..timeline.captions import write_ass
 
 SR = 48000
@@ -78,8 +78,11 @@ def _crop_filter(it: Item, sw: int, sh: int, W: int, H: int, dur: float) -> str:
         z0, z1 = k0.zoom, k1.zoom
         D = max(k1.t - k0.t, 0.1)
         if abs(z1 - z0) > 1e-3:
-            cw0, ch0 = _even(cw / max(z0, 1.0) * 0.999), _even(ch / max(z0, 1.0) * 0.999)
-            zexpr = f"({z0}+({z1 - z0})*t/{D:.3f})/{z0}"
+            # scale the picture up from the smaller zoom and crop a fixed window: the frame never shrinks under the
+            # crop, so a pull-out (z0 > z1) works as well as a push-in
+            zr = max(min(z0, z1), 1.0)
+            cw0, ch0 = _even(cw / zr * 0.999), _even(ch / zr * 0.999)
+            zexpr = f"({z0}+({z1 - z0})*t/{D:.3f})/{zr}"
             return (f"scale=w='iw*{zexpr}':h='ih*{zexpr}':eval=frame:flags=bicubic,"
                     f"crop={cw0}:{ch0}:x='(iw-ow)*{cx:.4f}':y='(ih-oh)*{cy:.4f}'")
         # operator reframing: piecewise-linear crop centre through every key (x in source pixels, clamped)
@@ -97,12 +100,70 @@ def _crop_filter(it: Item, sw: int, sh: int, W: int, H: int, dur: float) -> str:
     return f"crop={cw2}:{ch2}:{x}:{y}"
 
 
+def photo_frames(src: Path, it: Item, W: int, H: int, fps: float, nframes: int):
+    """The frames of a photo on screen (BGR arrays): a frame-shaped window moved along the item's keys (pan and zoom)
+    with sub-pixel precision, so a slow Ken Burns glides instead of stepping a whole pixel at a time. ``fit``: the
+    whole photo on a soft, darkened blurred copy of itself, the composition moving as one."""
+    import cv2
+    from PIL import Image, ImageOps
+
+    with Image.open(src) as im:
+        img = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(im).convert("RGB")), cv2.COLOR_RGB2BGR)
+    tf = it.transform or Transform()
+    keys = tf.keys or [TransformKey(t=0.0, cx=tf.cx, cy=tf.cy, zoom=tf.zoom)]
+    if tf.fit:
+        # compose once at the output size: a soft wash of the photo's own colours (blurred hard, darker, a little
+        # desaturated, so no shape in it competes with the photo), then the photo whole, a little above the middle,
+        # with a soft shadow under it like a print on a table
+        sh, sw = img.shape[:2]
+        # the wash: the whole photo boiled down to a 2×4 grid of its colours, then spread smoothly over the frame — a
+        # gradient in the photo's own palette (as Instagram fills a Story), with no shapes left to compete
+        cells = cv2.resize(img, (2, 4), interpolation=cv2.INTER_AREA).astype(np.float32)
+        grey = cells.mean(axis=2, keepdims=True)
+        cells = (0.8 * cells + 0.2 * grey) * 0.6
+        small = cv2.resize(cells, (max(8, W // 20), max(8, H // 20)), interpolation=cv2.INTER_LINEAR)
+        small = cv2.GaussianBlur(small, (0, 0), sigmaX=small.shape[1] / 6)
+        bg = cv2.resize(small, (W, H), interpolation=cv2.INTER_CUBIC)
+        s_fit = min(W / sw, H / sh) * (0.94 if sw / sh > W / H else 1.0)     # a margin at the sides: a print, not a strip
+        fw, fh = max(2, int(round(sw * s_fit))), max(2, int(round(sh * s_fit)))
+        top = int(min(max((H - fh) * 0.45, 0), H - fh))
+        left = (W - fw) // 2
+        shadow = np.zeros((H, W), np.float32)
+        off = max(2, H // 120)
+        shadow[min(H, top + off):min(H, top + fh + off), left:left + fw] = 1.0
+        shadow = cv2.GaussianBlur(shadow, (0, 0), sigmaX=max(2.0, H / 70))
+        bg *= (1 - 0.55 * shadow)[:, :, None]
+        bg[top:top + fh, left:left + fw] = cv2.resize(img, (fw, fh), interpolation=cv2.INTER_AREA)
+        img = bg.clip(0, 255).astype(np.uint8)
+    sh, sw = img.shape[:2]
+    ar = W / H
+    cw, ch = (sh * ar, sh) if sw / sh > ar else (sw, sw / ar)          # the frame-shaped window at zoom 1
+    zmin = max(1.0, min(k.zoom for k in keys))
+    pre = min(1.0, 1.25 * W / (cw / zmin))                              # shrink once (area filter): no shimmer on fine detail
+    if pre < 0.999:
+        img = cv2.resize(img, (max(2, int(round(sw * pre))), max(2, int(round(sh * pre)))), interpolation=cv2.INTER_AREA)
+        sh, sw = img.shape[:2]
+        cw, ch = cw * pre, ch * pre
+    for i in range(nframes):
+        cx, cy, z = tf.at(i / fps) if tf.keys else (keys[0].cx, keys[0].cy, keys[0].zoom)
+        z = max(1.0, z)
+        vw, vh = cw / z, ch / z
+        x0 = min(max(cx * sw - vw / 2, 0.0), sw - vw)
+        y0 = min(max(cy * sh - vh / 2, 0.0), sh - vh)
+        s = W / vw
+        m = np.float32([[s, 0, -x0 * s], [0, H / vh, -y0 * H / vh]])
+        yield cv2.warpAffine(img, m, (W, H), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+
 def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: float, *, crf: int, preset: str, look: Path | None,
              cache: Path, encoder: enc.Encoder = enc.CPU) -> tuple[Path, str]:
     """One V1 item as a clip at the timeline's size and frame rate. Returns (file, encoder name). Cached per item;
     the encoder is part of the file name so pieces from different encoders are never stream-copied together."""
+    # frames from the rounded cut points, not the rounded length: pieces joined end to end then stay on the timeline's
+    # clock (independent rounding drifts a frame every few cuts — off the beat by the end of a photo reel)
+    nframes = max(1, int(round(it.rec_out * fps)) - int(round(it.rec_in * fps)))
     key = hashlib.sha1(json.dumps([it.model_dump(exclude={"id", "rec_in", "suggestion_ids", "section", "role", "note"}), W, H, fps, crf, preset,
-                                   str(look)], sort_keys=True, default=str).encode()).hexdigest()[:16]
+                                   str(look), nframes], sort_keys=True, default=str).encode()).hexdigest()[:16]
     want = encoder.name
     # "auto" reuses a piece from any encoder; a forced encoder (e.g. cpu) only its own
     for name in dict.fromkeys((want, "cpu", *enc.GPU_ORDER) if enc.preference() == "auto" else (want,)):
@@ -112,10 +173,21 @@ def _segment(pa: ProjectAnalysis, proj: Project, it: Item, W: int, H: int, fps: 
     a = pa.asset(it.asset_id)
     src = proj.path(a.path)
     dur = it.rec_dur
-    nframes = max(1, int(round(dur * fps)))
     lut = f",lut3d=file='{ff_escape(look)}'" if look else ""
     tail = f",fps={fps},format=yuv420p,setsar=1{lut}"
-    if it.kind == "image":
+    if it.kind == "image" and it.transform is not None and a.kind.value == "image":
+        # a photo that moves like a camera: every frame drawn at sub-pixel precision from the upright working copy
+        from ..analyze.pipeline import photo_copy
+
+        wc = photo_copy(proj, a)
+        tmp = cache / f"seg_{key}.part.mp4"
+        used = enc.encode_frames(lambda: photo_frames(wc if wc.exists() else src, it, W, H, fps, nframes), (W, H), fps,
+                                 lambda e: ["-frames:v", str(nframes), "-vf", f"format=yuv420p,setsar=1{lut}", "-an", *e.args(crf, preset),
+                                            "-r", f"{fps}", str(tmp)], prefer=encoder, timeout=1800)
+        out = cache / f"seg_{key}_{used.name}.mp4"
+        os.replace(tmp, out)
+        return out, used.name
+    elif it.kind == "image":
         vf = (f"[0:v]split[bg0][fg0];[bg0]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:2[bg];"
               f"[fg0]scale={W}:{H}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2{tail}[v]")
         args = [*_still_input(src, dur + 0.2), "-filter_complex", vf, "-map", "[v]"]
@@ -297,30 +369,38 @@ def mix_audio(pa: ProjectAnalysis, proj: Project, tl: Timeline, out: Path, *, ta
         stems[stem][s0:e] += y[: e - s0]
     for b0, b1 in bleeps:
         stems["dialogue"][int(b0 * SR): int(b1 * SR)] = 0
-    mix = stems["dialogue"] + stems["music"] + stems["sfx"]
-    mix = mix[: int(total * SR)]
-    lufs = None
+    mix = mix_raw = (stems["dialogue"] + stems["music"] + stems["sfx"])[: int(total * SR)]
     try:
         import pyloudnorm as pyln
 
         meter = pyln.Meter(SR)
-        lufs = float(meter.integrated_loudness(mix.astype(np.float64)))
-        if np.isfinite(lufs):
-            gain = 10 ** ((target_lufs - lufs) / 20)
-            mix *= gain
-            for k in stems:
-                stems[k] *= gain
     except Exception:
-        pass
-    mix = _limit(mix, 10 ** (true_peak / 20))
-    tp = float(20 * np.log10(max(1e-9, _true_peak(mix))))
-    out_lufs = None
-    try:
-        import pyloudnorm as pyln
+        meter = None
 
-        out_lufs = round(float(pyln.Meter(SR).integrated_loudness(mix.astype(np.float64))), 2)
-    except Exception:
-        pass
+    def loud(x: np.ndarray) -> float | None:
+        try:
+            v = float(meter.integrated_loudness(x.astype(np.float64))) if meter is not None else None
+            return v if v is not None and np.isfinite(v) else None
+        except Exception:
+            return None
+
+    # loudness to target, then the true-peak limiter. Limiting a dense mix (music only, a loud drop) takes loudness
+    # with it, so the gain is topped up and the limiter run again — at most +3 dB more, or it would sound squashed
+    ceiling = 10 ** (true_peak / 20)
+    lufs = loud(mix_raw)
+    gain = first = 10 ** ((target_lufs - lufs) / 20) if lufs is not None else 1.0
+    mix = _limit(mix_raw * gain, ceiling)
+    after = loud(mix)
+    for _ in range(2):
+        if after is None or abs(after - target_lufs) <= 0.4:
+            break
+        gain = min(gain * 10 ** ((target_lufs - after) / 20), first * 10 ** (3 / 20))
+        mix = _limit(mix_raw * gain, ceiling)
+        after = loud(mix)
+    for k in stems:
+        stems[k] *= gain
+    tp = float(20 * np.log10(max(1e-9, _true_peak(mix))))
+    out_lufs = round(after, 2) if after is not None else None
     # speech-to-music ratio while someone talks
     sm = None
     d, m = stems["dialogue"][: len(mix)], stems["music"][: len(mix)]
@@ -350,16 +430,22 @@ def _true_peak(x: np.ndarray) -> float:
 
 
 def _limit(x: np.ndarray, ceiling: float) -> np.ndarray:
-    """Look-ahead peak limiter (5 ms) with smooth release; keeps true peak under the ceiling."""
-    from scipy.ndimage import maximum_filter1d
+    """Look-ahead true-peak limiter: peaks are measured between the samples too (4× oversampled), the gain dips
+    over a 2 ms ramp instead of a step (a step would itself overshoot between samples) and recovers smoothly."""
+    from scipy.ndimage import maximum_filter1d, minimum_filter1d
+    from scipy.signal import resample_poly
 
     c = ceiling * 0.97
-    peak = np.max(np.abs(x), axis=1)
+    if not len(x):
+        return x
+    up = np.max(np.abs(resample_poly(x, 4, 1, axis=0)), axis=1)
+    peak = np.maximum(np.max(np.abs(x), axis=1), np.pad(up, (0, max(0, 4 * len(x) - len(up))))[: 4 * len(x)].reshape(-1, 4).max(axis=1))
     if peak.max() <= c:
         return x
-    look = int(0.005 * SR)
+    look = int(0.002 * SR)
     env = maximum_filter1d(peak, size=2 * look + 1)
-    gain = np.minimum(1.0, c / np.maximum(env, 1e-9))
+    gain = minimum_filter1d(np.minimum(1.0, c / np.maximum(env, 1e-9)), size=2 * look + 1)
+    gain = np.convolve(gain, np.ones(2 * look + 1) / (2 * look + 1), mode="same")
     rel = np.exp(-1.0 / (0.08 * SR))
     g = gain.copy()
     for i in range(1, len(g)):   # release smoothing (attack is instant thanks to look-ahead)

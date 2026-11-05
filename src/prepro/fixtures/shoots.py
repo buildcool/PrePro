@@ -18,7 +18,7 @@ from . import audio as A
 from . import visual as V
 
 KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog", "podcast_long",
-         "podcast_duo"]
+         "podcast_duo", "photo_dump", "photo_single"]
 
 GOA = "+15.5527+073.7517/"
 JAIPUR = "+26.9124+075.7873/"
@@ -407,6 +407,58 @@ def _build_podcast_duo(root, truth, *, face, md, quick, sidecars, with_brief):
     truth["clips"][rel] = {"kind": "aroll", "lines": [asdict(s) for s in spoken]}
     truth["expect"] = {"playbooks": ["talking_head"], "seats": [0.3, 0.7],
                        "speakers": [{"t0": ln.t0, "t1": ln.t1, "seat": s, "text": ln.text} for (s, _t, _p), ln in zip(convo, spoken, strict=True)]}
+
+
+def _build_photo_dump(root, truth, *, face, md, quick, sidecars, with_brief):
+    """A day in Goa straight off a phone's camera roll: ten photos with EXIF capture time and GPS (two stored sideways
+    with an orientation tag), a burst duplicate, a blurry one and a dark one, plus a song with known beats. Ground truth:
+    the photos an editor leaves out, the order they were taken in, and the covers (a person, sharp and well lit)."""
+    from PIL import ImageEnhance, ImageFilter
+
+    goa, t = (15.5527, 73.7517), "2026:10:10 {}"
+    ph = root / "photos"
+    me = V.portrait("beach", seed=82, face_video=face, at=0.46)
+    V.photo(V.scenery("beach", w=2000, h=1500, seed=81), ph / "IMG_0001.jpg", taken=t.format("08:02:10"), gps=goa)
+    V.photo(me, ph / "IMG_0002.jpg", taken=t.format("08:05:31"), gps=goa, orientation=6)
+    burst = me.crop((14, 10, me.width, me.height)).resize(me.size).filter(ImageFilter.GaussianBlur(1.4))
+    V.photo(burst, ph / "IMG_0003.jpg", taken=t.format("08:05:32"), gps=goa, orientation=6)
+    V.photo(V.scenery("cafe", w=1500, h=2000, seed=84), ph / "IMG_0004.jpg", taken=t.format("09:31:00"), gps=goa)
+    V.photo(V.scenery("food", w=2000, h=1500, seed=85), ph / "IMG_0005.jpg", taken=t.format("10:12:45"), gps=goa)
+    blurry = V.scenery("market", w=1500, h=2000, seed=86).filter(ImageFilter.GaussianBlur(14))
+    V.photo(blurry, ph / "IMG_0006.jpg", taken=t.format("11:03:20"), gps=goa)
+    V.photo(V.scenery("forest", w=1500, h=2000, seed=87), ph / "IMG_0007.jpg", taken=t.format("13:22:05"), gps=goa, orientation=8)
+    V.photo(V.scenery("sunset", w=2400, h=1350, seed=88), ph / "IMG_0008.jpg", taken=t.format("17:46:40"), gps=goa)
+    V.photo(V.portrait("sunset", seed=89, face_video=face, at=0.55), ph / "IMG_0009.jpg", taken=t.format("18:10:12"), gps=goa)
+    dark = ImageEnhance.Brightness(V.scenery("city", w=2000, h=1500, seed=90)).enhance(0.3)
+    V.photo(dark, ph / "IMG_0010.jpg", taken=t.format("21:34:50"), gps=goa)
+    # lunch with friends: named last, taken mid-day (the reel follows the clock, not the file names)
+    V.photo(V.group_photo("cafe", seed=92), ph / "IMG_0011.jpg", taken=t.format("12:31:15"), gps=goa)
+    _music(root, truth, "golden_hour_100", bpm=100, minor=False, mood="happy", seed=16,
+           sections=[("intro", 2, 0.3), ("verse", 4, 0.6), ("chorus", 8, 0.9), ("outro", 2, 0.35)])
+    truth["clips"] = {f"photos/IMG_{k:04d}.jpg": {"kind": "photo"} for k in range(1, 12)}
+    truth["expect"] = {
+        "playbooks": ["photo_reel"],
+        "left_out": {"photos/IMG_0003.jpg": "burst", "photos/IMG_0006.jpg": "blurry", "photos/IMG_0010.jpg": "dark"},
+        "order": [f"photos/IMG_{k}.jpg" for k in ("0001", "0002", "0004", "0005", "0011", "0007", "0008", "0009")],
+        "covers": ["photos/IMG_0002.jpg", "photos/IMG_0009.jpg"],
+        "group": "photos/IMG_0011.jpg",
+        "sideways": {"photos/IMG_0002.jpg": [1500, 2000], "photos/IMG_0007.jpg": [1500, 2000]},
+        "song_chorus": 14.4,
+        "beat": 0.6,
+    }
+
+
+def _build_photo_single(root, truth, *, face, md, quick, sidecars, with_brief):
+    """The "one photo, a few lines of text and a song" post: one portrait, the creator's lines in brief.md, one song.
+    Ground truth: the lines in order, and the beat they land on."""
+    V.photo(V.portrait("sunset", seed=91, face_video=face, at=0.5, face_frac=0.34), root / "IMG_4512.jpg",
+            taken="2026:10:12 18:20:00", gps=(26.9124, 75.7873))
+    _music(root, truth, "warm_acoustic_92", bpm=92, minor=False, mood="warm", seed=17,
+           sections=[("intro", 2, 0.3), ("verse", 8, 0.55), ("chorus", 8, 0.85), ("outro", 2, 0.3)])
+    lines = ["POV: you finally took the trip you kept postponing", "3 days, 1 backpack, zero plans", "and it was everything"]
+    (root / "brief.md").write_text("Text:\n" + "".join(f"{ln}\n" for ln in lines) + "\nUse the warm acoustic song.\n", encoding="utf-8")
+    truth["clips"] = {"IMG_4512.jpg": {"kind": "photo"}}
+    truth["expect"] = {"playbooks": ["photo_reel"], "lines": lines, "beat": round(60 / 92, 4)}
 
 
 def style_references(out: Path, *, talking_clip: Path | None = None, seed: int = 0) -> dict[str, Path]:

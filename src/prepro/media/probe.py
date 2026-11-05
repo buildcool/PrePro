@@ -54,6 +54,45 @@ def _parse_time(s: str | None) -> datetime | None:
     return None
 
 
+EXIF_ROTATION = {3: 180, 6: 90, 8: 270}     # EXIF orientation → degrees (phone photos are often stored sideways)
+
+
+def _exif_gps(gps: dict) -> GeoPoint | None:
+    try:
+        def deg(v) -> float:
+            d, m, s = (float(x) for x in v)
+            return d + m / 60 + s / 3600
+
+        lat, lon = deg(gps[2]), deg(gps[4])
+        lat = -lat if str(gps.get(1, "N")).upper().startswith("S") else lat
+        lon = -lon if str(gps.get(3, "E")).upper().startswith("W") else lon
+        return GeoPoint(lat=lat, lon=lon) if (-90 <= lat <= 90 and -180 <= lon <= 180 and (lat or lon)) else None
+    except Exception:
+        return None
+
+
+def photo_exif(path: str | Path) -> tuple[int, datetime | None, GeoPoint | None]:
+    """(rotation, capture time, GPS) from a photo's EXIF, read locally with Pillow; (0, None, None) when absent."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            ex = im.getexif()
+            rot = EXIF_ROTATION.get(int(ex.get(274, 1) or 1), 0)
+            sub = ex.get_ifd(0x8769)
+            when = _parse_time(str(sub.get(36867) or sub.get(36868) or ex.get(306) or "") or None)
+            if when is not None and when.tzinfo is None:     # phone EXIF is the camera's local time; videos carry UTC
+                off = str(sub.get(36881) or sub.get(36880) or "").strip()
+                try:
+                    when = when.replace(tzinfo=datetime.strptime(off, "%z").tzinfo) if off else when.astimezone()
+                except ValueError:
+                    when = when.astimezone()
+            gps = _exif_gps(dict(ex.get_ifd(0x8825)))
+            return rot, when, gps
+    except Exception:
+        return 0, None, None
+
+
 def probe(path: str | Path) -> MediaInfo:
     p = Path(path)
     data = ffprobe_json(p)
@@ -113,5 +152,10 @@ def probe(path: str | Path) -> MediaInfo:
     info.location = parse_iso6709(
         tags.get("location") or tags.get("com.apple.quicktime.location.iso6709") or tags.get("location-eng")
     )
+    if info.is_image and ext in IMAGE_EXT:          # photos keep their story in EXIF: when, where, which way up
+        rot, when, gps = photo_exif(p)
+        info.rotation = rot or info.rotation
+        info.creation_time = info.creation_time or when
+        info.location = info.location or gps
     info.tags = {k: v for k, v in tags.items() if len(v) < 300}
     return info

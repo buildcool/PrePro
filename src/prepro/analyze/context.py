@@ -85,7 +85,7 @@ def place_name(pt) -> str | None:
 
 
 # bump when days/places/genre logic changes: cached analyses get just this cheap stage re-run (no re-analysis)
-CONTEXT_VERSION = 4
+CONTEXT_VERSION = 5          # 5: photo reels
 
 
 def cluster_context(pa: ProjectAnalysis) -> None:
@@ -176,6 +176,13 @@ def guess_genres(pa: ProjectAnalysis) -> list[GenreGuess]:
             f"short punchy lines with {memes_n} meme(s)" + (" and comedy sound effects" if comedic_sfx else "") + " in the folder")
     if video_t > 45 and broll_t > 10:
         add("teaser", 0.4, "enough strong moments for a 15–30 s teaser that sells the full video")
+    # photos (a photo dump, or one photo with text): a Reel cut to the song's beat
+    photos = [a for a in k[AssetKind.IMAGE] if a.id in pa.clips]
+    if photos and (video_t < 5 or (len(photos) >= 3 and len(photos) * 1.5 >= 0.5 * video_t)):
+        one = len(photos) == 1
+        add("photo_reel", (0.9 if video_t < 5 else 0.62) + 0.05 * bool(music),
+            ("one photo" if one else f"{len(photos)} photos") + (" and a song" if music else "")
+            + (" — your words on the photo, timed to the music" if one else " — a photo reel cut on the beat"))
     if not out:
         add("story_vlog", 0.4, "default")
     out.sort(key=lambda g: -g.score)

@@ -109,6 +109,7 @@ class MusicCue(BaseModel):
     brief: MusicBrief = Field(default_factory=MusicBrief)
     why: str = ""
     gain_db: float = 0.0              # creator's "music louder/quieter" on top of the playbook level
+    offset: float | None = None       # fixed start in the track (s): the cut was built on this track's beats (photo reels)
 
 
 class EffectCue(BaseModel):
@@ -124,6 +125,7 @@ class EffectCue(BaseModel):
     intent: str | None = None
     why: str = ""
     confidence: float = 0.7
+    position: str | None = None       # text: upper | center | lower (default: the style's own place)
 
 
 class BrollGap(BaseModel):

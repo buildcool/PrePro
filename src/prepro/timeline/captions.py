@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import math
 import re
 from pathlib import Path
 
@@ -24,6 +26,7 @@ STYLES = {
     "cta": ("Poppins", 0.058, "&H00FFFFFF", "&H00000000", -1, True),
     "callout": ("Anton", 0.060, "&H0000E5FF", "&H00000000", 0, True),
     "aesthetic": ("Playfair Display", 0.036, "&H00FFFFFF", "&H40000000", 0, False),
+    "photo": ("Montserrat", 0.044, "&H00FFFFFF", "&H60000000", -1, False),      # words on a photo: a soft edge, not a subtitle box
     "devanagari": ("Noto Sans Devanagari", 0.046, "&H00FFFFFF", "&H00000000", -1, False),
 }
 
@@ -132,6 +135,97 @@ def _has_devanagari(s: str) -> bool:
     return bool(re.search(r"[ऀ-ॿ]", s))
 
 
+def balance_lines(text: str, cap: float, measure=len) -> list[str]:
+    """On-screen text in as few lines as fit ``cap`` (in ``measure`` units: characters, or pixels with a font), of
+    similar length, never ending a line on a glue word ("the", "a", "to"…): "POV: you finally took / the trip you kept
+    postponing", not "…took the / trip…"."""
+    words = text.split()
+    total = measure(text)
+    if total <= cap or len(words) < 2:
+        return [text]
+    found: list[tuple[float, list[str]]] = []
+    for n in range(max(2, math.ceil(total / cap)), len(words) + 1):     # fewest lines that fit — or one more, when
+        if len(found) == 2 or (found and found[0][0] < 0.1):             # that is what keeps a "the" off a line end
+            break
+        target = total / n
+
+        def cost(i: int, j: int, target: float = target) -> float:
+            w = measure(" ".join(words[i:j]))
+            c = ((w - target) / cap) ** 2 + (1e6 if w > cap and j - i > 1 else 0.0)
+            if j < len(words) and re.sub(r"[^\w']", "", words[j - 1].lower()) in GLUE:
+                c += 0.15
+            return c
+
+        memo: dict[tuple[int, int], tuple[float, tuple[int, ...]]] = {}
+
+        def best(i: int, k: int, cost=cost, memo=memo) -> tuple[float, tuple[int, ...]]:
+            if (i, k) not in memo:
+                if k == 1:
+                    memo[i, k] = (cost(i, len(words)), (len(words),))
+                else:
+                    memo[i, k] = min(((cost(i, j) + best(j, k - 1)[0], (j, *best(j, k - 1)[1])) for j in range(i + 1, len(words) - k + 2)),
+                                     default=(float("inf"), (len(words),)))
+            return memo[i, k]
+
+        score, cuts = best(0, n)
+        if score < 1e6 or n == len(words):
+            out, i = [], 0
+            for j in cuts:
+                out.append(" ".join(words[i:j]))
+                i = j
+            found.append((score + 0.1 * len(found), out))
+    return min(found, key=lambda x: x[0])[1] if found else words
+
+
+# libass's drawn width ÷ Pillow's (bold instance, sized by line height) for the bundled fonts — measured by rendering one
+# line through ffmpeg's ass filter (QA log, v0.9); a property of the font files and libass's sizing, not of the machine
+LIBASS_WIDTH = {"Montserrat": 0.890, "Anton": 0.872, "Bebas Neue": 0.925, "Playfair Display": 0.952}
+
+
+@functools.cache
+def _font(name: str, bold: bool):
+    """The bundled font file for a style (bold instance of a variable font when the style is bold), and its line
+    height at size 100 — ASS sizes a font by its line height, so widths are measured on that scale."""
+    try:
+        from PIL import ImageFont
+
+        from ..config import assets_dir
+
+        files = sorted((assets_dir() / "fonts").glob(name.replace(" ", "") + "*.ttf"))
+        if not files:
+            return None
+        f = ImageFont.truetype(str(files[0]), 100)
+        if bold:
+            try:
+                pick = next((n for n in f.get_variation_names() if (n.decode() if isinstance(n, bytes) else n).lower() == "bold"), None)
+                if pick is not None:
+                    f.set_variation_by_name(pick)
+            except Exception:
+                pass
+        asc, desc = f.getmetrics()
+        return f, asc + desc
+    except Exception:
+        return None
+
+
+def text_block(text: str, style: str, W: int, H: int, scale: float = 1.0) -> tuple[list[str], float]:
+    """(lines, block height as a fraction of the frame height) for a text item in ``style`` (at ``scale`` × its size):
+    the same measure the compiler uses to find room beside a face and the subtitle writer uses to break the lines."""
+    name, size, _p, _o, bold, _up = STYLES.get(style, STYLES["clean"])
+    vertical = H > W
+    fs = H * size * (1.0 if vertical else 0.9) * scale
+    side = SAFE["9:16" if vertical else "16:9"][2]
+    got = _font(name, bold == -1)
+    if got is not None:
+        f, line_h = got
+        k = fs / line_h * LIBASS_WIDTH.get(name, 0.9) * 1.03     # what libass draws, +3 % to be safe
+        measure = lambda s: f.getlength(s) * k                   # noqa: E731
+    else:
+        measure = lambda s: len(s) * fs * 0.42                   # noqa: E731
+    lines = balance_lines(text, W * (1 - 2 * side), measure)
+    return lines, len(lines) * fs * 1.22 / H
+
+
 def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
     W, H = tl.width, tl.height
     vertical = H > W
@@ -148,12 +242,15 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
     for name, (font, size, prim, outl, bold, _up) in STYLES.items():
         fs = int(H * size * (1.0 if vertical else 0.9))
         outline = max(2, fs // 14)
+        shadow, back = max(1, outline // 2), "&H80000000"
+        if name == "photo":                                # thin edge + soft drop shadow (blurred in the event)
+            outline, shadow, back = max(1, fs // 40), max(2, fs // 16), "&H70000000"
         mv = int(H * bottom) if name not in ("hook", "title", "card") else int(H * top)
         align = 2 if name not in ("hook", "title", "card") else 8
         if name == "card":
             align = 7
             mv = int(H * top)
-        lines.append(f"Style: {name},{font},{fs},{prim},&H000000FF,{outl},&H80000000,{bold},0,0,0,100,100,0,0,1,{outline},{max(1, outline // 2)},{align},{ml},{ml},{mv},1")
+        lines.append(f"Style: {name},{font},{fs},{prim},&H000000FF,{outl},{back},{bold},0,0,0,100,100,0,0,1,{outline},{shadow},{align},{ml},{ml},{mv},1")
     lines += ["", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"]
     upper_mv = int(H * (top + 0.06))
     for c in tl.captions:
@@ -189,9 +286,20 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
         st = it.style if it.style in STYLES else "title"
         txt = _esc(it.text.upper() if STYLES[st][5] else it.text)
         anim = "{\\fad(120,160)\\fscx92\\fscy92\\t(0,140,\\fscx100\\fscy100)}"
+        if st == "photo":                                  # words on a photo: balanced lines, a gentle fade, a soft shadow
+            sc = it.text_scale or 1.0
+            txt = "\\N".join(_esc(x) for x in text_block(it.text, st, W, H, sc)[0])
+            fs_tag = f"\\fs{int(H * STYLES[st][1] * (1.0 if vertical else 0.9) * sc)}" if sc < 0.999 else ""
+            anim = "{\\fad(180,180)\\blur2" + fs_tag + "}"
         base_y = H * (1 - bottom) - (H * 0.02 if st == "cta" else 0)
+        if it.text_y is not None:                          # placed in the free space beside a face
+            anim = anim[:-1] + "\\an5\\pos(" + f"{W // 2},{int(H * it.text_y)}" + ")}"
+        elif it.position == "center":                     # text on a photo: in the middle, where the eye already is
+            anim = anim[:-1] + "\\an5\\pos(" + f"{W // 2},{int(H * 0.46)}" + ")}"
+        elif it.position == "upper":
+            anim = anim[:-1] + "\\an8\\pos(" + f"{W // 2},{int(H * (top + 0.04))}" + ")}"
         # bottom-anchored text over a caption on screen at the same time goes above it, never on top of it
-        if st not in ("hook", "title", "card") and any(a < it.rec_out and b > it.rec_in for a, b in low_caps):
+        elif st not in ("hook", "title", "card") and any(a < it.rec_out and b > it.rec_in for a, b in low_caps):
             anim = anim[:-1] + "\\an2\\pos(" + f"{W // 2},{int(base_y - cap_block)}" + ")}"
         elif st == "cta":
             anim = "{\\fad(150,200)\\an2\\pos(" + f"{W // 2},{int(base_y)}" + ")}"
