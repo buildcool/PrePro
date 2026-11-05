@@ -317,3 +317,21 @@ Analysis: 0.2 s a photo; the song takes about 18 s (most of it librosa warming u
     - The left-out photos weren't listed, so they couldn't be brought back. Each now says why. Photo motion had no
       decision and no filter chip; it has both now. Photo cards said "0.0 s · 25 fps"; they show the orientation and
       the time taken.
+
+### Lifestyle formats (research, 2026-11-05) — what to build next
+Sources are mostly 2026 trend roundups (Buffer, async.com, Epidemic Sound via mean.ceo, gyre.pro), so the claims are
+loose; the formats below are the ones they agree on, ranked by how well they fit "your footage in, a finished edit
+out":
+1. **Done: photo dump / one photo + text + song** (above).
+2. **Day in my life (short):** chronological clips of one day, small time stamps from the capture time ("6:42 am"),
+   light music, natural sound kept, ~1–2 s a clip. It's mostly the existing `aesthetic` playbook plus
+   time-of-day cards. Highest value next.
+3. **POV / text on video + a song:** the photo-reel engine on video clips: your lines on the beat over short clips,
+   the hook line on frame one.
+4. **Silent / aesthetic vlog** (non-verbal Shorts are a named 2026 trend): no talking, foley up (pour, steps, keys),
+   soft music, minimal lowercase captions, slow holds.
+5. **GRWM / storytime over a routine:** talking (or a voiceover) over getting-ready B-roll. Needs the talk to stay
+   whole while the B-roll cuts on its own rhythm.
+6. **Before → after reveal** (outfit change, room makeover, "reverse reveal" that opens on the result): a match cut
+   on the beat at the moment of change.
+Lo-fi / unpolished is also called a 2026 trend, which argues for restraint (few effects), PrePro's default taste.
