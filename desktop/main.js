@@ -1,6 +1,6 @@
 // PrePro desktop shell: starts the local engine (frozen Python, bundled in resources/engine) on a free
 // 127.0.0.1 port and shows the review app in a sandboxed window. Footage never leaves the computer.
-const { app, BrowserWindow, dialog, ipcMain, shell, Menu } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, Menu } = require("electron");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const http = require("http");
@@ -137,6 +137,11 @@ ipcMain.handle("prepro:pick-folder", async () => {
 });
 ipcMain.handle("prepro:reveal", async (_e, p) => {
   if (p && fs.existsSync(p)) shell.showItemInFolder(p);
+});
+ipcMain.handle("prepro:theme", async (_e, m) => {
+  // the window's own chrome (title bar, scrollbars, menus) follows the app's light / dark / system choice
+  nativeTheme.themeSource = ["light", "dark", "system"].includes(m) ? m : "system";
+  if (win && !win.isDestroyed()) win.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#0c0d0f" : "#f4f4f2");
 });
 
 app.on("second-instance", () => {

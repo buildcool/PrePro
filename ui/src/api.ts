@@ -43,19 +43,25 @@ export const frameUrl = (pid: string, thumb: string) =>
 export interface Job {
   id: string;
   kind: string;
-  status: "queued" | "running" | "done" | "error";
+  status: "queued" | "running" | "done" | "error" | "cancelled";
   stage: string;
   frac: number;
   message: string;
   result: any;
   error: string | null;
+  steps?: { id: string; label: string }[];
+  step?: number;
+  elapsed?: number;
 }
+
+export const isOver = (j: Job) => j.status === "done" || j.status === "error" || j.status === "cancelled";
+export const stopJob = (j: Job) => api<Job>(`/jobs/${j.id}/cancel`, { body: {} });
 
 /** Follow a job over SSE (falls back to polling) until it ends. */
 export function followJob(job: Job, onUpdate?: (j: Job) => void): Promise<Job> {
   return new Promise((resolve, reject) => {
     if (job.status === "done") return resolve(job);
-    if (job.status === "error") return reject(new Error(job.error ?? "failed"));
+    if (job.status === "error" || job.status === "cancelled") return reject(new Error(job.error ?? "failed"));
     let done = false;
     const finish = (j: Job) => {
       if (done) return;
@@ -68,7 +74,7 @@ export function followJob(job: Job, onUpdate?: (j: Job) => void): Promise<Job> {
       es.onmessage = (ev) => {
         const j = JSON.parse(ev.data) as Job;
         onUpdate?.(j);
-        if (j.status === "done" || j.status === "error") {
+        if (isOver(j)) {
           es.close();
           finish(j);
         }
@@ -86,7 +92,7 @@ export function followJob(job: Job, onUpdate?: (j: Job) => void): Promise<Job> {
         try {
           const j = await api<Job>(`/jobs/${job.id}`);
           onUpdate?.(j);
-          if (j.status === "done" || j.status === "error") return finish(j);
+          if (isOver(j)) return finish(j);
         } catch (e) {
           done = true;
           return reject(e);

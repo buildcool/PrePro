@@ -1,36 +1,30 @@
-import { useEffect, useState } from "react";
-import { api, followJob, frameUrl, mediaUrl, type Job, mmss } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { api, followJob, frameUrl, isOver, mediaUrl, type Job, mmss } from "../api";
 import { go, type Route, useToast } from "../App";
+import Icon from "../components/Icon";
+import TaskProgress from "../components/TaskProgress";
 import { refThumb, type Asset, type Brief, type Direction, type Summary } from "../types";
 import Export from "./Export";
 import Review from "./Review";
 
-const TABS: [string, string][] = [
-  ["footage", "1 · Footage"],
-  ["brief", "2 · Brief"],
-  ["directions", "3 · Directions"],
-  ["review", "4 · Review"],
-  ["export", "5 · Export"],
+const TABS: [string, string, string][] = [
+  ["footage", "Footage", "film"],
+  ["brief", "Brief", "brief"],
+  ["directions", "Directions", "compass"],
+  ["review", "Review", "eye"],
+  ["export", "Export", "export"],
 ];
 
+/** Kept for pages that show a running job inline. */
 export function JobBar({ job }: { job: Job | null }) {
-  if (!job) return null;
-  return (
-    <div className="card col" style={{ gap: 6 }}>
-      <div className="row small">
-        <b>{job.kind}</b>
-        <span className="mute">{job.stage}</span>
-        <span className="dim" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>{job.message}</span>
-      </div>
-      <div className="progress"><div style={{ width: `${Math.round((job.frac || 0.03) * 100)}%` }} /></div>
-    </div>
-  );
+  return job ? <TaskProgress job={job} /> : null;
 }
 
 export default function Project({ route, setTitle }: { route: Extract<Route, { page: "project" }>; setTitle: (s: string) => void }) {
   const { pid, tab } = route;
   const [s, setS] = useState<Summary | null>(null);
   const [job, setJob] = useState<Job | null>(null);
+  const following = useRef<string | null>(null);
   const { say } = useToast();
 
   const load = () =>
@@ -44,40 +38,94 @@ export default function Project({ route, setTitle }: { route: Extract<Route, { p
         say(e.message, "error");
         return null;
       });
+
+  /** Follow a job to its end: live progress here, then the result (a finished cut opens in Review). */
+  const follow = async (j: Job, label: string) => {
+    if (following.current === j.id) return null;
+    following.current = j.id;
+    setJob(j);
+    try {
+      const done = await followJob(j, setJob);
+      await load();
+      if (done.kind === "autocut" && done.result?.timeline) {
+        say(`Your first cut is ready: ${done.result.direction} · ${Math.round(done.result.duration)} s. Exports are in the shoot folder.`);
+        go({ page: "project", pid, tab: "review", tid: done.result.timeline });
+      }
+      return done.result;
+    } catch (e: any) {
+      if (j.kind !== "autocut" || !String(e.message).includes("stopped")) say(`${label} didn't finish: ${e.message}`, "error");
+      await load();
+      return null;
+    } finally {
+      following.current = null;
+      setJob(null);
+    }
+  };
+
   useEffect(() => {
-    load();
+    load().then((x) => {
+      const live = x?.jobs?.find((j) => !isOver(j)); // work started elsewhere (e.g. opening the shoot): pick it up here
+      if (live) follow(live, "The task");
+    });
   }, [pid]);
 
   const run = async (path: string, body: unknown, label: string) => {
     try {
       const j = await api<Job>(path, { body: body ?? {} });
-      setJob(j);
-      const done = await followJob(j, setJob);
-      setJob(null);
-      await load();
-      return done.result;
+      return await follow(j, label);
     } catch (e: any) {
-      setJob(null);
       say(`${label} failed: ${e.message}`, "error");
       return null;
     }
   };
+  const autocut = () => run(`/projects/${pid}/autocut`, {}, "The cut");
 
-  if (!s) return <p className="mute">Loading…</p>;
+  if (!s) return <div className="col" style={{ gap: 14 }}><div className="skeleton" style={{ height: 70 }} /><div className="skeleton" style={{ height: 260 }} /></div>;
   const tid = route.tid || s.timelines[0]?.id;
   const count = (k: string) => (k === "review" ? s.timelines.length : k === "directions" ? s.directions?.directions.length ?? 0 : 0);
+  const has = s.timelines.length > 0;
 
   return (
-    <div className="col" style={{ gap: 12 }}>
+    <div className="col" style={{ gap: 14 }}>
+      <header className="page-head">
+        <div className="col" style={{ gap: 2, minWidth: 0 }}>
+          <h1 className="ellipsis">{s.name}</h1>
+          <span className="sub small ellipsis" title={s.path}>{s.path}</span>
+        </div>
+        <div className="row">
+          {has && (
+            <button className="btn" onClick={autocut} disabled={!!job} title="Watch, edit, render and export again from scratch">
+              <Icon name="refresh" size={15} /> Make a new cut
+            </button>
+          )}
+          {has ? (
+            tab !== "review" && (
+              <button className="btn primary" onClick={() => go({ page: "project", pid, tab: "review", tid })} disabled={!!job}>
+                <Icon name="eye" size={15} /> Open the cut
+              </button>
+            )
+          ) : (
+            <button className="btn primary big" onClick={autocut} disabled={!!job}>
+              <Icon name="sparkles" /> Make my first cut
+            </button>
+          )}
+        </div>
+      </header>
+      {job && <TaskProgress job={job} onStopped={() => say("Stopped. Nothing you had before was changed.")} />}
+      {!job && !has && s.analysed && (
+        <div className="callout acc row nowrap">
+          <Icon name="sparkles" />
+          <span className="grow">Everything is ready for an edit. <b>Make my first cut</b> picks the best direction for this footage and edits it end to end — you can change any decision after.</span>
+        </div>
+      )}
       <nav className="tabs" aria-label="Steps">
-        {TABS.map(([k, label]) => (
+        {TABS.map(([k, label, icon]) => (
           <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => go({ page: "project", pid, tab: k, tid })}>
-            {label}
+            <Icon name={icon} size={15} /> {label}
             {count(k) > 0 && <span className="n">{count(k)}</span>}
           </button>
         ))}
       </nav>
-      <JobBar job={job} />
       {tab === "footage" && <Footage s={s} run={run} busy={!!job} />}
       {tab === "brief" && <BriefTab s={s} onSaved={load} />}
       {tab === "brief" && <StyleCard s={s} run={run} busy={!!job} reload={load} />}
@@ -86,7 +134,11 @@ export default function Project({ route, setTitle }: { route: Extract<Route, { p
         (tid ? (
           <Review pid={pid} tid={tid} timelines={s.timelines} run={run} busy={!!job} />
         ) : (
-          <div className="card empty-state">No cut yet — pick a direction in step 3.</div>
+          <div className="card empty-state">
+            <div className="big"><Icon name="sparkles" size={36} /></div>
+            <b>No cut yet</b>
+            <div className="small">Click <b>Make my first cut</b> above — or pick a direction yourself under Directions.</div>
+          </div>
         ))}
       {tab === "export" && (tid ? <Export pid={pid} tid={tid} run={run} busy={!!job} /> : <div className="card empty-state">Build a cut first.</div>)}
     </div>
@@ -107,29 +159,33 @@ function Footage({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l:
   return (
     <div className="col" style={{ gap: 12 }}>
       <div className="card row" style={{ justifyContent: "space-between" }}>
-        <div className="col" style={{ gap: 2 }}>
-          <b>{s.path}</b>
-          <div className="row small mute">
-            {Object.entries(s.counts).map(([k, n]) => (
-              <span key={k} className="chip">{n} {k.replace("_", " ")}</span>
-            ))}
-            {s.stats.days ? <span className="chip">{s.stats.days} day(s)</span> : null}
-            {s.stats.places ? <span className="chip">{s.stats.places} place(s)</span> : null}
-          </div>
+        <div className="row small">
+          {Object.entries(s.counts).map(([k, n]) => (
+            <span key={k} className="chip">{n} {k.replace("_", " ")}</span>
+          ))}
+          {s.stats.days ? <span className="chip">{s.stats.days} day(s)</span> : null}
+          {s.stats.places ? <span className="chip">{s.stats.places} place(s)</span> : null}
+          {!s.analysed && !busy && <span className="mute">Not watched yet — “Make my first cut” does this on the way.</span>}
         </div>
         <div className="row">
-          <button className="btn" disabled={busy} onClick={() => run(`/projects/${pid}/analyze`, { force: true }, "Analysis")}>Re-analyse</button>
-          {!s.analysed ? (
-            <button className="btn primary" disabled={busy} onClick={() => run(`/projects/${pid}/analyze`, {}, "Analysis")}>Analyse footage</button>
-          ) : (
-            <button className="btn primary" onClick={() => go({ page: "project", pid, tab: "brief" })}>Next: brief →</button>
+          <button className="btn ghost small" disabled={busy} onClick={() => run(`/projects/${pid}/analyze`, { force: true }, "Analysis")}>
+            <Icon name="refresh" size={14} /> Watch again
+          </button>
+          {s.analysed && (
+            <button className="btn small" onClick={() => go({ page: "project", pid, tab: "brief" })}>
+              <Icon name="brief" size={14} /> Add a brief (optional)
+            </button>
           )}
         </div>
       </div>
       {s.asr.includes("pocketsphinx") && (
-        <div className="card small" style={{ borderLeft: "3px solid var(--warn)" }}>
-          Speech was recognised with the basic offline recogniser, so words and captions may be rough. Open <b>Brains &amp; privacy → Speech
-          recognition</b> to download the Whisper model once (about 480 MB); PrePro redoes those transcripts automatically.
+        <div className="callout warn row nowrap">
+          <Icon name="mic" />
+          <span className="grow">
+            Speech was recognised with the basic offline recogniser, so words and captions may be rough. Download the Whisper model once (about
+            480 MB) and PrePro redoes those transcripts automatically.
+          </span>
+          <button className="btn small" onClick={() => go({ page: "settings", section: "speech" })}>Open speech settings</button>
         </div>
       )}
       {s.warnings.length > 0 && (

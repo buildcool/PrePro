@@ -72,12 +72,17 @@ def audio_report(y: np.ndarray, sr: int, speech: list[Interval], *, music: bool 
     return rep
 
 
-def music_info(y: np.ndarray, sr: int) -> MusicInfo:
+def music_info(y: np.ndarray, sr: int, note=None) -> MusicInfo:
     import librosa
+
+    def say(f: float, words: str) -> None:            # where the song analysis is (a long track takes a while)
+        if note:
+            note(f, words)
 
     if y.size < sr * 2:
         return MusicInfo()
     y = y[: sr * 600]
+    say(0.05, "Finding the beat")
     onset = librosa.onset.onset_strength(y=y, sr=sr)
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset, sr=sr, units="frames", tightness=120)
     bpm = float(np.atleast_1d(tempo)[0])
@@ -90,6 +95,7 @@ def music_info(y: np.ndarray, sr: int) -> MusicInfo:
         bpm *= 2
         beats = np.unique(np.r_[beats, (beats[:-1] + beats[1:]) // 2])
     times = librosa.frames_to_time(beats, sr=sr)
+    say(0.4, "Finding the bar lines")
     # downbeat phase (which beat mod 4 starts the bar): chords change on the bar line and the kick is heaviest there.
     # Low end alone cannot tell beat 1 from beat 3 when the kick plays both, so the harmonic change entering each beat
     # decides, with low-frequency energy as the tie-break
@@ -116,7 +122,9 @@ def music_info(y: np.ndarray, sr: int) -> MusicInfo:
     lo, hi = np.percentile(rms, 5), np.percentile(rms, 98)
     curve = np.clip((rms - lo) / (hi - lo + 1e-9), 0, 1)
     dur = len(y) / sr
+    say(0.65, "Finding the chorus and the drop")
     sections = _sections(y, sr, curve, downbeats, dur)
+    say(0.85, "Reading the key and the mood")
     chroma = librosa.feature.chroma_cqt(y=y[: sr * 120], sr=sr).mean(axis=1)
     best = (-2.0, "C", "major")
     for k in range(12):

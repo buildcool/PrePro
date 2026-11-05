@@ -62,8 +62,10 @@ def test_review_ui_end_to_end(shoot_factory, tmp_path):
                            encoding="utf-8", errors="replace", timeout=1800)
         assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
         assert "ERRORS: []" in r.stdout, r.stdout[-1500:]
+        assert "progress steps shown: 5" in r.stdout                 # watch → story → edit → render → export
+        assert "theme after picking Light: light" in r.stdout
         assert "mobile horizontal overflow px: 0" in r.stdout
-        assert len(list((tmp_path / "shots").glob("*.png"))) >= 10
+        assert len(list((tmp_path / "shots").glob("*.png"))) >= 16
     finally:
         srv.terminate()
         srv.wait(timeout=20)

@@ -55,6 +55,20 @@ def test_one_click_from_folder_to_exported_cut(shoot_factory, tmp_path, monkeypa
     assert again["status"] in ("cancelled", "done")                             # Stop works (or it had already finished)
 
 
+def test_a_cleaned_out_analysis_cache_is_rebuilt(shoot_factory, tmp_path):
+    """Deleting .prepro/analysis (to free space, or by accident) used to crash the next analysis with
+    FileNotFoundError on its probe cache; it is rebuilt now."""
+    from prepro.engine import analysis
+
+    root = tmp_path / "one photo"
+    shutil.copytree(shoot_factory("photo_single"), root)
+    first = analysis(root)
+    shutil.rmtree(root / ".prepro" / "analysis")
+    (root / ".prepro" / "analysis.json").unlink()
+    again = analysis(root)
+    assert [a.path for a in again.assets] == [a.path for a in first.assets] and (root / ".prepro" / "analysis").is_dir()
+
+
 @pytest.mark.parametrize("missing", ["nope"])
 def test_autocut_of_an_unknown_shoot_is_404(missing, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient

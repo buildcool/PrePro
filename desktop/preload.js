@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("prepro", {
   isDesktop: true,
   pickFolder: () => ipcRenderer.invoke("prepro:pick-folder"),
   reveal: (p) => ipcRenderer.invoke("prepro:reveal", String(p)),
+  setTheme: (m) => ipcRenderer.invoke("prepro:theme", String(m)),
   updates: {
     get: () => ipcRenderer.invoke("prepro:update-get"),
     check: () => ipcRenderer.invoke("prepro:update-check"),

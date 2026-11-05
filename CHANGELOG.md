@@ -4,6 +4,50 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-11-06
+### Added — the autonomous pre-editor
+- **One click from a shoot folder to a finished, exported cut.** Paste or choose a folder and press **Make my first
+  cut**. PrePro watches and listens to every clip, finds the story (the best direction for this footage), edits,
+  renders, and prepares the exports: the Premiere / Resolve timeline, OTIO, captions and the edit report. Then the
+  review opens on its own with the video playing. Opening a new shoot starts it straight away (Settings → General
+  can turn that off). The brief, directions and style are now refinements, not steps you must take first.
+- **Progress that always shows it's working.** A card names the task and what it's doing in plain words ("Finding
+  the beat in warm_acoustic_92.wav", "Cutting piece 3 of 9", "Mixing the sound"). It shows a stepper for the one-click
+  cut (watching → story → edit → render → exports), elapsed time and an estimate of time left. The bar keeps moving;
+  if a step is slow to report, a glow sweeps the track with "Still working". The engine now reports steps inside a
+  song's analysis, the edit and the render, so the bar no longer sits still for long stretches or jumps backwards.
+- **Stop** any running task; nothing you had before is changed.
+
+### Added — AI editor and accounts
+- **Connect the AI you already pay for**, in Settings → AI editor:
+  - **Claude Pro or Max** (through Claude Code), **ChatGPT Plus or Pro** (through the Codex CLI), and **Gemini**
+    (Google AI Pro or a Google account, through the Gemini CLI, which is new).
+  - Install and sign-in open a terminal window running the provider's own command, shown in the app with a Copy
+    button. Your logins stay with the provider.
+  - Installed CLIs are found where their installers put them, even when they aren't on PATH.
+- **Bring your own API key** for Anthropic, OpenAI, Google Gemini, xAI and OpenRouter. Keys go to your computer's
+  keychain and are never shown again (only "•••• last 4"). Each key has a model field, a **Test** button and Remove.
+- **One AI editor.** Whatever you connect becomes the AI editor, and every editing task uses it. Before, connecting
+  did nothing until seven per-task dropdowns were changed by hand. Per-task routing is still there under Advanced.
+  The sidebar always shows who edits.
+- With nothing connected, PrePro still edits on its own with its free, offline rules engine.
+
+### Added — a redesigned app
+- A desktop-style app with a sidebar: your shoots, the shoot you're in, the AI editor's status, updates and
+  Settings.
+- **Settings window:** General, AI editor, Privacy, Speech recognition, Rendering (GPU/CPU encoder, with the times
+  measured on your PC), Updates and About.
+- **Light, dark, or match my computer.** The desktop window's own title bar follows too.
+- A new home page with recent shoots shown as cover images, the Inter typeface, and a consistent design system:
+  buttons, inputs, segmented controls, switches, cards and skeleton loading states.
+
+### Fixed
+- **One person who moves around was read as two people.** A vlogger leaning or walking between two spots got two
+  "seats", so their retakes were treated as a conversation and kept, and a vertical cut could jump between the two
+  spots. A second seat now needs two faces on screen at the same time. (Analysis version 13: shoots are re-analysed
+  once.)
+- **Deleting `.prepro/analysis` crashed the next analysis** (FileNotFoundError on its cache). It is rebuilt now.
+
 ## [0.9.1] — 2026-11-06
 ### Added — app updates
 - **The desktop app updates itself, on your terms.** A new **Updates** button in the top bar shows your version,

@@ -358,3 +358,43 @@ Lo-fi / unpolished is also called a 2026 trend, which argues for restraint (few 
   compare), the HTML-to-text notes, the saved mode, that unknown modes are ignored, and that a build that can't
   install itself opens the release page. The real download and install can only be tested once a release carries
   `latest.yml`, which is why desktop.yml now fails without it.
+
+### v0.10 (autonomous pre-editor, AI accounts, settings, themes), checked in the built-in browser
+Asked by the user: why no AI options, where BYOK went, a real settings window with connected accounts, light/dark,
+top-class UI, progress that doesn't look frozen, and the vision: an autonomous pre-editor (about 90 % done).
+1. **No AI options.** This PC had no Claude Code, Codex or Gemini CLI, and no keys, so only the rules engine was
+   listed. The Claude desktop app doesn't put a `claude` command on PATH. Worse, every task's routing defaulted to
+   "basic", so even a connected AI did nothing until seven dropdowns were changed. Now there is one AI editor, routing
+   defaults to "auto" (old all-"basic" settings migrate), and CLIs are also found in their installers' folders.
+2. **BYOK was never in the app**, only the CLI (`prepro brains key`). The first Brains screen already pointed there;
+   nothing was removed. Keys are now added in Settings and kept in the keychain. Checked in the app with an obviously
+   fake test key: it was saved, shown as "•••• abcd", became the AI editor, never appeared in the page, and was
+   removed again. The test server used keyring's fail backend, so the test key went to the isolated test config
+   folder, never the real Windows Credential Manager.
+3. Screenshot review of Settings: the account cards collapsed into a one-word-wide column, with a stray "R" tile
+   over the title. The tiles used `.mark`, which the review timeline already uses for absolutely-positioned dots.
+   Renamed to `.amark`.
+4. The sidebar chip still said "Rules engine" after a key made OpenAI the editor. It only refreshed on page changes;
+   Settings now announces AI changes.
+5. **Progress.** Watching a run: the bar jumped from 58 % back to 2 % (each analysis stage restarted its own scale).
+   A song's analysis then sat at 2 % for about 18 s (no reports inside a file), and the detail showed a raw path
+   ("music/golden_hour_100.wav"). Now: stages share one forward-only scale; the song analysis, transcription, shots,
+   the edit and the render report their steps ("Finding the beat in …", "Finding the chorus and the drop in …",
+   "Cutting piece 3 of 9"); paths read "Looking at IMG_0004.jpg"; and a stalled bar gets a sweeping glow plus
+   "Still working".
+6. Deleting `.prepro/analysis` to test a slow run crashed the next analysis with FileNotFoundError. A user cleaning up
+   space would hit the same thing. The folder is now recreated; a regression test covers it.
+7. **End to end on a fresh folder:** pasting the path and pressing Enter opened the shoot and started "Making your
+   cut" at once. The stepper showed "Watching and listening" with "Finding the beat in warm_acoustic_92.wav". About
+   40 s later Review opened by itself on the 13 s photo reel. The shoot folder had the Premiere/Resolve XML, OTIO and
+   the editor's report. The "Not watched yet" hint showed during the watching; it now hides while a task runs.
+8. Light theme, Settings → General → Light: tokens switch (selected nav uses the light `--panel-3`), and "Match my
+   computer" follows the OS. One screenshot caught a mid-transition frame; the live state was correct.
+9. **A real bug from the v0.8 two-shot work.** The full test run with real-media fixtures failed the retake check:
+   "Okay so the best part, the best part is the lassi." wasn't flagged as a retake of the next line. The transcript
+   was identical to the drawn-face run, where it passes. The real face video's head moves between two spots
+   (x ≈ 0.31 and 0.48), never two faces in one frame, so it was read as two seats. The two attempts got two
+   speakers and were treated as a reply. Any vlogger who leans or walks would hit this. Two seats now need two faces
+   on screen together in ≥ 15 % of the sampled frames (ANALYSIS_VERSION 13). It went unnoticed since v0.8 because
+   the real-media round of the verification covers only the craft, gaming, speaker and photo files. test_m1 now
+   runs in that round too.

@@ -6,6 +6,28 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
+- **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
+  export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.10.0 (released 2026-11-06; CHANGELOG [0.10.0], QA "v0.10"): the autonomous pre-editor, AI accounts, a redesigned app.**
+  - One click: `POST /projects/{pid}/autocut` (server/app.py) runs analysis → build("auto") → preview render → export
+    (fcp7, otio, srt, report) as one job with steps (`Jobs.submit(steps=…)`, `Job.phase(k, lo, hi)` maps each step's
+    own progress forward-only; `_analysis_progress` maps the analysis stages onto one scale). `Job.cancel` + `POST
+    /jobs/{id}/cancel` (stop raises `JobCancelled` at the next progress report). Progress inside files: `analyse_asset(note=…)`,
+    `music_info(note=…)`, build steps (plan/edit), render steps (pieces, join, overlays, mix, storyboard).
+    `Settings.autocut_on_open` (Home starts the autocut on open).
+  - AI accounts: `brain/accounts.py` (PLANS: claude_code / codex / gemini_cli via their CLIs, `find_cli` looks beyond
+    PATH; KEYS: anthropic / openai / gemini / xai / openrouter in the keychain via `config.set_secret/delete_secret`;
+    `terminal_command` + `open_terminal` run only fixed install/sign-in commands; `record_test` → `<config>/ai_status.json`).
+    `Settings.ai_editor` + routing "auto" (`engine.make_brain` resolves it; all-"basic" saved routing migrates to "auto").
+    New connector `providers.GeminiCLI` (stdin prompt, `--output-format json`, `@file` contact sheets; stub `tests/stubs/gemini`;
+    not yet run against a real signed-in Gemini CLI). Endpoints `/api/ai`, `/api/ai/keys/{id}`, `/api/ai/{id}/test|open|model`,
+    `/api/settings`.
+  - UI (`ui/src`): shell with sidebar (`App.tsx`), `pages/Settings.tsx` (general, ai, privacy, speech, render, updates,
+    about; `aiChanged()` event refreshes the sidebar chip), `components/TaskProgress.tsx` (stepper, sheen/stalled bar,
+    elapsed + ETA, Stop), `components/Icon.tsx` (own line icons), `theme.ts` (system/light/dark → `data-theme`, desktop
+    `nativeTheme` via the `setTheme` bridge), `styles.css` design tokens for both themes, Inter from `ui/public/fonts`.
+    The Brains modal is gone (Settings replaces it). `tests/ui/flow.js` drives the new flow (needs node + playwright).
+  - `analyze/visual._seats`: two seats only with two faces on screen together (ANALYSIS_VERSION 13).
 - **v0.9.1 (released 2026-11-06; CHANGELOG [0.9.1]): app updates.** `desktop/updater.js` (electron-updater 6.3.9, GitHub provider from the
   `build.publish` config; modes auto / notify (default) / off in `<userData>/updates.json`; checks 15 s after start, then
   daily; installs only on "Restart to update" or the next quit). Installable: the NSIS build and the AppImage; a .deb or a

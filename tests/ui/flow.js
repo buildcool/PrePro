@@ -1,4 +1,5 @@
-// Drive the real PrePro UI end to end and screenshot each step.
+// Drive the real PrePro UI end to end and screenshot each step: one click to a finished first cut (the autonomous
+// path), then a brief-driven rebuild, review edits, Settings (AI editor, light theme), export and the phone layout.
 const { chromium } = require('playwright');
 const S = process.argv[2], SHOOT = process.argv[3];
 const shot = async (p, name) => { await p.screenshot({ path: `${S}/shots/${name}.png`, fullPage: true }); console.log('shot', name); };
@@ -9,61 +10,89 @@ const shot = async (p, name) => { await p.screenshot({ path: `${S}/shots/${name}
   p.on('pageerror', e => errors.push('pageerror: ' + e.message));
   p.on('response', r => { if (r.status() >= 400) errors.push(r.status() + ' ' + r.url().split('?')[0]); });
   await p.goto('http://127.0.0.1:8765/');
-  await p.waitForSelector('text=Open a shoot');
+  await p.waitForSelector('text=Your shoot in.');
   await shot(p, '01_home_empty');
+  // the autonomous pre-edit: one click → watched, edited, rendered, exported, and the review opens on its own
   await p.fill('input[aria-label="Shoot folder path"]', SHOOT);
-  await p.click('button:has-text("Open")');
-  await p.waitForSelector('text=Analyse footage');
-  await p.click('button:has-text("Analyse footage")');
+  await p.click('button:has-text("Make my first cut")');
+  await p.waitForSelector('.task', { timeout: 60000 });
+  await p.waitForTimeout(2500);
+  await shot(p, '02_making_the_cut');
+  const steps = await p.locator('.task .stp').count();
+  console.log('progress steps shown:', steps);
+  await p.waitForURL(/#\/p\/[^/]+\/review\//, { timeout: 1200000 });
+  await p.waitForSelector('.blk', { timeout: 120000 });
+  await p.waitForSelector('video', { timeout: 120000 });
   await p.waitForTimeout(1500);
-  await shot(p, '02_analysing');
-  await p.waitForSelector('.asset', { timeout: 600000 });
+  await shot(p, '03_first_cut_review');
+  // refine: search the footage, then a brief-driven rebuild
+  await p.click('button.tab:has-text("Footage")');
+  await p.waitForSelector('.asset', { timeout: 60000 });
   await p.fill('input[aria-label="Search footage"]', 'kachori');
   await p.click('button:has-text("Search")');
   await p.waitForTimeout(800);
-  await shot(p, '03_footage');
+  await shot(p, '04_footage');
   await p.click('button.tab:has-text("Brief")');
   await p.fill('textarea[aria-label="Brief"]', "Insta Reel, 30 sec. Hook: use the line where I say five thousand rupees.\nNo music while I talk. Use the epic_build_128 song for the montage.\nAdd a meme after I say Twenty!\nAdd text at the end: Follow for part 2\nSlow-mo on the jump. No zooms. Don't use the dark night clip.");
   await p.click('button:has-text("Save brief")');
   await p.waitForSelector('text=What PrePro understood');
   await p.waitForTimeout(800);
-  await shot(p, '04_brief');
+  await shot(p, '05_brief');
   await p.click('button.tab:has-text("Directions")');
   await p.click('button:has-text("Suggest directions")');
   await p.waitForSelector('button:has-text("Build this cut")', { timeout: 600000 });
-  await shot(p, '05_directions');
+  await shot(p, '06_directions');
   await p.click('button:has-text("Build this cut") >> nth=0');
-  await p.waitForSelector('.blk', { timeout: 900000 });
-  await p.waitForSelector('video', { timeout: 900000 });
+  await p.waitForSelector('.task', { timeout: 60000 });
+  await p.waitForSelector('.task', { state: 'detached', timeout: 900000 });
+  await p.click('button.tab:has-text("Review")');
+  await p.waitForSelector('.blk', { timeout: 120000 });
+  await p.waitForSelector('video', { timeout: 120000 });
   await p.waitForTimeout(1500);
-  await shot(p, '06_review');
+  await shot(p, '07_review');
   // reject the meme, add a note
   const meme = p.locator('.sugg', { hasText: 'Twenty' }).first();
   if (await meme.count()) { await meme.locator('button[title="Reject"]').click(); await p.waitForTimeout(2500); }
   await p.fill('input[aria-label="Timeline note"]', 'big text: only ₹5000');
   await p.click('button:has-text("Add note")');
   await p.waitForTimeout(3000);
-  await shot(p, '07_review_after_changes');
+  await shot(p, '08_review_after_changes');
   await p.click('button.tab:has-text("Score")');
   await p.waitForTimeout(400);
-  await shot(p, '08_score');
+  await shot(p, '09_score');
   await p.click('button.tab:has-text("Hook")');
   await p.waitForTimeout(400);
-  await shot(p, '09_hooks');
+  await shot(p, '10_hooks');
   await p.click('button.tab:has-text("Export")');
   for (const name of ['Kdenlive', 'Caption overlay', 'Shotcut']) await p.locator('label', { hasText: name }).locator('input').uncheck();
   await p.click('button.primary:has-text("Export")');
   await p.waitForSelector('a:has-text("open")', { timeout: 600000 });
-  await shot(p, '10_export');
+  await shot(p, '11_export');
+  const project = p.url();
+  // settings: the AI editor, then the light theme
+  await p.click('button.nav:has-text("Settings")');
+  await p.click('button.nav:has-text("AI editor")');
+  await p.waitForSelector('text=Use a subscription you already pay for');
+  await shot(p, '12_settings_ai');
+  await p.click('button.nav:has-text("General")');
+  await p.click('.theme-tile:has-text("Light")');
+  await p.waitForTimeout(400);
+  const theme = await p.evaluate(() => document.documentElement.dataset.theme);
+  console.log('theme after picking Light:', theme);
+  await shot(p, '13_settings_light');
+  await p.goto(project.replace('/export', '/review'));
+  await p.waitForSelector('.blk', { timeout: 60000 });
+  await p.waitForTimeout(1000);
+  await shot(p, '14_review_light');
   // phone layout
   const m = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
-  await m.goto(p.url());
+  await m.goto(project);
   await m.waitForTimeout(1500);
-  await m.screenshot({ path: `${S}/shots/11_mobile_export.png`, fullPage: true });
-  await m.goto(p.url().replace('/export', '/review'));
+  await m.screenshot({ path: `${S}/shots/15_mobile_export.png`, fullPage: true });
+  await m.goto(project.replace('/export', '/review'));
   await m.waitForSelector('.blk', { timeout: 60000 });
   await m.waitForTimeout(1000);
-  await m.screenshot({ path: `${S}/shots/12_mobile_review.png`, fullPage: true });
+  await m.screenshot({ path: `${S}/shots/16_mobile_review.png`, fullPage: true });
   const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   console.log('mobile horizontal overflow px:', overflow);
   console.log('ERRORS:', JSON.stringify(errors));

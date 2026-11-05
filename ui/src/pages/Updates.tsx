@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Icon from "../components/Icon";
 import type { UpdateState } from "../desktop";
 
 const MODE_LABEL: Record<UpdateState["mode"], string> = { auto: "Automatic", notify: "Tell me", off: "Off" };
@@ -27,18 +28,7 @@ function line(s: UpdateState): string {
   }
 }
 
-/** The topbar button: your version, with a dot when a new one is out or ready. */
-export function UpdatesButton({ onOpen }: { onOpen: () => void }) {
-  const s = useUpdates();
-  if (!s) return null;
-  const news = s.status === "available" || s.status === "ready";
-  return (
-    <button className={`btn small${news ? " primary" : ""}`} onClick={onOpen} title="App updates">
-      {s.status === "ready" ? "Restart to update" : s.status === "downloading" ? `Downloading v${s.latest}… ${s.progress}%` : news ? `Update: v${s.latest}` : "Updates"}
-    </button>
-  );
-}
-
+/** Live update state from the desktop shell (null in a browser, where there is no updater). */
 export function useUpdates(): UpdateState | null {
   const u = window.prepro?.updates;
   const [s, setS] = useState<UpdateState | null>(null);
@@ -50,67 +40,72 @@ export function useUpdates(): UpdateState | null {
   return u ? s : null;
 }
 
-export default function Updates({ onClose }: { onClose: () => void }) {
+/** The sidebar pill: shows only when there is something to do. */
+export function UpdatePill({ onOpen }: { onOpen: () => void }) {
+  const s = useUpdates();
+  if (!s || !["available", "downloading", "ready"].includes(s.status)) return null;
+  return (
+    <button className="nav" onClick={() => (s.status === "ready" ? window.prepro?.updates?.install() : onOpen())} title="App update">
+      <Icon name="download" />
+      <span className="lbl">
+        {s.status === "ready" ? "Restart to update" : s.status === "downloading" ? `Updating… ${s.progress}%` : `Update to v${s.latest}`}
+      </span>
+      <span className="dot live" style={{ marginLeft: "auto" }} />
+    </button>
+  );
+}
+
+export function UpdatesPanel() {
   const u = window.prepro?.updates;
   const s = useUpdates();
   if (!u || !s) return null;
-  const set = (m: UpdateState["mode"]) => u.setMode(m);
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="card modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Updates">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2>Updates</h2>
-          <button className="btn small ghost" onClick={onClose}>✕</button>
-        </div>
-        <p>
-          <b>{line(s)}</b>
-        </p>
-        <div className="row">
+    <>
+      <div className="set-group">
+        <div className="set-row">
+          <div className="lbl"><b>{line(s)}</b><span>PrePro {s.current}</span></div>
           {s.status === "available" && (
             <button className="btn primary" onClick={() => u.download()}>
-              {s.canInstall ? `Download v${s.latest}` : "Open the download page"}
+              <Icon name="download" size={15} /> {s.canInstall ? `Download v${s.latest}` : "Open the download page"}
             </button>
           )}
-          {s.status === "ready" && (
-            <button className="btn primary" onClick={() => u.install()}>
-              Restart to update
-            </button>
-          )}
+          {s.status === "ready" && <button className="btn primary" onClick={() => u.install()}>Restart to update</button>}
           {s.status !== "downloading" && s.status !== "ready" && (
-            <button className="btn" disabled={s.busy} onClick={() => u.check()}>
-              Check now
-            </button>
+            <button className="btn" disabled={s.busy} onClick={() => u.check()}><Icon name="refresh" size={15} /> Check now</button>
           )}
-          {s.status === "downloading" && <progress max={100} value={s.progress} style={{ width: 220 }} />}
         </div>
+        {s.status === "downloading" && (
+          <div className="set-row"><div className="progress grow"><div style={{ width: `${Math.max(2, s.progress)}%` }} /></div></div>
+        )}
         {s.status === "ready" && (
-          <p className="small mute">Finish or stop any render first: PrePro closes, installs and opens again. Your shoots and edits stay as they are.</p>
+          <div className="set-row"><span className="small mute">Finish or stop any render first: PrePro closes, installs and opens again. Your shoots and edits stay as they are.</span></div>
         )}
         {(s.status === "available" || s.status === "downloading" || s.status === "ready") && s.notes && (
-          <>
-            <h3>What's new in v{s.latest}</h3>
-            <div className="small" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto" }}>{s.notes}</div>
-          </>
+          <div className="set-row" style={{ display: "block" }}>
+            <b>What's new in v{s.latest}</b>
+            <div className="small mute" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto", marginTop: 6 }}>{s.notes}</div>
+          </div>
         )}
-        <h3>Check for updates</h3>
-        <div className="seg3" role="radiogroup">
-          {(["auto", "notify", "off"] as const).map((m) => (
-            <button key={m} className={s.mode === m ? "on" : ""} onClick={() => set(m)} role="radio" aria-checked={s.mode === m}>
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
-        <p className="small mute">{MODE_HELP[s.mode]}</p>
-        {!s.canInstall && (
-          <p className="small mute">
-            This copy of PrePro can't replace itself (a .deb install or a developer build), so updates come from the download page.
-          </p>
-        )}
-        <p className="small mute">
-          Checking only asks GitHub which version is the latest, so GitHub sees your IP address and PrePro version. No footage, file names or
-          projects are sent.
-        </p>
       </div>
-    </div>
+      <h3>Check for updates</h3>
+      <div className="set-group">
+        <div className="set-row">
+          <div className="lbl"><b>{MODE_LABEL[s.mode]}</b><span>{MODE_HELP[s.mode]}</span></div>
+          <div className="seg" role="radiogroup" aria-label="Check for updates">
+            {(["auto", "notify", "off"] as const).map((m) => (
+              <button key={m} className={s.mode === m ? "on" : ""} onClick={() => u.setMode(m)} role="radio" aria-checked={s.mode === m}>
+                {MODE_LABEL[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {!s.canInstall && (
+          <div className="set-row"><span className="small mute">This copy of PrePro can't replace itself (a .deb install or a developer build), so updates come from the download page.</span></div>
+        )}
+        <div className="set-row">
+          <span className="small mute">Checking only asks GitHub which version is the latest, so GitHub sees your IP address and PrePro version. No footage, file names or projects are sent.</span>
+        </div>
+      </div>
+    </>
   );
 }

@@ -109,8 +109,12 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         out = []
         for pid, r in sorted(reg.items(), key=lambda kv: -kv[1].get("opened", 0)):
             p = Path(r["path"])
+            frames = p / ".prepro" / "frames"
+            cover = next(iter(sorted(frames.glob("*.jpg"))), None) if p.is_dir() and frames.is_dir() else None
             out.append({**r, "id": pid, "exists": p.is_dir(), "analysed": (p / ".prepro" / "analysis.json").exists(),
-                        "timelines": len(list((p / ".prepro" / "timelines").glob("*-*.json"))) if p.is_dir() else 0})
+                        "timelines": len([t for t in (p / ".prepro" / "timelines").glob("*-*.json") if t.name.count(".") == 1]) if p.is_dir() else 0,
+                        "cover": f"frames/{cover.name}" if cover else None,
+                        "busy": jobs.running(pid) is not None})
         return out
 
     @app.post("/api/projects")
@@ -186,6 +190,16 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 "jobs": [j.public() for j in jobs.jobs.values() if j.project == pid and j.status in ("queued", "running")]}
 
     # ------------------------------------------------------------ analysis
+    _ANALYSIS_SPAN = {"probe": (0.0, 0.08), "analyse": (0.08, 0.95), "context": (0.95, 0.99), "done": (0.99, 1.0)}
+
+    def _analysis_progress(cb):
+        """The analysis reports each stage on its own scale (reading files 0–100 %, then watching them 0–100 %);
+        mapped onto one scale here, so the bar never jumps back."""
+        def out(stage: str, i: float = 0, n: float = 1, msg: str = "") -> None:
+            lo, hi = _ANALYSIS_SPAN.get(stage, (0.0, 1.0))
+            cb(stage, lo + (hi - lo) * max(0.0, min(1.0, float(i) / max(float(n), 1e-9))), 1, msg)
+        return out
+
     @app.post("/api/projects/{pid}/analyze")
     def analyze(pid: str, body: dict = Body(default={})):
         root = project(pid)
@@ -195,7 +209,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         def work(job: Job):
             from ..engine import analysis
 
-            pa = analysis(root, force=bool(body.get("force")), progress=job.progress)
+            pa = analysis(root, force=bool(body.get("force")), progress=_analysis_progress(job.progress))
             return {"assets": len(pa.assets), "warnings": pa.warnings}
 
         return jobs.submit("analyze", pid, work).public()
@@ -415,7 +429,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             from ..project import EXPORTS_DIR
             from ..revise import load_revision, recompile
 
-            analysis(root, progress=job.phase(0, 0.0, 0.42))
+            analysis(root, progress=_analysis_progress(job.phase(0, 0.0, 0.42)))
             plan, edit = job.phase(1, 0.42, 0.56), None
 
             def build_cb(stage: str, i: float = 0, n: float = 1, msg: str = "") -> None:

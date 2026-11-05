@@ -21,8 +21,9 @@ from .speakers import assign_speakers
 from .speech import analyse_speech
 from .visual import analyse_video, duplicate_groups, relative_blur
 
-ANALYSIS_VERSION = 12          # 10: seats + mouth movement, a speaker per line; 11: the facecam of screen recordings;
-                               # 12: photos — upright copy, EXIF time/place, sharpness, faces, striking score
+ANALYSIS_VERSION = 13         # 10: seats + mouth movement, a speaker per line; 11: the facecam of screen recordings;
+                               # 12: photos — upright copy, EXIF time/place, sharpness, faces, striking score;
+                               # 13: two seats only when two people are on screen together
 Progress = Callable[[str, int, int, str], None]
 
 
@@ -96,11 +97,20 @@ def _image_shot(proj: Project, a: Asset, *, faces: bool = True) -> list[Shot]:
                  track=[(0.0, round(b.x, 3), round(b.y, 3)) for b in sorted(boxes, key=lambda b: -b.w * b.h)[:1]])]
 
 
-def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Settings, faces: bool = True) -> tuple[ClipAnalysis, float | None]:
+def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Settings, faces: bool = True,
+                  note=None) -> tuple[ClipAnalysis, float | None]:
+    """One file, all the way. ``note(fraction, words)`` says where it is inside the file, so a long song or interview
+    moves the progress bar instead of freezing it."""
     ca = ClipAnalysis(asset_id=a.id)
     src = proj.path(a.path)
     mus = None
     kind = a.kind
+    name = Path(a.path).name
+
+    def say(f: float, words: str) -> None:
+        if note:
+            note(f, words)
+
     try:
         if a.info.has_audio and kind not in (AssetKind.LUT, AssetKind.IMAGE, AssetKind.MEME_IMAGE):
             wav = proj.sub("audio") / f"{a.id}.wav"
@@ -114,6 +124,7 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
             ca.audio = audio_report(y, 16000, ca.speech, music=kind == AssetKind.MUSIC)
             wants_asr = kind in (AssetKind.UNKNOWN, AssetKind.AROLL, AssetKind.SCREEN, AssetKind.VOICEOVER, AssetKind.MEME_VIDEO)
             if (wants_asr and ca.audio.speech_ratio > 0.1) or (sidecar and sidecar.exists()):
+                say(0.15, f"Writing down what's said in {name}")
                 tr = transcribe(a.id, wav, backend=settings.asr.backend, sidecar=sidecar, model=settings.asr.whisper_model,
                                 device=settings.asr.device, compute_type=settings.asr.compute_type, language=settings.asr.language,
                                 verbatim=settings.asr.verbatim, speech=ca.speech)
@@ -121,11 +132,13 @@ def analyse_asset(proj: Project, a: Asset, *, sidecar: Path | None, settings: Se
             if kind in (AssetKind.MUSIC, AssetKind.VOICEOVER) or (not a.info.has_video and a.info.duration >= 12):
                 import librosa
 
+                say(0.1, f"Listening to {name}")
                 ym, srm = librosa.load(str(src), sr=22050, mono=True, duration=600)
                 mus = musicality(ym, srm)
                 if kind == AssetKind.MUSIC or mus > 0.45:
-                    ca.music = music_info(ym, srm)
+                    ca.music = music_info(ym, srm, note=lambda f, w: say(0.2 + 0.75 * f, f"{w} in {name}"))
         if a.info.has_video and not a.info.is_image and kind not in (AssetKind.LUT,):
+            say(0.55 if ca.transcript else 0.2, f"Looking at the shots in {name}")
             fdir = proj.sub("frames")
             ca.shots, meta = analyse_video(a.id, src, fdir, duration=a.info.duration, fps=a.info.fps, faces=faces and kind != AssetKind.MEME_VIDEO)
             if "error" in meta:
@@ -159,6 +172,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
     settings = settings or Settings.load()
     progress = progress or _noop
     proj = Project(root)
+    proj.sub("analysis")                 # recreated if someone cleaned it out — the caches below are written into it
     scan = proj.scan()
     prev = proj.load_json("ids.json", {}) or {}
     ids = assign_ids(scan.files, prev)
@@ -207,7 +221,8 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
             except Exception:
                 ca = None
         if ca is None:
-            ca, mus = analyse_asset(proj, a, sidecar=side, settings=settings, faces=faces)
+            ca, mus = analyse_asset(proj, a, sidecar=side, settings=settings, faces=faces,
+                                    note=lambda f, w, i=i: progress("analyse", i + f, len(pa.assets), w))
             musical[a.id] = mus
             key.write_text(ca.model_dump_json(), encoding="utf-8")
             proj.save_json(f"analysis/{key.stem}.mus.json", {"m": mus})
@@ -233,7 +248,7 @@ def analyse_project(root: str | Path, *, settings: Settings | None = None, progr
         why = failed_note(pa.clips[a.id].transcript)
         if why:                     # talking footage with no words would be cut blind — say so, and how to fix it
             pa.warnings.append(f"{a.path}: the speech couldn't be recognised ({why}). Download a speech model "
-                               "(Brains & privacy → Speech recognition, or `prepro models --download small`).")
+                               "(Settings → Speech recognition, or `prepro models --download small`).")
     proj.save_model("analysis.json", pa)
     progress("done", 1, 1, "analysis saved")
     return pa

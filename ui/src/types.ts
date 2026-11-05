@@ -6,6 +6,8 @@ export interface ProjectRow {
   analysed: boolean;
   timelines: number;
   opened?: number;
+  cover?: string | null;
+  busy?: boolean;
 }
 
 export interface HookOption {
@@ -76,6 +78,67 @@ export interface Summary {
   asr: string[];
   previews: Record<string, string>;
   brief: { text: string; parsed: Brief | null };
+  jobs?: import("./api").Job[];
+}
+
+export interface TestResult {
+  ok: boolean;
+  msg: string;
+  model: string;
+  at: string;
+}
+
+export interface PlanAccount {
+  id: string;
+  kind: string;
+  name: string;
+  plan: string;
+  via: string;
+  exe: string;
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  install_cmd: string;
+  npm: boolean;
+  needs_npm?: boolean;
+  signin_note: string;
+  docs: string;
+  test: TestResult | null;
+  training: string;
+  model: string | null;
+}
+
+export interface KeyAccount {
+  id: string;
+  kind: string;
+  name: string;
+  model: string;
+  prefix: string;
+  get: string;
+  set: boolean;
+  masked: string | null;
+  test: TestResult | null;
+  training: string;
+}
+
+export interface AIOverview {
+  editor: string;
+  ready: string[];
+  plans: PlanAccount[];
+  keys: KeyAccount[];
+  local: { id: string; name: string; model: string; test: TestResult | null; training: string }[];
+  routing: Record<string, string>;
+  privacy: "local" | "text" | "thumbs";
+  blur_faces: boolean;
+  monthly_cap_usd: number;
+}
+
+export interface GeneralSettings {
+  autocut_on_open: boolean;
+  encoder: "auto" | "cpu" | "nvenc" | "qsv" | "amf";
+  encoder_times: Record<string, number>;
+  data_dir: string;
+  version: string;
 }
 
 export interface Asset {

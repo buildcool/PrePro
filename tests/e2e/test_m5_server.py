@@ -112,6 +112,8 @@ def test_full_review_flow(client):
 
 def test_brains_settings_roundtrip(client):
     b = client.get("/api/brains").json()
-    assert b["routing"]["director"] == "basic" and b["privacy"] in ("local", "text", "thumbs")
+    # every task follows "your AI editor" ("auto"); with none connected that is the rules engine
+    assert b["routing"]["director"] == "auto" and b["privacy"] in ("local", "text", "thumbs")
+    assert client.get("/api/ai").json()["editor"] == "basic"
     b2 = client.put("/api/brains", json={"privacy": "text", "routing": {"director": "no-such-connector"}}).json()
-    assert b2["privacy"] == "text" and b2["routing"]["director"] == "basic"   # unknown connectors are refused
+    assert b2["privacy"] == "text" and b2["routing"]["director"] == "auto"   # unknown connectors are refused

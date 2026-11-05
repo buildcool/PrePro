@@ -259,7 +259,7 @@ def _seats(sampled: list[FrameStats]) -> list[Seat]:
             groups.append([b])
         else:
             groups[-1].append(b)
-    seats = []
+    seats, spans = [], []
     for g in groups:
         lo, hi = g[0].x - 1e-6, g[-1].x + 1e-6
         seen = sum(1 for f in sampled if any(lo <= b.x <= hi for b in f.faces_lo)) / len(sampled)
@@ -268,7 +268,13 @@ def _seats(sampled: list[FrameStats]) -> list[Seat]:
             seats.append(Seat(x=round(float(np.median([b.x for b in g])), 4), y=round(float(np.median([b.y for b in g])), 4),
                               w=round(float(np.median([b.w for b in g])), 4), h=round(float(np.median([b.h for b in g])), 4),
                               presence=round(seen, 3)))
-    return seats if len(seats) >= 2 else []
+            spans.append((lo, hi))
+    if len(seats) < 2:
+        return []
+    # two people are on screen *at the same time*; one person moving between two spots (a vlogger leaning, walking,
+    # turning) is never in both at once — reading them as two speakers split their retakes into a "conversation"
+    together = sum(1 for f in sampled if sum(1 for lo, hi in spans if any(lo <= b.x <= hi for b in f.faces_lo)) >= 2)
+    return seats if together >= max(2, 0.15 * len(sampled)) else []
 
 
 def _mouth_series(fr: list[FrameStats], seats: list[Seat]) -> list[list[float]]:

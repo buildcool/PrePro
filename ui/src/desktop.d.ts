@@ -19,6 +19,7 @@ declare global {
       isDesktop: boolean;
       pickFolder: () => Promise<string | null>;
       reveal: (path: string) => Promise<void>;
+      setTheme?: (mode: "system" | "light" | "dark") => Promise<void>;
       updates?: {
         get: () => Promise<UpdateState>;
         check: () => Promise<UpdateState>;
