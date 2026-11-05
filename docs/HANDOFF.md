@@ -6,7 +6,7 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **On `dev`, not released: app updates.** `desktop/updater.js` (electron-updater 6.3.9, GitHub provider from the
+- **v0.9.1 (released 2026-11-06; CHANGELOG [0.9.1]): app updates.** `desktop/updater.js` (electron-updater 6.3.9, GitHub provider from the
   `build.publish` config; modes auto / notify (default) / off in `<userData>/updates.json`; checks 15 s after start, then
   daily; installs only on "Restart to update" or the next quit). Installable: the NSIS build and the AppImage; a .deb or a
   dev run asks GitHub's API and opens the release page. Bridge `window.prepro.updates`; UI `ui/src/pages/Updates.tsx`.

@@ -3,6 +3,8 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+
+## [0.9.1] — 2026-11-06
 ### Added — app updates
 - **The desktop app updates itself, on your terms.** A new **Updates** button in the top bar shows your version,
   what's new, and a three-way setting:
