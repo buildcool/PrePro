@@ -6,7 +6,8 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **On `dev`, not released (CHANGELOG [Unreleased]): photo reels** (the user's priority now: lifestyle and vlogs).
+- **v0.9.0 (released 2026-11-06; CHANGELOG [0.9.0], QA "v0.9"): photo reels** (the user's priority now: lifestyle and vlogs),
+  the v0.8.0 desktop start-up crash fixed (`cli._safe_output`), gaming Shorts.
   - Photos: `media/probe.photo_exif` (orientation, capture time with its offset, GPS); `analyze/pipeline._image_shot`
     writes an upright working copy (`photo_copy`, ≤ 2560 px) and judges sharpness by the sharpest tile or the face;
     `visual.duplicate_groups(prefix="burst")`; ANALYSIS_VERSION 12; genre `photo_reel` (CONTEXT_VERSION 5).
@@ -28,7 +29,7 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
     and `photo_single` (one portrait + a `Text:` brief); `fixtures/visual.photo` writes phone-style EXIF and
     `photo_face` draws faces the detector finds (CI has no real media). Tests: `tests/e2e/test_p6_photo_reels.py`,
     `tests/unit/test_p6_photo_units.py`.
-- **Also on `dev`, not released: gaming Shorts.**
+- **Gaming Shorts (in v0.9.0):**
   - `analyze/visual.find_facecam` → `ClipAnalysis.facecam` (ANALYSIS_VERSION 11)
   - `Item.place` panels in the renderer
   - `compiler._facecam_layout` (stacked 9:16, `Knobs.layout`, `layout:<asset>` rejection) and `_facecam_moments`

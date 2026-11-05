@@ -3,6 +3,8 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+
+## [0.9.0] — 2026-11-06
 ### Added — photo reels
 - **A folder of photos and a song becomes a photo-dump Reel.** It's cut on the song's beat, about 1.2 s a photo,
   from the start of the song's chorus or drop (found from its bar lines). Photos play in the order they were taken
