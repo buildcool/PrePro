@@ -177,14 +177,14 @@ def balance_lines(text: str, cap: float, measure=len) -> list[str]:
     return min(found, key=lambda x: x[0])[1] if found else words
 
 
-# libass's drawn width ÷ Pillow's (bold instance, sized by line height) for the bundled fonts — measured by rendering one
+# libass's drawn width ÷ Pillow's (default instance, basic layout, sized by line height) for the bundled fonts — measured by rendering one
 # line through ffmpeg's ass filter (QA log, v0.9); a property of the font files and libass's sizing, not of the machine
-LIBASS_WIDTH = {"Montserrat": 0.890, "Anton": 0.872, "Bebas Neue": 0.925, "Playfair Display": 0.952}
+LIBASS_WIDTH = {"Montserrat": 0.974, "Anton": 0.872, "Bebas Neue": 0.925, "Playfair Display": 0.952}
 
 
 @functools.cache
 def _font(name: str, bold: bool):
-    """The bundled font file for a style (bold instance of a variable font when the style is bold), and its line
+    """The bundled font file for a style (its default instance, whatever the weight: see LIBASS_WIDTH), and its line
     height at size 100 — ASS sizes a font by its line height, so widths are measured on that scale."""
     try:
         from PIL import ImageFont
@@ -194,14 +194,9 @@ def _font(name: str, bold: bool):
         files = sorted((assets_dir() / "fonts").glob(name.replace(" ", "") + "*.ttf"))
         if not files:
             return None
-        f = ImageFont.truetype(str(files[0]), 100)
-        if bold:
-            try:
-                pick = next((n for n in f.get_variation_names() if (n.decode() if isinstance(n, bytes) else n).lower() == "bold"), None)
-                if pick is not None:
-                    f.set_variation_by_name(pick)
-            except Exception:
-                pass
+        # the font's default instance with Pillow's basic layout: the same widths on every OS (picking a variable
+        # font's Bold instance, or raqm layout, depends on how Pillow was built — Linux broke lines differently)
+        f = ImageFont.truetype(str(files[0]), 100, layout_engine=ImageFont.Layout.BASIC)
         asc, desc = f.getmetrics()
         return f, asc + desc
     except Exception:
