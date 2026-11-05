@@ -304,6 +304,24 @@ def _beside_face(ctx: Ctx, fb, text: str, pos: str) -> tuple[str, float | None, 
     return ("upper", clamp(lo_y + h / 2, h), 0.76) if above >= below else ("lower", clamp(hi_y - h / 2, h), 0.76)
 
 
+def _beat_len(grid: list[float] | None, t: float, n: int, need: float, *, fallback: float) -> float:
+    """How long a photo that starts at timeline time t holds for n beats of the reel's grid (beats counted from the
+    song's start in the cut), stretched beat by beat until a line on it can be read; past the analysed beats the grid
+    carries on at the song's tempo. No grid (the music was turned off): the planned length."""
+    if not grid or len(grid) < 2:
+        return max(fallback, need)
+    period = float(np.median(np.diff(grid[:64])))
+
+    def at(k: int) -> float:
+        return grid[k] if k < len(grid) else grid[-1] + (k - len(grid) + 1) * period
+
+    j = int(np.argmin([abs(b - t) for b in grid])) if t <= grid[-1] else len(grid) - 1 + int(round((t - grid[-1]) / period))
+    m = max(1, n)
+    while at(j + m) - t < need and m < n + 32:
+        m += 1
+    return round(at(j + m) - t, 3)
+
+
 def _seamless_loop(ctx: Ctx) -> None:
     """A Reel that ends on its cover should replay without a seam: the closing clip carries the cover's own move at
     the same speed and stops exactly on the cover's first frame, so the replay continues the motion. A push-in cannot
@@ -435,6 +453,30 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             elif sh.dup_group and sh.dup_rank > 0 and sh.id not in used_refs:
                 ctx.suggest("cut", f"Left out {a.name} — near-duplicate of a better take", conf=0.75, payload={"asset": a.id, "shot": sh.id,
                                                                                                                   "key": f"shot:{sh.id}"})
+    if d.playbook == "photo_reel":                     # every photo left out says why, and can be brought back
+        for a in pa.assets:
+            sh = pa.clips[a.id].shots[0] if a.kind == AssetKind.IMAGE and a.id in pa.clips and pa.clips[a.id].shots else None
+            if sh is None or sh.id in used_refs:
+                continue
+            bad = sorted(set(sh.flags) & {"dark", "blurry"})
+            why = ", ".join(bad) if bad else ("a burst shot — the sharpest of the burst is in" if sh.dup_group and sh.dup_rank > 0
+                                              else "to keep the reel tight — the least striking photos go first")
+            ctx.suggest("cut", f"Left out {a.name} — {why}", conf=0.75, payload={"asset": a.id, "shot": sh.id, "key": f"shot:{sh.id}"})
+
+    # ---- photo reels: each photo holds whole beats of the song (the story says how many), laid on the song's beat grid
+    # here, so dropping or adding a photo in the review app keeps every cut on the beat; your lines go on the photos in
+    # order, and a photo holds long enough to read the line on it
+    reel_beats: list[float] | None = None
+    line_on: dict[int, str] = {}
+    if any(it.beats for it in story.items):
+        mcue = next((c for c in polish.music if c.track_id and c.offset is not None and c.mode != "none"), None)
+        mi = pa.clips[mcue.track_id].music if mcue is not None and mcue.track_id in pa.clips else None
+        if mi is not None and len(mi.beats) > 8:
+            reel_beats = [round(b - mcue.offset, 4) for b in mi.beats if b >= mcue.offset - 1e-3]
+        for c in polish.effects:
+            if c.type == "text" and c.text and c.at.startswith("photo:") and c.style == "photo" and c.intent == "brief":
+                line_on[int(c.at.split(":", 1)[1])] = c.text
+    n_reel = 0
 
     # ---- main assembly (V1/A1)
     t = 0.0
@@ -534,6 +576,11 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             asset = pa.asset(shot.asset_id)
             a = it.t0 if it.t0 is not None else shot.t0
             b = it.t1 if it.t1 is not None else min(shot.t1, a + broll_len)
+            if it.beats and asset.kind == AssetKind.IMAGE:
+                line = line_on.get(n_reel) if it.role != "loop" else None
+                need = 0.75 + len(line.split()) / 3.0 if line else 0.0
+                b = a + _beat_len(reel_beats, t, it.beats, need, fallback=max(b - a, 0.6))
+                n_reel += it.role != "loop"
             speed_cue = next((c for c in cues.get(shot.id, []) if c.type == "speed"), None)
             if it.role == "flashforward":
                 speed_cue = None             # the payoff later gets the slow-mo, not its preview
@@ -568,7 +615,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 v = Item(id=ctx.iid("v"), track="V1", kind="image", asset_id=asset.id, rec_in=t, duration=b - a, role=it.role, section=sec,
                          ref=it.ref)
                 if asset.kind == AssetKind.IMAGE:          # photos move like a camera, never freeze ("no zooms": framed, still)
-                    v.transform = photo_motion(ctx, shot, 0.0 if "zoom" in no else b - a, ctx.n_photos)
+                    still = "zoom" in no or not d.knobs.photo_motion
+                    v.transform = photo_motion(ctx, shot, 0.0 if still else b - a, ctx.n_photos)
                     v.note = "kenburns" if v.transform and v.transform.keys else v.note
                     ctx.n_photos += 1
             else:
@@ -612,8 +660,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             if it.role == "loop":
                 ctx.suggest("loop", it.note or "loop ending", conf=0.75, t=v.rec_in, items=[v.id], payload={"key": f"loop:{it.ref}", "ref": it.ref})
             if it.role in ("hook", "establishing"):
+                # a photo reel's cover: rejecting it opens on the next best photo instead
+                key = (f"cover:{it.ref}" if it.beats else "hook") if it.role == "hook" else f"item:{it.ref}"
                 ctx.suggest(it.role if it.role == "hook" else "broll", it.note or it.role, conf=0.85, t=v.rec_in, items=[v.id],
-                            payload={"key": "hook" if it.role == "hook" else f"item:{it.ref}", "ref": it.ref})
+                            payload={"key": key, "ref": it.ref})
         else:
             continue
         ctx.section_t[sec][1] = t
@@ -685,6 +735,10 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                                                                                                 "acceptable": True})
 
     _seamless_loop(ctx)
+    moving = [i for i in ctx.items if i.track == "V1" and i.note == "kenburns"]
+    if moving:                                          # one decision for the whole reel: rejecting it frames every photo still
+        ctx.suggest("motion", "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+                    conf=0.8, t=moving[0].rec_in, items=[i.id for i in moving], payload={"key": "photomotion"})
     # ---- text (T1)
     face_at = _face_lookup(ctx)
     for c in polish.effects:
@@ -706,6 +760,13 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             t0 = ctx.word_t[c.at]
         elif c.at.startswith("t:"):                       # an exact time (photo reels: lines land on the beat grid)
             t0 = float(c.at[2:])
+        elif c.at.startswith("photo:"):                   # the i-th photo of a photo reel (0 = the cover), for as long as it is up
+            pics = sorted((i for i in ctx.items if i.track == "V1" and i.kind == "image" and i.role != "loop"), key=lambda i: i.rec_in)
+            k_ph = int(c.at.split(":", 1)[1])
+            if k_ph >= len(pics):
+                continue
+            t0 = pics[k_ph].rec_in
+            dur = c.dur or max(0.8, pics[k_ph].rec_dur - 0.05)
         else:
             continue
         dur = min(dur, max(0.8, total - t0))

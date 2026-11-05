@@ -32,6 +32,7 @@ class Knobs(BaseModel):
     tightness: float | None = None    # speech-cut tightness override (Style DNA); None = playbook
     shot_len: float | None = None     # typical B-roll shot length override (Style DNA); None = playbook
     layout: Literal["auto", "stack", "crop"] = "auto"   # vertical cuts of a screen recording with a webcam: stacked or cropped
+    photo_motion: bool = True         # photos move like a camera (push-in / drift); False: each photo framed and still
 
 
 class HookOption(BaseModel):
@@ -72,6 +73,7 @@ class StoryItem(BaseModel):
     section: str = "main"
     note: str = ""
     whole: bool = False               # keep the line exactly as spoken (no filler/pause removal, no hook trim)
+    beats: int | None = None          # photo reels: beats of the song this photo holds — the compiler lays it on the beat grid
 
 
 class StorySection(BaseModel):

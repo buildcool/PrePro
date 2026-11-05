@@ -113,6 +113,60 @@ def _insert_ref(story: StoryPlan, pa: ProjectAnalysis, ref: str, role: str) -> N
     story.items.insert(pos, StoryItem(ref=ref, role=role, section=section, note="kept by you", whole=seg is not None))
 
 
+def _is_reel(s: StoryPlan) -> bool:
+    """A photo reel: its pictures hold whole beats of the song (the compiler lays them on the beat grid)."""
+    return any(it.beats for it in s.items)
+
+
+def _taken(pa: ProjectAnalysis, ref: str) -> float:
+    try:
+        when = pa.asset(pa.shot(ref).asset_id).info.creation_time
+        return when.timestamp() if when else float("inf")
+    except KeyError:
+        return float("inf")
+
+
+def _insert_photo(s: StoryPlan, pa: ProjectAnalysis, ref: str) -> None:
+    """A photo brought back into a photo reel: in the order it was taken, holding as many beats as most photos do."""
+    if any(it.ref == ref and it.role == "photo" for it in s.items):
+        return
+    photos = [k for k, it in enumerate(s.items) if it.role == "photo"]
+    counts = [s.items[k].beats for k in photos if s.items[k].beats]
+    beats = max(set(counts), key=counts.count) if counts else 2
+    pos = next((k for k in photos if _taken(pa, s.items[k].ref) > _taken(pa, ref)), (photos[-1] + 1) if photos else min(1, len(s.items)))
+    section = s.items[0].section if s.items else "reel"
+    s.items.insert(pos, StoryItem(ref=ref, role="photo", t0=0.0, section=section, beats=beats, note="brought back by you"))
+    _reel_rhythm(s)
+
+
+def _swap_cover(s: StoryPlan, pa: ProjectAnalysis, new: str, note: str = "cover you picked") -> None:
+    """A photo reel opens on another photo: it holds the cover's beats, the loop ending follows it, and the old cover
+    goes back among the photos in the order it was taken."""
+    if not s.items or s.items[0].ref == new:
+        return
+    old = s.items[0]
+    s.items = [it for it in s.items if not (it.ref == new and it.role == "photo")]
+    s.items[0] = old.model_copy(update={"ref": new, "note": note})
+    for it in s.items:
+        if it.role == "loop":
+            it.ref = new
+    _insert_photo(s, pa, old.ref)
+    _reel_rhythm(s)
+
+
+def _reel_rhythm(s: StoryPlan) -> None:
+    """After photos are added, dropped or swapped: the reel's rhythm again — the cover and the last photo hold two
+    counts, every other photo one (a photo with a line on it is held longer by the compiler, until the line reads)."""
+    photos = [it for it in s.items if it.role == "photo"]
+    if not photos or not s.items[0].beats:
+        return
+    k = next((it.beats for it in s.items if it.role == "loop" and it.beats), None) or max(1, s.items[0].beats // 2)
+    s.items[0].beats = 2 * k
+    for it in photos:
+        it.beats = k
+    photos[-1].beats = 2 * k
+
+
 def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction, pa: ProjectAnalysis) -> tuple[StoryPlan, PolishPlan, Direction]:
     s, p, dd = story.model_copy(deep=True), polish.model_copy(deep=True), d.model_copy(deep=True)
     last_hook = max((k for k, o in enumerate(ops) if o.op == "hook"), default=None)   # the latest hook choice wins
@@ -127,10 +181,21 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                 ref = key[5:]
                 s.items = [it for it in s.items if it.ref != ref]
                 p.effects = [c for c in p.effects if c.at not in (ref, f"before:{ref}")]
+                if _is_reel(s):
+                    _reel_rhythm(s)
             elif key.startswith("seg:"):
                 _insert_ref(s, pa, key[4:], "body")
+            elif key.startswith("shot:") and _is_reel(s):
+                _insert_photo(s, pa, key[5:])
             elif key.startswith("shot:"):
                 _insert_ref(s, pa, key[5:], "broll")
+            elif key.startswith("cover:"):              # another cover: the next best photo the brain offered
+                cur = s.items[0].ref if s.items else None
+                nxt = next((h for h in dd.hooks if h.refs and h.refs[0] != cur and h.refs[0] != key[6:]), None)
+                if nxt is not None:
+                    _swap_cover(s, pa, nxt.refs[0], note="cover: the next most striking photo (you turned the first one down)")
+            elif key == "photomotion":
+                dd.knobs.photo_motion = False
             elif key.startswith("beat:"):
                 k = _find(s, key[5:])
                 if k is not None:
@@ -173,6 +238,8 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
         elif o.op == "drop" and o.ref:
             s.items = [it for it in s.items if it.ref != o.ref]
             p.effects = [c for c in p.effects if c.at not in (o.ref, f"before:{o.ref}")]
+            if _is_reel(s):
+                _reel_rhythm(s)
         elif o.op == "trim" and o.ref:
             k = _find(s, o.ref)
             _, shot = _seg_or_shot(pa, o.ref)
@@ -204,6 +271,11 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                     c.gain_db = max(-12.0, min(6.0, c.gain_db + float(o.value)))
         elif o.op == "captions" and isinstance(o.value, str):
             dd.knobs.captions = o.value  # type: ignore[assignment]
+        elif o.op == "hook" and isinstance(o.value, str) and _is_reel(s):
+            idx = next((k for k, x in enumerate(dd.hooks) if x.id == o.value), None)
+            if idx is not None and dd.hooks[idx].refs:
+                _swap_cover(s, pa, dd.hooks[idx].refs[0])
+                dd.hooks = dd.hooks[idx:] + dd.hooks[:idx]
         elif o.op == "hook" and isinstance(o.value, str):
             idx = next((k for k, x in enumerate(dd.hooks) if x.id == o.value), None)
             h = dd.hooks[idx] if idx is not None else None

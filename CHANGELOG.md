@@ -3,6 +3,44 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+### Added — photo reels
+- **A folder of photos and a song becomes a photo-dump Reel.** It's cut on the song's beat, about 1.2 s a photo,
+  from the start of the song's chorus or drop (found from its bar lines). Photos play in the order they were taken
+  (EXIF capture time, not file name). The cover goes first: a striking photo of a person that fills the 9:16 frame.
+  The Reel ends back on the cover, continuing the cover's own move, so it replays without a seam. With no words of
+  yours, the cover gets where and when from the photos ("Calangute · Oct 2026").
+- **One photo, a few lines and a song.** Put your lines in the brief under `Text:` (one per line; a "POV: …" line
+  or a line in quotes counts too). Your first line is on screen from the first frame, since it's the hook. Each next
+  line arrives on the beat and stays up long enough to read; the last one holds to the end. They appear word for
+  word, and brief compliance checks that.
+- **Photos are read like a phone's camera roll.** Sideways-stored photos are turned upright from EXIF, capture times
+  keep their time zone, and the place comes from GPS. Burst duplicates, blurry photos and dark photos are left out
+  (you can bring any back). A photo is judged by its sharpest part, so a portrait-mode photo with a soft background
+  is not "blurry".
+- **Photos move like a camera.** A slow push-in, a pull-out, or a drift onto the subject, at about 6% of the frame a
+  second. Frames are drawn at sub-pixel precision, so the motion glides instead of stepping a pixel at a time.
+- **Nobody is cut out of a group photo.** When the faces won't all fit a 9:16 crop (or the photo is a panorama), it's
+  shown whole, like a print, on a soft wash of its own colours. Such a photo is never picked as the cover.
+- **Words on photos have their own look.** A clean sans with a soft shadow; lines are broken by measured width, never
+  ending on "the" or "a". Text goes where the face isn't (above the head or below the chin, inside the platform's
+  safe area), and is set a little smaller when a close-up leaves little room.
+- **Every photo-reel decision can be undone in the review app.** Each photo left out says why (a burst shot, blurry,
+  dark, or to keep the reel tight) and can be brought back; it returns in the order it was taken. Rejecting the
+  cover opens on the next most striking photo, with the loop following it. The loop ending, the photos' motion,
+  the title and your lines can each be turned off. However the reel changes, every photo still holds whole beats of
+  the song, your lines move with their photos, and the last photo still holds longest.
+- Photo cards on the Footage page show portrait/landscape and the time taken, instead of "0.0 s · 25 fps".
+### Fixed — every video
+- **Bar lines were two beats off** in songs whose kick plays beats 1 and 3. Downbeats now come from chord changes as
+  well as the kick; all fixture songs but one (half-time drum'n'bass, a beat-tracking limit) now get every bar line
+  right.
+- **Cuts drifted off the beat over a long cut.** Each piece was rounded to whole frames on its own; frame counts now
+  come from the rounded cut points.
+- **True peak.** The limiter now measures peaks between samples too, so -1 dBTP holds. When limiting costs loudness
+  (a dense music-only mix), the level is topped up, by at most 3 dB. A music-only Reel had measured -15.2 LUFS with a
+  -0.1 dBTP peak; it now measures -14.3 LUFS and -1.3 dBTP.
+- **A zoom that pulled out crashed the render** (ffmpeg scaled the picture under its own crop window).
+
 ### Added — gaming Shorts
 - **The webcam in a stream is found.** A streamer's picture-in-picture is located from a steady face in a corner and
   the border that stays put around it (checked per colour channel, and at higher resolution than the rest of the

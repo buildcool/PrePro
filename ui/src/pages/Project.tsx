@@ -169,7 +169,10 @@ function Footage({ s, run, busy }: { s: Summary; run: (p: string, b: unknown, l:
                 <div className="body">
                   <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><code>{a.id}</code> {a.name}</div>
                   <div className="dim">
-                    {a.duration.toFixed(1)}s{a.fps ? ` · ${Math.round(a.fps)} fps` : ""}{a.place ? ` · ${a.place}` : ""}{a.day ? ` · day ${a.day}` : ""}
+                    {a.kind === "image"
+                      ? `${a.size ? (a.size[0] >= a.size[1] ? "landscape" : "portrait") : "photo"}${a.taken ? ` · ${a.taken}` : ""}`
+                      : `${a.duration.toFixed(1)}s${a.fps ? ` · ${Math.round(a.fps)} fps` : ""}`}
+                    {a.place ? ` · ${a.place}` : ""}{a.day ? ` · day ${a.day}` : ""}
                   </div>
                   {a.music && <div className="dim">{Math.round(a.music.bpm)} BPM · {a.music.mood.join(", ")}</div>}
                   {bad.length > 0 && <div style={{ color: "var(--warn)" }}>⚠ {[...new Set(bad)].join(", ")}</div>}

@@ -6,7 +6,29 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
-- **On `dev`, not released (CHANGELOG [Unreleased]): gaming Shorts.**
+- **On `dev`, not released (CHANGELOG [Unreleased]): photo reels** (the user's priority now: lifestyle and vlogs).
+  - Photos: `media/probe.photo_exif` (orientation, capture time with its offset, GPS); `analyze/pipeline._image_shot`
+    writes an upright working copy (`photo_copy`, ≤ 2560 px) and judges sharpness by the sharpest tile or the face;
+    `visual.duplicate_groups(prefix="burst")`; ANALYSIS_VERSION 12; genre `photo_reel` (CONTEXT_VERSION 5).
+  - Brain: `BasicBrain.photos/text_lines/photo_title/_cover_score/_reel_grid/_story_photo_reel/_polish_photo_reel`.
+    The grid is the song's detected beats from the strongest section's downbeat; every item length is a whole number
+    of beats (`_beat_at`). One photo: line slots in half bars. `MusicCue.offset` fixes the song's start.
+  - Compiler: `photo_motion` (pans ≤ 6 %/s, push/pull 1.0↔1.07, `Transform.fit` for group photos and panoramas via
+    `analyze.visual.photo_fills`), `_seamless_loop`, `_beside_face` (`Item.text_y` / `text_scale`), text anchors
+    `t:<seconds>`.
+  - Render: `export/render.photo_frames` draws photo frames with OpenCV (sub-pixel), piped through
+    `media/encoders.encode_frames`; frame counts from rounded cut points; true-peak `_limit`; loudness top-up.
+  - Captions: style `photo`, `balance_lines` / `text_block` measured with the bundled fonts (`LIBASS_WIDTH` calibration).
+  - `analyze/sound.music_info` downbeats from chord changes + low end.
+  - Brief: `Text:` block → `HardRule(kind="text_line")`; compliance checks each line word for word.
+  - Revisions: `StoryItem.beats` (the compiler's `_beat_len` lays photos on the song's grid), lines anchored `photo:<i>`;
+    keys `cover:<photo>` (next cover from `Direction.hooks`), `shot:<photo>` (bring back, `revise._insert_photo`),
+    `photomotion` (`Knobs.photo_motion`), `loop:<photo>`; `revise._swap_cover/_reel_rhythm` keep the rhythm.
+  - Fixtures `photo_dump` (11 photos: sideways, burst, blurry, dark, a group of three, EXIF times out of file order)
+    and `photo_single` (one portrait + a `Text:` brief); `fixtures/visual.photo` writes phone-style EXIF and
+    `photo_face` draws faces the detector finds (CI has no real media). Tests: `tests/e2e/test_p6_photo_reels.py`,
+    `tests/unit/test_p6_photo_units.py`.
+- **Also on `dev`, not released: gaming Shorts.**
   - `analyze/visual.find_facecam` → `ClipAnalysis.facecam` (ANALYSIS_VERSION 11)
   - `Item.place` panels in the renderer
   - `compiler._facecam_layout` (stacked 9:16, `Knobs.layout`, `layout:<asset>` rejection) and `_facecam_moments`
@@ -14,8 +36,7 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   - gaming fails (`BasicBrain.FAIL/WIN`, a fail meme keyed `<shot>@<t0>`)
   - a 9:16 gaming direction is offered next to the 16:9 one
   - fixture: a drawn streamer webcam + a planted death; FIXTURE_VERSION 6
-- **Next, at the user's request: lifestyle and vlog formats** (photo + text + song reels and the other popular
-  Instagram/YouTube lifestyle formats); gaming is paused after this.
+- **Next, at the user's request: more lifestyle and vlog formats** (photo reels are done). Gaming is paused.
 - **v0.8.0 (released 2026-11-05; CHANGELOG [0.8.0], QA "v0.8"):**
   - GPU video encoding (`media/encoders.py`):
     - candidates NVENC → Quick Sync → AMF, each after a real test encode
@@ -175,8 +196,12 @@ uv pip install --python .venv -e ".[asr,ai,geo,export,dev]"
 0. Two-shots, later: multi-camera podcasts (one camera per person, synced by audio), a stacked split-screen
    layout for rapid back-and-forth, and 16:9 "virtual multicam" (wide ↔ punch-in on the speaker).
 1. **Genre packs, more:**
-   - gaming: HUD/kill-feed flashes, facecam enlarge on big reactions, fail memes
+   - lifestyle/vlog (the user's priority): see "Lifestyle formats" in `docs/QA.md` (v0.9) for the researched list;
+     photo reels are done. HEIC photos (iPhone default) need `pillow-heif`; Live Photos are a still + a 3 s clip.
    - lifestyle "satisfying moment" detection
+   - gaming (paused): HUD/kill-feed flashes
+   - known limit: a 174 BPM drum'n'bass track is tracked at half time (87 BPM) with the beat on the snare, so its
+     bar lines are off; the beat tracker, not the downbeat finder, would need a tempo prior for fast genres
 2. **Phase 2**, more:
    - AI titles/thumbnail text through the brain, as a `package` pass
    - stock/GIF search

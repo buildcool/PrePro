@@ -88,6 +88,7 @@ export interface Asset {
   size: [number, number] | null;
   day: number | null;
   place: string | null;
+  taken?: string | null;
   thumb: string | null;
   shots: { id: string; t0: number; t1: number; flags: string[]; tags: string[]; desc: string | null; quality: number; move: string; thumb: string }[];
   segments: { id: string; t0: number; t1: number; text: string; cut: string | null }[];

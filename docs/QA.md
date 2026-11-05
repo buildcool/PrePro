@@ -254,3 +254,66 @@ engine test had been skipped on Windows, not passed.
 - **Phone pack on the GPU** failed the constant-frame-rate check: 30.0006 fps. The NVENC pieces were 1 timestamp tick
   short each (3.233008 s for 97 frames), and the stream-copy join of the clean version carried that over. GPU pieces
   are joined with one more GPU encode now.
+
+### v0.9 (photo reels), reviewed as an editor
+New fixtures: `photo_dump` (11 phone photos from a day in Goa, two stored sideways, a burst duplicate, a blurry and a
+dark photo, a group of three, capture times out of file-name order, a 100 BPM song) and `photo_single` (one portrait,
+three lines in a `Text:` brief, a 92 BPM song). Each was built with real faces and with drawn ones (what CI has), then
+rendered and reviewed frame by frame.
+1. **Both photos with a person were thrown out as "blurry"** (whole-frame sharpness 14, limit 25). A portrait's
+   background is soft on purpose, so the whole-frame measure rejects exactly the photos people like most. A photo is
+   now judged by its sharpest tile or its face: the portraits score 32, the truly blurred photo 2.
+2. **The song started two beats into a bar** (15.6 s instead of the chorus at 14.4 s). The cover's cut fell
+   mid-bar. With the kick on beats 1 and 3, low end alone can't tell the bar line from beat 3. Downbeats now also
+   follow chord changes. Across the fixture songs, every bar line is right on 11 of 12; the twelfth, a 174 BPM
+   drum'n'bass track, is tracked at half time on the snare (a beat-tracking limit, noted in HANDOFF).
+3. **Cuts would drift off the beat.** Item lengths were whole multiples of a median beat (80 ms off after 20 beats),
+   and each rendered piece was rounded to whole frames on its own. Cuts now sit on the detected beats, and frame
+   counts come from the rounded cut points. Every cut is within 50 ms of a true beat.
+4. **The loop had a seam.** The closing clip of the cover ended on a different framing than the one the Reel opens
+   on. It now carries the cover's own move at the same speed and stops on the cover's first frame, so the replay
+   continues the motion. A push-in can't be continued backwards past the full photo, so the cover pulls out.
+5. **Rendering crashed on that pull-out.** ffmpeg scaled the picture per frame under a crop window sized for the
+   first frame. This was never caught because photo reels had never been rendered. Photo frames are now drawn with
+   OpenCV at sub-pixel precision and piped to the encoder. A pan measures -5.73 px a frame, varying by 0.015 px, so
+   it glides instead of stepping. 36 full-HD frames take 0.4 s. The pan itself was too brisk (16 % of the frame a
+   second) and is capped at about 6 %, like the push-ins.
+6. **Loudness: -15.2 LUFS and -0.1 dBTP** on a music-only Reel. The limiter only saw sample peaks, and limiting a
+   dense mix cost loudness. A true-peak limiter plus a capped top-up now give -14.3 LUFS and -1.26 dBTP.
+7. **The group photo opened the Reel cropped to the middle person.** The other two were cut off at the sides. A
+   photo whose faces won't all fit a 9:16 crop is now shown whole. The first fill behind it (a blurred crop of the
+   photo) showed smeared shirt-coloured columns. It's now a soft gradient of the photo's own colours, with a print's
+   shadow under the photo. A framed photo can't be the cover: the cover must fill the frame.
+8. **Words on photos looked like subtitles.** A thick outline, and a line ending on "took the". They have their own
+   style now (a soft shadow), with lines broken by measured width that never end on a glue word. Pillow overestimated
+   libass's widths by 12 % (libass sizes a font by its line height), so the measure is calibrated by rendering a
+   line through ffmpeg.
+9. **On a tight close-up, the first line touched the chin.** The e2e test caught it: the slow push-in grows the face
+   while the line is up. Text is now placed against the face at both ends of its time on screen, in the larger
+   free band (above the head with room for hair, or below the chin), and set up to 24 % smaller when the band is
+   short.
+10. **One photo + lines:** the POV line (the hook) didn't appear until 2.6 s, later lines drifted off the phrase grid
+    (6.2 s against a bar at 5.2 s), and line one was up 3.45 s for 9 words (the cringe guard wants 3.6 s). Now line
+    one is on frame one, each next line lands on a beat, and each stays up long enough to read.
+11. **CI's drawn faces were invisible to the face detector,** so every face rule would have gone untested in CI. Tiling
+    the photo for the detector found "faces" in the blurry market photo, so tiling was rejected. The fixtures draw a
+    more face-like person instead (shaded skin, brows, irises, a nose shadow, lips, ears), found at 0.97–1.0
+    confidence even at 14 % of the photo's width.
+12. The critic scored "genre fit" 6/10 because it didn't know the photo-reel signature. It now checks each part
+    (cover first, cuts on the beat, moving stills, text on photo, loop back to the cover); both reels score 10/10,
+    and 10/10 on the cringe guard.
+
+Analysis: 0.2 s a photo; the song takes about 18 s (most of it librosa warming up).
+13. **Review app** (driven in the built-in browser on the photo dump):
+    - Rejecting the cover did nothing: it carried the generic "hook" key, and only one cover was offered. The cover
+      is now `cover:<photo>`, with the three best covers on offer. In the app, ✕ on the cover reopened the reel on
+      the evening portrait; the old cover went back among the photos in the order taken, every cut still on a beat.
+    - Any revision would have broken the reel. The words sat at fixed times (dropping a photo would leave them on the
+      wrong picture), and a swapped cover lost its beat-timed length. Photos now hold whole beats that the compiler
+      lays on the song's grid, and lines anchor to "photo i". The e2e test drops a photo, brings back the blurry
+      one, swaps the cover and stills the motion, and checks the lines and the beat grid after each step.
+    - After the swap, the long last-photo hold had moved to a middle photo. The reel's rhythm (cover and last photo
+      two counts, the rest one) is now re-derived whenever the set of photos changes.
+    - The left-out photos weren't listed, so they couldn't be brought back. Each now says why. Photo motion had no
+      decision and no filter chip; it has both now. Photo cards said "0.0 s · 25 fps"; they show the orientation and
+      the time taken.
