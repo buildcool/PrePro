@@ -55,7 +55,8 @@ async function startEngine() {
   port = await freePort();
   const cmd = engineCommand();
   engine = spawn(cmd, ["ui", "--no-browser", "--port", String(port)], {
-    env: { ...process.env, PREPRO_DESKTOP: "1", PYTHONUNBUFFERED: "1" },
+    // UTF-8 output whatever the Windows code page (v0.8.0 crashed printing "→" into a cp1252 pipe)
+    env: { ...process.env, PREPRO_DESKTOP: "1", PYTHONUNBUFFERED: "1", PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" },
     windowsHide: true,
   });
   const keep = (d) => {

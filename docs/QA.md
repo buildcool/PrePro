@@ -335,3 +335,16 @@ out":
 6. **Before → after reveal** (outfit change, room makeover, "reverse reveal" that opens on the result): a match cut
    on the beat at the moment of change.
 Lo-fi / unpolished is also called a 2026 trend, which argues for restraint (few effects), PrePro's default taste.
+
+### v0.8.0 desktop start-up crash (reported by the user, 2026-11-05)
+- The installed v0.8.0 app showed "engine exited during start-up": `UnicodeEncodeError: 'charmap' codec can't encode
+  character '\u2192'`, from `serve`'s first line, "PrePro 0.8.0 → http://…". Electron reads the engine's output
+  through a pipe, and Windows encodes piped output in the ANSI code page (cp1252). It's a run-time error that no check
+  caught, because every place the engine ran in tests was UTF-8: pytest's capture, CI shells, terminals. The desktop
+  CI only ran `prepro-engine version` and `doctor` (no arrow in either), never `ui`, the command the app starts.
+- Reproduced with `PYTHONIOENCODING=cp1252` and a piped stdout; `prepro --help` failed the same way. Fixed in
+  `cli._safe_output` (UTF-8 for pipes/files, `errors="replace"` for consoles), and the app also sets `PYTHONUTF8=1`.
+- Guards: `tests/unit/test_engine_startup.py` starts `ui`, `version` and `--help` in a cp1252 pipe, and the desktop
+  workflow starts the frozen engine's `ui` with redirected output and fails unless the server answers.
+- Same round: CI on Ubuntu caught `encode_frames` closing ffmpeg's stdin before `communicate()`, which flushes it on
+  Linux ("flush of closed file"); Windows doesn't flush, so the local runs had passed.

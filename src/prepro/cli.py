@@ -13,6 +13,27 @@ from rich.table import Table
 
 from . import __version__
 
+
+def _safe_output() -> None:
+    """Printing never crashes the engine. On Windows a piped stdout (how the desktop app starts the engine) is
+    encoded in the ANSI code page, cp1252, which has no "→" or "₹": v0.8.0 died on its first line. Pipes and files
+    get UTF-8; a console keeps its encoding, and a character it can't show is replaced instead of raising."""
+    for s in (sys.stdout, sys.stderr):
+        enc = (getattr(s, "encoding", None) or "").lower().replace("-", "").replace("_", "")
+        if s is None or enc == "utf8" or not hasattr(s, "reconfigure"):
+            continue
+        try:
+            tty = s.isatty()
+        except Exception:
+            tty = False
+        try:
+            s.reconfigure(errors="replace") if tty else s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+_safe_output()
+
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="PrePro — AI pre-edit engine: shoot folder → reasoned first cut.")
 testmedia_app = typer.Typer(help="Download / list real test media (dev only).")
 app.add_typer(testmedia_app, name="testmedia")

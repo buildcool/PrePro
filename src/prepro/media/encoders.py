@@ -194,9 +194,9 @@ def encode_frames(frames, size: tuple[int, int], fps: float, build, *, prefer: E
         try:
             for fr in frames():
                 proc.stdin.write(fr.tobytes())
-            proc.stdin.close()
         except OSError:                                   # ffmpeg quit early: its error message says why
             pass
+        # communicate() flushes and closes stdin itself (closing it here first made it raise on Linux)
         try:
             err = proc.communicate(timeout=timeout)[1]
         except subprocess.TimeoutExpired:

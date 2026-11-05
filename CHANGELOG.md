@@ -30,6 +30,14 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
   the title and your lines can each be turned off. However the reel changes, every photo still holds whole beats of
   the song, your lines move with their photos, and the last photo still holds longest.
 - Photo cards on the Footage page show portrait/landscape and the time taken, instead of "0.0 s · 25 fps".
+### Fixed — the desktop app
+- **v0.8.0's desktop app could not start on Windows** ("engine exited during start-up", `UnicodeEncodeError … '→'`).
+  The app reads the engine's output through a pipe, and Windows encodes piped output in the system code page
+  (cp1252), which has no "→"; the engine died printing its first line. Output now goes out as UTF-8 to pipes and
+  files, and a character a console can't show is replaced instead of crashing. `prepro --help` had the same crash.
+  A test now starts the engine exactly that way, and the desktop build starts the frozen engine's `ui` before
+  packaging, so a build like this can't ship again.
+
 ### Fixed — every video
 - **Bar lines were two beats off** in songs whose kick plays beats 1 and 3. Downbeats now come from chord changes as
   well as the kick; all fixture songs but one (half-time drum'n'bass, a beat-tracking limit) now get every bar line

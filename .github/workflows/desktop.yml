@@ -90,6 +90,18 @@ jobs:
         run: |
           ./dist/prepro-engine/prepro-engine version
           ./dist/prepro-engine/prepro-engine doctor
+      - name: Start the frozen engine the way the app does (piped output, the system code page)
+        # v0.8.0 shipped an engine that died on its first line in a cp1252 pipe; this starts `ui` exactly like the
+        # desktop app and fails the build unless the server answers
+        shell: bash
+        run: |
+          PYTHONUTF8=0 PYTHONIOENCODING= ./dist/prepro-engine/prepro-engine ui --no-browser --port 8799 > engine.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:8799/; then echo "engine up after ${i}s"; kill %1 || true; exit 0; fi
+            if ! kill -0 %1 2>/dev/null; then echo "engine exited:"; cat engine.log; exit 1; fi
+            sleep 1
+          done
+          echo "engine never answered:"; cat engine.log; exit 1
       - name: Package
         shell: bash
         working-directory: desktop
