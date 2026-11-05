@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""Fake Gemini CLI: headless mode reads the prompt on stdin and, with --output-format json, prints
+{"response": <text>, "stats": {...}} like `gemini --output-format json`."""
+import json, os, sys
+args = sys.argv[1:]
+prompt = sys.stdin.buffer.read().decode("utf-8")
+assert "--output-format" in args and args[args.index("--output-format") + 1] == "json", args
+canned = {"ok": True}
+if os.environ.get("FAKE_GEMINI_ECHO"):     # hand the prompt back so tests can check it arrived intact
+    canned = {**canned, "prompt": prompt, "files": sorted(os.listdir("."))}
+if os.environ.get("FAKE_GEMINI_FAIL"):
+    print(json.dumps({"error": {"type": "QuotaError", "message": "Quota exceeded for your plan"}}))
+    sys.exit(1)
+reply = {"response": "```json\n" + json.dumps(canned, ensure_ascii=False) + "\n```",
+         "stats": {"models": {"gemini-2.5-pro": {"tokens": {"prompt": 1200, "candidates": 40}}}}}
+sys.stdout.buffer.write(json.dumps(reply, ensure_ascii=False).encode("utf-8"))   # UTF-8 on every OS, like the real CLI

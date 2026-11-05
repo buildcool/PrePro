@@ -71,15 +71,16 @@ class RenderSettings(BaseModel):
 
 
 class BrainRouting(BaseModel):
-    """Which connector handles which pass ("basic" = rules only, no AI)."""
+    """Which connector handles which pass: "auto" = the AI editor you chose (Settings.ai_editor), "basic" = rules
+    only, or a connector name to give one pass to a different AI."""
 
-    vision: str = "basic"
-    director: str = "basic"
-    story: str = "basic"
-    polish: str = "basic"
-    critic: str = "basic"
-    brief: str = "basic"
-    revise: str = "basic"
+    vision: str = "auto"
+    director: str = "auto"
+    story: str = "auto"
+    polish: str = "auto"
+    critic: str = "auto"
+    brief: str = "auto"
+    revise: str = "auto"
 
 
 class ConnectorConfig(BaseModel):
@@ -96,18 +97,24 @@ class Settings(BaseModel):
     render: RenderSettings = Field(default_factory=RenderSettings)
     routing: BrainRouting = Field(default_factory=BrainRouting)
     connectors: dict[str, ConnectorConfig] = Field(default_factory=dict)
+    ai_editor: str = "basic"            # the AI that edits ("basic" = the rules engine); every "auto" pass uses it
     privacy: PrivacyLevel = "thumbs"
     blur_faces_in_thumbs: bool = False
     monthly_cap_usd: float = 10.0
     meme_flavour: str = "global"
     language_ui: str = "en"
+    autocut_on_open: bool = True        # opening a new shoot makes the first cut straight away
 
     @classmethod
     def load(cls) -> Settings:
         p = config_dir() / "settings.json"
         if p.exists():
             try:
-                return cls.model_validate_json(p.read_text(encoding="utf-8"))
+                s = cls.model_validate_json(p.read_text(encoding="utf-8"))
+                r = s.routing.model_dump()
+                if all(v == "basic" for v in r.values()):   # saved before "auto" existed and never customised
+                    s.routing = BrainRouting()
+                return s
             except Exception:
                 pass
         return cls()
@@ -135,6 +142,24 @@ def set_secret(name: str, value: str) -> None:
         os.chmod(p, 0o600)
     except OSError:
         pass
+
+
+def delete_secret(name: str) -> None:
+    """Forget a key everywhere PrePro may have put it (the keychain and the fallback file)."""
+    try:
+        import keyring
+
+        keyring.delete_password(APP, name)
+    except Exception:
+        pass
+    p = config_dir() / ".secrets.json"
+    if p.exists():
+        try:
+            data = json.loads(p.read_text())
+            if data.pop(name, None) is not None:
+                p.write_text(json.dumps(data))
+        except Exception:
+            pass
 
 
 def get_secret(name: str) -> str | None:

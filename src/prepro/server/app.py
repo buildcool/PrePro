@@ -382,9 +382,9 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 if body.get("render", True):
                     _render(root, tid, "preview")
                 return {"timeline": tid, "warnings": [], "ai_calls": 0, "cost_usd": 0.0}
-            job.progress("build", 0.1, 1, "story → polish → compile → lint")
+            job.progress("build", 0.02, 1, "story → polish → compile → lint")
             res = build(root, direction=did, brief_text=_brief_text(root), render=False,
-                        knobs=body.get("knobs") or None, progress=job.progress)
+                        knobs=body.get("knobs") or None, progress=job.phase(0, 0.0, 0.6))
             tid = res.timeline.id
             base = Project(root).cache / "timelines" / f"{tid}.base.json"
             base.write_text(res.timeline.model_dump_json(indent=1), encoding="utf-8")
@@ -393,11 +393,62 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 job.progress("build", 0.8, 1, f"re-applying {len(rev.ops)} of your changes")
                 recompile(root, tid, rev)
             if body.get("render", True):
-                job.progress("render", 0.85, 1, "rendering a preview")
-                _render(root, tid, "preview")
+                _render(root, tid, "preview", progress=job.phase(1, 0.6, 1.0))
             return {"timeline": tid, "warnings": res.warnings, "ai_calls": len(res.ai_calls), "cost_usd": res.cost_usd}
 
         return jobs.submit("build", pid, work).public()
+
+    @app.post("/api/projects/{pid}/autocut")
+    def autocut(pid: str, body: dict = Body(default={})):
+        """The autonomous pre-edit: one click (or opening a new shoot) → watched, planned, edited, rendered and
+        exported. The creator refines afterwards; nothing here waits for them."""
+        root = project(pid)
+        if (j := jobs.running(pid)) is not None:
+            return j.public()
+        steps = [("watch", "Watching and listening"), ("story", "Finding the story"), ("edit", "Editing"),
+                 ("render", "Rendering your cut"), ("export", "Getting exports ready")]
+
+        def work(job: Job):
+            from ..analyze.pipeline import load_analysis
+            from ..engine import analysis, build
+            from ..export.package import export_all
+            from ..project import EXPORTS_DIR
+            from ..revise import load_revision, recompile
+
+            analysis(root, progress=job.phase(0, 0.0, 0.42))
+            plan, edit = job.phase(1, 0.42, 0.56), None
+
+            def build_cb(stage: str, i: float = 0, n: float = 1, msg: str = "") -> None:
+                nonlocal edit
+                f = float(i) / max(float(n), 1e-9)
+                if stage == "edit":
+                    edit = edit or job.phase(2, 0.56, 0.66)
+                    edit(stage, max(0.0, (f - 0.45) / 0.55), 1, msg)
+                elif stage == "plan":
+                    plan(stage, min(1.0, f / 0.45), 1, msg)
+
+            res = build(root, direction=body.get("direction") or "auto", brief_text=_brief_text(root), render=False, progress=build_cb)
+            tid = res.timeline.id
+            base = Project(root).cache / "timelines" / f"{tid}.base.json"
+            base.write_text(res.timeline.model_dump_json(indent=1), encoding="utf-8")
+            rev = load_revision(root, tid)
+            if rev.ops:                                 # your earlier choices on this cut survive
+                recompile(root, tid, rev)
+            video = _render(root, tid, "preview", progress=job.phase(3, 0.66, 0.94))
+            ex = job.phase(4, 0.94, 1.0)
+            ex("export", 0.1, 1, "editor timeline (Premiere, Resolve, Final Cut), captions and the edit report")
+            from ..schema.timeline import Timeline
+
+            tl = Timeline.model_validate_json((Project(root).cache / "timelines" / f"{tid}.json").read_text(encoding="utf-8"))
+            out = root / EXPORTS_DIR / tid
+            made = export_all(tl, load_analysis(root), out, formats=["fcp7", "otio", "srt", "report"], project_root=root,
+                              critic=res.critic, lint=res.lint, direction=res.direction, brief=res.brief)
+            ex("export", 1, 1, "done")
+            return {"timeline": tid, "video": video, "exports": str(out), "files": {k: str(v.relative_to(root)) for k, v in made.items()},
+                    "direction": res.direction.name, "duration": round(res.timeline.duration, 1), "warnings": res.warnings,
+                    "ai_calls": len(res.ai_calls), "cost_usd": res.cost_usd}
+
+        return jobs.submit("autocut", pid, work, steps=steps).public()
 
     # ------------------------------------------------------------ timeline review
     def _view(root: Path, tid: str) -> dict:
@@ -508,7 +559,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         proj = Project(root)
         tl = Timeline.model_validate_json((proj.cache / "timelines" / f"{tid}.json").read_text(encoding="utf-8"))
         out = proj.sub("renders") / f"{tid}_{quality}.mp4"
-        r = render(tl, load_analysis(root), out, quality=quality, project_root=root)
+        r = render(tl, load_analysis(root), out, quality=quality, project_root=root, progress=progress)
         return str(r.video.relative_to(root))
 
     @app.post("/api/projects/{pid}/timelines/{tid}/render")
@@ -517,8 +568,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         quality = "final" if body.get("quality") == "final" else "preview"
 
         def work(job: Job):
-            job.progress("render", 0.05, 1, f"{quality} render")
-            return {"video": _render(root, tid, quality)}
+            job.progress("render", 0.02, 1, f"{quality} render")
+            return {"video": _render(root, tid, quality, progress=job.progress)}
 
         return jobs.submit("render", pid, work).public()
 
@@ -573,7 +624,8 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
 
     def _revise_brain(root: Path):
         s = Settings.load()
-        if s.routing.revise in ("basic", "", None):
+        who = s.ai_editor if s.routing.revise == "auto" else s.routing.revise
+        if who in ("basic", "", None):
             return None
         from ..analyze.pipeline import load_analysis
         from ..engine import make_brain
@@ -603,7 +655,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
     def set_brains(body: dict = Body(...)):
         s = Settings.load()
         if "routing" in body:
-            valid = {"basic"} | set(s.connectors) | set(_detected())
+            valid = {"basic", "auto"} | set(s.connectors) | set(_detected())
             r = {k: v for k, v in dict(body["routing"]).items() if k in type(s.routing).model_fields and v in valid}
             s.routing = s.routing.model_copy(update=r)
         if body.get("privacy") in ("local", "text", "thumbs"):
@@ -656,12 +708,147 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
 
         return jobs.submit("model", "_models", work).public()
 
+    # ------------------------------------------------------------ AI accounts (the settings window)
+    @app.get("/api/ai")
+    def ai_overview():
+        from ..brain.accounts import overview
+
+        return overview()
+
+    @app.put("/api/ai")
+    def ai_update(body: dict = Body(...)):
+        from ..brain.accounts import overview
+
+        s = Settings.load()
+        ready = set(overview(s, versions=False)["ready"])
+        if "editor" in body:
+            e = str(body["editor"])
+            if e != "basic" and e not in ready:
+                raise HTTPException(400, "connect that AI first")
+            s.ai_editor = e
+        if "routing" in body:
+            ok = {"basic", "auto"} | ready
+            r = {k: v for k, v in dict(body["routing"]).items() if k in type(s.routing).model_fields and v in ok}
+            s.routing = s.routing.model_copy(update=r)
+        if body.get("privacy") in ("local", "text", "thumbs"):
+            s.privacy = body["privacy"]
+        if "blur_faces" in body:
+            s.blur_faces_in_thumbs = bool(body["blur_faces"])
+        if "monthly_cap_usd" in body:
+            s.monthly_cap_usd = max(0.0, float(body["monthly_cap_usd"]))
+        s.save()
+        return overview(s, versions=False)
+
+    @app.put("/api/ai/keys/{cid}")
+    def ai_key(cid: str, body: dict = Body(...)):
+        from ..brain.accounts import save_key
+
+        try:
+            return save_key(cid, str(body.get("key", "")), body.get("model"))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/api/ai/keys/{cid}")
+    def ai_key_remove(cid: str):
+        from ..brain.accounts import remove_key
+
+        try:
+            return remove_key(cid)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.put("/api/ai/{cid}/model")
+    def ai_model(cid: str, body: dict = Body(...)):
+        from ..brain.accounts import set_model
+
+        try:
+            return set_model(cid, str(body.get("model", "")))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/api/ai/{cid}/open")
+    def ai_open(cid: str, body: dict = Body(...)):
+        """Install or sign in to a plan's CLI: a terminal window with the provider's official command."""
+        from ..brain.accounts import open_terminal, terminal_command
+
+        try:
+            title, cmd = terminal_command(cid, str(body.get("action", "")))
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        try:
+            open_terminal(title, cmd)
+        except Exception as e:
+            raise HTTPException(500, str(e)) from e
+        return {"command": cmd}
+
+    @app.post("/api/ai/{cid}/test")
+    def ai_test(cid: str):
+        from ..brain.accounts import connector_for, record_test
+
+        cfg = connector_for(cid)
+        if cfg is None:
+            raise HTTPException(400, "connect it first")
+
+        def work(job: Job):
+            from ..brain.providers import make_provider
+
+            job.progress("test", 0.2, 1, f"asking {cid} a one-line question")
+            s = Settings.load()
+            try:
+                prov = make_provider(cid, cfg, privacy=s.privacy)
+                ok, why = prov.available()
+                if not ok:
+                    raise RuntimeError(why)
+                rep = prov.complete_json("You check that a connection works.", 'Reply with the JSON {"ok": true}.',
+                                         {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
+                                         effort="low", pass_name="connection_test")
+            except Exception as e:
+                record_test(cid, False, str(e))
+                raise
+            msg = f"answered in {rep.usage.seconds:.0f} s" + (f" · {rep.model}" if rep.model else "")
+            record_test(cid, True, msg, rep.model)
+            return {"ok": True, "message": msg}
+
+        return jobs.submit("ai_test", "_ai", work).public()
+
+    # ------------------------------------------------------------ general settings
+    @app.get("/api/settings")
+    def general_settings():
+        from ..media import encoders as enc
+
+        s = Settings.load()
+        try:
+            times = {enc.LABEL.get(k, k): v for k, v in enc.measured(1080).items()}
+        except Exception:
+            times = {}
+        return {"autocut_on_open": s.autocut_on_open, "encoder": s.render.encoder, "encoder_times": times,
+                "data_dir": str(data_dir()), "version": __version__}
+
+    @app.put("/api/settings")
+    def set_general_settings(body: dict = Body(...)):
+        s = Settings.load()
+        if "autocut_on_open" in body:
+            s.autocut_on_open = bool(body["autocut_on_open"])
+        if body.get("encoder") in ("auto", "cpu", "nvenc", "qsv", "amf"):
+            s.render.encoder = body["encoder"]
+        s.save()
+        return general_settings()
+
     # ------------------------------------------------------------ jobs
     @app.get("/api/jobs/{jid}")
     def job(jid: str):
         j = jobs.get(jid)
         if j is None:
             raise HTTPException(404)
+        return j.public()
+
+    @app.post("/api/jobs/{jid}/cancel")
+    def cancel_job(jid: str):
+        j = jobs.get(jid)
+        if j is None:
+            raise HTTPException(404)
+        j.cancel = True
+        j.touch()
         return j.public()
 
     @app.get("/api/jobs/{jid}/events")
@@ -676,7 +863,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                 if j.rev != last:
                     last = j.rev
                     yield f"data: {json.dumps(j.public(), default=str)}\n\n"
-                if j.status in ("done", "error"):
+                if j.status in ("done", "error", "cancelled"):
                     break
                 await asyncio.sleep(0.25)
 

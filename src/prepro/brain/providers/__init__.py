@@ -33,6 +33,7 @@ from ...config import ConnectorConfig, get_secret
 TRAINING = {
     "claude_code": "Your Claude plan: used for training only if “Help improve Claude” is on (claude.ai → Settings → Privacy). Turn it off to opt out.",
     "codex": "Your ChatGPT plan: used for training by default — turn off “Improve the model for everyone” (it covers Codex too).",
+    "gemini_cli": "Your Google account: with a personal account Google may use what is sent to improve its products — see the Gemini CLI privacy notice; Workspace / Code Assist licences differ.",
     "anthropic": "Not used for training (Claude API commercial terms).",
     "openai": "Not used for training by default (OpenAI API).",
     "xai": "xAI API: reportedly not used for training without permission — check xAI's current terms.",
@@ -202,7 +203,9 @@ class ClaudeCodeCLI(Provider):
     We run the unmodified binary headless in an empty temp folder; we never read or store tokens."""
 
     def exe(self) -> str | None:
-        return self.cfg.extra.get("path") or shutil.which("claude")
+        from ..accounts import find_cli
+
+        return self.cfg.extra.get("path") or find_cli("claude")
 
     def available(self) -> tuple[bool, str]:
         exe = self.exe()
@@ -263,7 +266,9 @@ class CodexCLI(Provider):
     """The user's own OpenAI Codex CLI signed in with ChatGPT (plan limits apply)."""
 
     def exe(self) -> str | None:
-        return self.cfg.extra.get("path") or shutil.which("codex")
+        from ..accounts import find_cli
+
+        return self.cfg.extra.get("path") or find_cli("codex")
 
     def available(self) -> tuple[bool, str]:
         exe = self.exe()
@@ -291,6 +296,59 @@ class CodexCLI(Provider):
             msg = (p.stderr or p.stdout)[-400:]
             raise ProviderError(("plan usage limit reached: " if "limit" in msg.lower() else "codex error: ") + msg)
         return Reply(data=_parse_json(txt), usage=Usage(plan_usage=True), raw=txt[-2000:], model=self.cfg.model or "codex")
+
+
+@dataclass
+class GeminiCLI(Provider):
+    """The user's own Gemini CLI, signed in with their Google account (Google's own login, Google AI Pro limits).
+    Headless: the prompt on stdin, ``--output-format json`` (the reply is under "response"); contact sheets are
+    copied into an empty temp folder and attached with Gemini CLI's ``@file`` references. We never read tokens."""
+
+    def exe(self) -> str | None:
+        from ..accounts import find_cli
+
+        return self.cfg.extra.get("path") or find_cli("gemini")
+
+    def available(self) -> tuple[bool, str]:
+        exe = self.exe()
+        if self.cfg.extra.get("command"):
+            return True, " ".join(map(str, self.cfg.extra["command"]))
+        return (True, exe) if exe else (False, "Gemini CLI not found (npm install -g @google/gemini-cli, then run `gemini` once to sign in)")
+
+    def _complete(self, system, user, schema, images, effort):
+        prefix = _cli_prefix(self.cfg, self.exe())
+        if not prefix:
+            raise ProviderError("gemini CLI not installed")
+        with tempfile.TemporaryDirectory(prefix="prepro-gemini-") as td:
+            refs = []
+            for i, p in enumerate(images):
+                dst = Path(td) / f"sheet_{i}{p.suffix}"
+                shutil.copy(p, dst)
+                refs.append(f"@{dst.name}")
+            prompt = (f"{system}\n\n{user}\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema:\n"
+                      f"{json.dumps(schema)}")
+            if refs:
+                prompt += "\n\nContact sheets to look at: " + " ".join(refs)
+            cmd = [*prefix, "--output-format", "json"]
+            if self.cfg.model:
+                cmd += ["-m", self.cfg.model]
+            p = _run_cli(cmd, prompt, cwd=td, timeout=float(self.cfg.extra.get("timeout", 900)))
+        out = p.stdout.strip()
+        try:
+            res = json.loads(out[out.find("{"):]) if "{" in out else {}
+        except json.JSONDecodeError:
+            res = {}
+        err = res.get("error")
+        if p.returncode != 0 or err or "response" not in res:
+            msg = str((err or {}).get("message") if isinstance(err, dict) else err or p.stderr or out)[-400:]
+            raise ProviderError(("plan usage limit reached: " if ("quota" in msg.lower() or "limit" in msg.lower()) else "gemini CLI error: ") + msg)
+        data = _parse_json(str(res.get("response", "")))
+        toks = {"input": 0, "output": 0}
+        for m in ((res.get("stats") or {}).get("models") or {}).values():
+            t = m.get("tokens") or {}
+            toks["input"] += int(t.get("prompt", 0) or 0)
+            toks["output"] += int(t.get("candidates", 0) or 0)
+        return Reply(data=data, usage=Usage(toks["input"], toks["output"], plan_usage=True), raw=out[-2000:], model=self.cfg.model or "gemini-cli")
 
 
 # ---------------------------------------------------------------- API keys
@@ -450,7 +508,7 @@ class StubProvider(Provider):
         return Reply(data=json.loads(json.dumps(data)), usage=Usage(len(user) // 4, 200), model="stub")
 
 
-KINDS = {"claude_code": ClaudeCodeCLI, "codex": CodexCLI, "anthropic": AnthropicAPI, "openai": OpenAICompatible,
+KINDS = {"claude_code": ClaudeCodeCLI, "codex": CodexCLI, "gemini_cli": GeminiCLI, "anthropic": AnthropicAPI, "openai": OpenAICompatible,
          "xai": OpenAICompatible, "openrouter": OpenAICompatible, "gemini": GeminiAPI, "ollama": OllamaLocal, "stub": StubProvider}
 
 
@@ -462,14 +520,15 @@ def make_provider(name: str, cfg: ConnectorConfig, *, sent_dir: Path | None = No
 
 
 def detect_connectors() -> dict[str, ConnectorConfig]:
-    """What this PC already has: subscription CLIs on PATH, keys in the keychain, a running Ollama."""
+    """What this PC already has: subscription CLIs (on PATH or where their installers put them) and API keys."""
+    from ..accounts import KEYS, PLANS, find_cli
+
     out: dict[str, ConnectorConfig] = {}
-    if shutil.which("claude"):
-        out["claude-plan"] = ConnectorConfig(kind="claude_code")
-    if shutil.which("codex"):
-        out["chatgpt-plan"] = ConnectorConfig(kind="codex")
-    if get_secret("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY"):
-        out["claude-api"] = ConnectorConfig(kind="anthropic", model=DEFAULT_MODEL["anthropic"])
-    if get_secret("gemini_api_key"):
-        out["gemini"] = ConnectorConfig(kind="gemini", model=None, extra={"tier": "free"})
+    for p in PLANS:
+        exe = find_cli(p["exe"])
+        if exe:
+            out[p["id"]] = ConnectorConfig(kind=p["kind"], extra={"path": exe})
+    for k in KEYS:
+        if get_secret(k["secret"]) or (k["kind"] == "anthropic" and os.environ.get("ANTHROPIC_API_KEY")):
+            out[k["id"]] = ConnectorConfig(kind=k["kind"], model=k["model"], extra={"tier": "free"} if k["kind"] == "gemini" else {})
     return out

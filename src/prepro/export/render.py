@@ -456,8 +456,13 @@ def _limit(x: np.ndarray, ceiling: float) -> np.ndarray:
 
 # ------------------------------------------------------------------ main
 def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "preview", preview_height: int = 540, project_root=None,
-           stems: bool = False, storyboard: bool = True, captions: bool = True, music: bool = True) -> RenderResult:
+           stems: bool = False, storyboard: bool = True, captions: bool = True, music: bool = True, progress=None) -> RenderResult:
     proj = Project(project_root or pa.root)
+
+    def step(i: float, msg: str) -> None:                    # where the render is, for the progress bar
+        if progress:
+            progress("render", i, 1, msg)
+
     short = preview_height if quality == "preview" else min(tl.width, tl.height)
     scale = short / min(tl.width, tl.height)
     W, H = _even(tl.width * scale), _even(tl.height * scale)
@@ -466,7 +471,9 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
     work = proj.sub(f"renders/work_{quality}")
     encoder = enc.choose(min(W, H))                  # the GPU when it is measurably faster here, else the CPU
     segs, made_by = [], []
-    for it in sorted((i for i in tl.items if i.track == "V1" and i.kind in ("video", "image")), key=lambda i: i.rec_in):
+    pieces = sorted((i for i in tl.items if i.track == "V1" and i.kind in ("video", "image")), key=lambda i: i.rec_in)
+    for k, it in enumerate(pieces):
+        step(0.75 * k / max(1, len(pieces)), f"cutting piece {k + 1} of {len(pieces)}")
         path, by = _segment(pa, proj, it, W, H, tl.fps, crf=crf if quality == "preview" else 16, preset=preset, look=look, cache=work,
                             encoder=encoder)
         segs.append((it, path))
@@ -474,6 +481,7 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
     if not segs:
         raise ValueError("timeline has no picture")
     out.parent.mkdir(parents=True, exist_ok=True)
+    step(0.76, "joining the pieces")
     base = out.with_name(out.stem + ".base.mp4")
     # Pieces from different encoders can't be stream-copied together, and GPU pieces end a timestamp tick short
     # (NVENC: 3.233008 s for 97 frames at 30 fps), which a copy-join turns into a not-quite-constant frame rate that
@@ -487,8 +495,10 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
         scaled.items = [i for i in scaled.items if i.kind != "text"]
     ass = write_ass(scaled, out.with_suffix(".ass")) if (scaled.captions or any(i.kind == "text" for i in scaled.items)) else None
     vid = out.with_name(out.stem + ".video.mp4")
+    step(0.8, "captions, text and overlays")
     final = _overlay_pass(pa, proj, tl, base, ass, vid, W, H, tl.fps, crf, preset, look, encoder=encoder)
     wav = out.with_suffix(".wav")
+    step(0.9, "mixing the sound")
     lufs, tp, sm = mix_audio(pa, proj, tl, wav, stems_dir=(out.parent / f"{out.stem}_stems") if stems else None, music=music)
     run_ffmpeg(["-i", str(vid), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                 "-shortest", "-movflags", "+faststart", str(out)], timeout=1800)
@@ -503,6 +513,7 @@ def render(tl: Timeline, pa: ProjectAnalysis, out: Path, *, quality: str = "prev
     res = RenderResult(video=out, audio=wav, duration=tl.duration, lufs=lufs, true_peak_db=tp, speech_to_music_db=sm,
                        encoder=last, encoder_note=note)
     if storyboard:
+        step(0.97, "a storyboard for the review")
         try:
             res.storyboard = make_storyboard(tl, out, proj.sub("qa") / f"{out.stem}_storyboard.jpg", scale=scale)
         except Exception:

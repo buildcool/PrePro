@@ -25,8 +25,11 @@ def make_brain(pa: ProjectAnalysis, brief: CreatorBrief, settings: Settings, roo
 
     routing = settings.routing.model_dump()
     routing.update(overrides or {})
+    # "auto" passes go to the AI editor you chose (or the rules engine when there is none)
+    routing = {k: (settings.ai_editor if v == "auto" else v) for k, v in routing.items()}
     if all(v in ("basic", None, "") for v in routing.values()):
         return BasicBrain(pa, brief)
+    from .brain.accounts import connector_for
     from .brain.ai import AIBrain
 
     sent = Project(root).sub("sent")
@@ -39,7 +42,7 @@ def make_brain(pa: ProjectAnalysis, brief: CreatorBrief, settings: Settings, roo
         if cfg is None:
             from .brain.providers import detect_connectors
 
-            cfg = detect_connectors().get(conn)
+            cfg = detect_connectors().get(conn) or connector_for(conn, settings)
         providers[pass_name] = make_provider(conn, cfg, sent_dir=sent, privacy=settings.privacy) if cfg else None
     return AIBrain(pa, brief, providers, settings=settings)
 
@@ -163,19 +166,30 @@ def build(root: str | Path, *, direction: str | None = "auto", settings: Setting
           routing: dict | None = None, knobs: dict | None = None) -> BuildResult:
     settings = settings or Settings.load()
     pa = analysis(root, settings=settings, progress=progress)
+
+    def step(stage: str, i: float, msg: str) -> None:       # the edit's own steps, so progress never looks frozen
+        if progress:
+            progress(stage, i, 1, msg)
+
+    step("plan", 0.05, "reading your brief")
     brief = brief_for(root, pa, extra_text=brief_text, settings=settings)
     if extra_playbook:
         brief.prefs.playbook = extra_playbook
     brain = make_brain(pa, brief, settings, root, overrides=routing)
-    if hasattr(brain, "vision_tags") and brain.vision_tags(root):
-        Project(root).save_model("analysis.json", pa)
+    ai = hasattr(brain, "calls")
+    if hasattr(brain, "vision_tags"):
+        step("plan", 0.1, "looking at your shots with the AI editor")
+        if brain.vision_tags(root):
+            Project(root).save_model("analysis.json", pa)
     if hasattr(brain, "parse_brief") and brief.raw_text and brain.providers.get("brief"):
         brief = brain.parse_brief(brief.raw_text)
         resolve(brief, pa)
         brain.brief = brief
         brain.rules = brief.rules
+    step("plan", 0.25, "choosing the direction" + (" (AI editor)" if ai else ""))
     ds = brain.directions()
     d = choose(ds, direction)
+    step("plan", 0.4, f"going with: {d.name}")
     from .style import load as load_style
 
     dna = load_style(root)
@@ -195,11 +209,15 @@ def build(root: str | Path, *, direction: str | None = "auto", settings: Setting
         if knobs.get("target_length"):
             L = float(knobs["target_length"])
             d.target_min, d.target_max = round(L * 0.85, 1), round(L * 1.15, 1)
+    step("edit", 0.45, "building the story: hook, order, cuts")
     story = brain.story(d)
+    step("edit", 0.65, "music, captions, text and effects")
     polish = brain.polish(d, story)
+    step("edit", 0.8, "laying out the timeline")
     tl = compile_timeline(pa, d, story, polish, brief, project_root=root)
     res = BuildResult(directions=ds, direction=d, story=story, polish=polish, timeline=tl, brief=brief)
     if lint:
+        step("edit", 0.9, "checking it like an editor would (pacing, cringe, loudness)")
         from .lint.editlint import apply_fixes, lint_timeline
 
         findings = lint_timeline(tl, pa, d, brief)

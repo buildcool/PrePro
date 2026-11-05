@@ -145,6 +145,15 @@ def benchmark(short: int, *, refresh: bool = False) -> dict[str, float]:
     return res
 
 
+def measured(short: int) -> dict[str, float]:
+    """The remembered timings only (empty until a render has measured them) — never starts a benchmark."""
+    try:
+        data = json.loads(_bench_file().read_text(encoding="utf-8"))
+        return data.get(f"v{BENCH_VERSION}|{ffmpeg_bin()}|{_bucket(short)}", {})
+    except Exception:
+        return {}
+
+
 def choose(short: int = 1080) -> Encoder:
     """The encoder for a render whose short side is ``short`` pixels."""
     pref = preference()
