@@ -3,6 +3,7 @@ import { api } from "./api";
 import Brains from "./pages/Brains";
 import Home from "./pages/Home";
 import Project from "./pages/Project";
+import Updates, { UpdatesButton } from "./pages/Updates";
 
 export type Route = { page: "home" } | { page: "project"; pid: string; tab: string; tid?: string };
 
@@ -26,6 +27,7 @@ export default function App() {
   const [route, setRoute] = useState<Route>(parse(window.location.hash));
   const [toast, setToast] = useState<{ msg: string; kind: string } | null>(null);
   const [brains, setBrains] = useState(false);
+  const [updates, setUpdates] = useState(false);
   const [title, setTitle] = useState<string>("");
   const [health, setHealth] = useState<{ version: string; ffmpeg: boolean } | null>(null);
 
@@ -60,12 +62,14 @@ export default function App() {
           <button className="btn small" onClick={() => setBrains(true)} title="AI connectors and privacy">
             Brains &amp; privacy
           </button>
+          <UpdatesButton onOpen={() => setUpdates(true)} />
           {health && <span className="dim small">v{health.version}</span>}
         </header>
         <main className="main">
           {route.page === "home" ? <Home /> : <Project key={route.pid} route={route} setTitle={setTitle} />}
         </main>
         {brains && <Brains onClose={() => setBrains(false)} />}
+        {updates && <Updates onClose={() => setUpdates(false)} />}
         {toast && (
           <div className="toast" role="status" onClick={() => setToast(null)}>
             <div className="card" style={{ borderLeftColor: toast.kind === "error" ? "var(--bad)" : undefined }}>

@@ -6,6 +6,7 @@ const fs = require("fs");
 const http = require("http");
 const net = require("net");
 const path = require("path");
+const updates = require("./updater");
 
 let engine = null;
 let win = null;
@@ -120,6 +121,7 @@ async function createWindow() {
       if (/^https?:/.test(url)) shell.openExternal(url);
     }
   });
+  updates.init(win);
   await win.loadFile(path.join(__dirname, "splash.html"));
   try {
     await startEngine();

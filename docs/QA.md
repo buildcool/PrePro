@@ -348,3 +348,13 @@ Lo-fi / unpolished is also called a 2026 trend, which argues for restraint (few 
   workflow starts the frozen engine's `ui` with redirected output and fails unless the server answers.
 - Same round: CI on Ubuntu caught `encode_frames` closing ffmpeg's stdin before `communicate()`, which flushes it on
   Linux ("flush of closed file"); Windows doesn't flush, so the local runs had passed.
+
+### App updates (desktop), checked in the built-in browser
+- The panel was driven with a stand-in desktop bridge reporting "v0.9.1 is out". Download showed a progress bar and
+  the top button followed it ("Downloading v0.9.1… 42%"); a finished download turned it into "Restart to update";
+  Automatic was saved; the restart called the installer. In a plain browser there is no Updates button.
+- Release notes first showed in a monospace font (looked like a log); they're normal text now.
+- `tests/desktop/updater_check.js` (Electron stubbed) checks version order ("0.10.0" > "0.9.0", not a string
+  compare), the HTML-to-text notes, the saved mode, that unknown modes are ignored, and that a build that can't
+  install itself opens the release page. The real download and install can only be tested once a release carries
+  `latest.yml`, which is why desktop.yml now fails without it.

@@ -3,6 +3,18 @@
 All notable changes to PrePro are recorded here. Versions follow the release ladder in `docs/PLAN.md` §12.
 
 ## [Unreleased]
+### Added — app updates
+- **The desktop app updates itself, on your terms.** A new **Updates** button in the top bar shows your version,
+  what's new, and a three-way setting:
+  - **Automatic:** checks once a day and downloads in the background. It installs only when you click "Restart to
+    update" or next close PrePro, so it never interrupts a render.
+  - **Tell me** (the default): checks once a day and shows what's new. Downloading and installing are your call.
+  - **Off:** never asks the internet. "Check now" still works by hand.
+- Checking only asks GitHub which version is latest; no footage, file names or projects are sent.
+- The Windows installer and the Linux AppImage can install updates themselves; the `.deb` opens the download page.
+- Releases now carry the update files (`latest.yml`, `latest-linux.yml`), and the desktop build fails without
+  them.
+- Note: v0.9.0 and earlier don't have the updater, so the version that adds it is installed by hand once.
 
 ## [0.9.0] — 2026-11-06
 ### Added — photo reels

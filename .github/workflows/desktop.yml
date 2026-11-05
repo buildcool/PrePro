@@ -108,6 +108,9 @@ jobs:
         run: |
           npm ci
           npx electron-builder ${{ matrix.target }} --publish never
+          # the files the app's updater reads (latest.yml on Windows, latest-linux.yml for the AppImage)
+          ls release/latest*.yml; ls release/*.blockmap 2>/dev/null || true   # an AppImage carries its blockmap inside
+          grep -q "version: $(node -p "require('./package.json').version")" release/latest*.yml
       - uses: actions/upload-artifact@v4
         with:
           name: prepro-desktop-${{ runner.os }}
@@ -115,6 +118,8 @@ jobs:
             desktop/release/*.AppImage
             desktop/release/*.deb
             desktop/release/*.exe
+            desktop/release/latest*.yml
+            desktop/release/*.blockmap
           if-no-files-found: error
       - if: inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
@@ -124,3 +129,5 @@ jobs:
             desktop/release/*.AppImage
             desktop/release/*.deb
             desktop/release/*.exe
+            desktop/release/latest*.yml
+            desktop/release/*.blockmap

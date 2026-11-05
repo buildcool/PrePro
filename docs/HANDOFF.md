@@ -6,6 +6,11 @@
 v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 
 ## Current state
+- **On `dev`, not released: app updates.** `desktop/updater.js` (electron-updater 6.3.9, GitHub provider from the
+  `build.publish` config; modes auto / notify (default) / off in `<userData>/updates.json`; checks 15 s after start, then
+  daily; installs only on "Restart to update" or the next quit). Installable: the NSIS build and the AppImage; a .deb or a
+  dev run asks GitHub's API and opens the release page. Bridge `window.prepro.updates`; UI `ui/src/pages/Updates.tsx`.
+  Checks: `tests/desktop/updater_check.js` (CI ui job); desktop.yml fails without `latest*.yml`.
 - **v0.9.0 (released 2026-11-06; CHANGELOG [0.9.0], QA "v0.9"): photo reels** (the user's priority now: lifestyle and vlogs),
   the v0.8.0 desktop start-up crash fixed (`cli._safe_output`), gaming Shorts.
   - Photos: `media/probe.photo_exif` (orientation, capture time with its offset, GPS); `analyze/pipeline._image_shot`
