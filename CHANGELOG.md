@@ -20,7 +20,13 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 - The critic's "cut on the beat" check carries the song's grid on past the last beat it could hear (a quiet outro),
   like the compiler does, so cuts there no longer count as off the beat.
 
-## [0.11.0] — 2026-11-06
+### Fixed
+- A clip that carries only its local creation time (no UTC `creation_time`, as ffmpeg 9 writes it) counted as having
+  no time when looking for retakes, so the same room in the morning and at night was dropped as a duplicate. Retakes,
+  "bring it back" and the footage list's "taken" time now all read the creator's own clock (the list showed UTC
+  for Android videos).
+
+## [0.11.0] — 2026-11-06 (not published on its own; shipped in 0.12.0)
 ### Added — Day in my life
 - **A new format for a day of phone clips.** When a shoot holds five or more clips from one day, spread over three
   hours or more and mostly without talking, PrePro cuts a **Day in my life** Reel (9:16):

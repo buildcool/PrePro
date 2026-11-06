@@ -58,3 +58,17 @@ def test_look_alike_shots_are_retakes_only_within_half_an_hour():
     assert shot["C02"].dup_group == shot["C03"].dup_group == "dup1" and shot["C03"].dup_rank == 1   # a minute apart: a retake
     split_far_duplicates(pa)                                                                  # running it again changes nothing
     assert shot["C03"].dup_rank == 1 and shot["C01"].dup_group is None
+
+
+def test_a_clip_with_only_its_local_time_still_counts():
+    # ffmpeg 9 writes no UTC creation_time next to an iPhone-style local creation date: the clock must still read it
+    def asset(aid: str, local: str) -> Asset:
+        return Asset(id=aid, path=f"footage/{aid}.mp4", hash=aid, kind=AssetKind.BROLL,
+                     info=_info(tags={"com.apple.quicktime.creationdate": local}))
+
+    am, pm = asset("C01", "2026-10-17T06:42:00+0530"), asset("C02", "2026-10-17T23:05:00+0530")
+    pa = ProjectAnalysis(root=".", assets=[am, pm])
+    for a, r in ((am, 0), (pm, 1)):
+        pa.clips[a.id] = ClipAnalysis(asset_id=a.id, shots=[Shot(id=f"{a.id}.k0", asset_id=a.id, t0=0, t1=5, dup_group="dup0", dup_rank=r)])
+    split_far_duplicates(pa)
+    assert all(pa.clips[a.id].shots[0].dup_group is None for a in pa.assets)                 # 16 hours apart: two moments

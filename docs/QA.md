@@ -466,3 +466,10 @@ The aesthetic cooking shoot (six vertical clips, a calm 76 BPM song and a hype t
 5. Open: the rules engine can't tell which clip fits which line ("pov: you finally learned to cook" opened on the
    room, not the food), because that needs to know what's in the shot. An AI editor could match lines to clips
    without touching the beat grid. Not done yet: beat-cut formats keep the rules layout.
+6. **Windows CI failed where this PC passed.** The log needs a GitHub sign-in, so failures now also go out as public
+   annotations (tests/conftest.py), with each job's ffmpeg version. Windows CI installs Chocolatey's newest ffmpeg
+   (9.0.2; this PC has 8.0, Ubuntu 6.1). ffmpeg 9 writes no UTC `creation_time` next to an iPhone-style local
+   creation date, and the retake check read only `creation_time`. So the 9:45 am and 11:05 pm room clips looked
+   untimed, stayed grouped as retakes of the 6:42 am one, and were dropped. Retakes, "bring it back" and the footage
+   list's "taken" time now read the same local clock as everything else; a unit test covers a clip with only its
+   local time.

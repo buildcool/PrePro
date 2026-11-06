@@ -98,16 +98,19 @@ def split_far_duplicates(pa: ProjectAnalysis) -> None:
     """Near-identical shots are retakes only when they were shot close together: your room at 6:42 am and again at
     11:05 pm are the morning and the night of your day, not two takes of one shot. A look-alike group is split where
     more than half an hour passes; each part keeps its own best take (shots without a capture time stay grouped)."""
+    zone = clock.shoot_zone(a.info for a in pa.assets)
     groups: dict[str, list] = {}
     for a in pa.assets:
         for s in (pa.clips[a.id].shots if a.id in pa.clips else []):
             if s.dup_group:
-                groups.setdefault(s.dup_group, []).append((s, clock.plausible(a.info.creation_time)))
+                # the same clock as everything else: a clip may carry only its local time (no UTC creation_time)
+                t = clock.plausible(clock.local_time(a.info, zone))
+                groups.setdefault(s.dup_group, []).append((s, t.timestamp() if t is not None else None))
     for g, members in groups.items():
         timed = sorted((m for m in members if m[1] is not None), key=lambda m: m[1])
         parts: list[list] = []
         for m in timed:
-            if parts and (m[1] - parts[-1][-1][1]).total_seconds() <= RETAKE_WINDOW:
+            if parts and m[1] - parts[-1][-1][1] <= RETAKE_WINDOW:
                 parts[-1].append(m)
             else:
                 parts.append([m])

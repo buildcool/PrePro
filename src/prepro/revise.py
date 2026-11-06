@@ -148,8 +148,10 @@ def _insert_moment(s: StoryPlan, pa: ProjectAnalysis, ref: str) -> None:
 
 
 def _taken(pa: ProjectAnalysis, ref: str) -> float:
+    from .analyze import clock
+
     try:
-        when = pa.asset(pa.shot(ref).asset_id).info.creation_time
+        when = clock.local_time(pa.asset(pa.shot(ref).asset_id).info)      # a clip may carry only its local time
         return when.timestamp() if when else float("inf")
     except KeyError:
         return float("inf")

@@ -223,7 +223,10 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
         pa = load_analysis(root)
         if pa is None:
             raise HTTPException(409, "not analysed yet")
+        from ..analyze import clock
+
         bb = BasicBrain(pa, None)
+        zone = clock.zone_from_stats(pa.stats)
         out = []
         for a in pa.assets:
             ca = pa.clips[a.id]
@@ -232,7 +235,7 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
             segs = [{"id": s.id, "t0": s.t0, "t1": s.t1, "text": s.text, "cut": bb.is_cut_candidate(s) or None}
                     for s in (ca.transcript.segments if ca.transcript else [])]
             m = ca.music
-            when = a.info.creation_time
+            when = clock.local_time(a.info, zone)             # the creator's clock, not a video's UTC stamp
             out.append({"id": a.id, "name": a.name, "path": a.path, "kind": a.kind.value, "duration": round(a.info.duration, 2),
                         "fps": a.info.fps, "size": a.info.display_size, "day": ca.day_index, "place": ca.place,
                         "taken": when.strftime("%H:%M") if when else None,          # the camera's own clock (local time)
