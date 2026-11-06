@@ -8,6 +8,22 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.11.0 (2026-11-06; CHANGELOG [0.11.0], QA "v0.11"): Day in my life.** Playbook `day_in_life` (9:16, BPM
+  80–125 via the new `music.bpm` key read by `assist.music.brief_for`). `analyze/clock.py`: the creator's local clock
+  (`local_time`: iPhone `com.apple.quicktime.creationdate`, photo EXIF offset, else UTC in `shoot_zone` / the PC's
+  zone; `pa.stats["utc_offset_min"]`), `shooting_day` (4 am to 4 am), `part_of_day`, `stamp`. `context.day_shape` +
+  the genre guess (≥ 5 video clips of one day over ≥ 3 h, B-roll ≥ 50 %, not more photos than clips);
+  `split_far_duplicates` (look-alikes are retakes only within 30 min; CONTEXT_VERSION 6, no re-analysis).
+  `BasicBrain`: `day_moments`, `_day_beat` (k beats ≈ 1.6 s), `_story_day_in_life` (chronological, first/last 2k
+  beats, evenly spread picks when it doesn't fit, sections = parts of the day, items carry `beats`),
+  `_polish_day_in_life` (song cue with the grid's offset on every section, title, the brief's lines, stamps with
+  `intent="stamp"`). `BEAT_CUT = ("photo_reel", "day_in_life")`: `AIBrain.story/polish` return the rules plan for
+  them. Compiler: video items with `beats` are laid on the grid like photos; text anchored to a moment with `dur=None`
+  lasts the moment; stamps avoid a face up top and share one review decision (`key="stamps"`, revise removes them);
+  "Left out" suggestions for unused moments; natural sound −5 dB. `revise._is_reel` now needs section "reel";
+  `_insert_moment` brings a moment back in time order. Captions: `stamp` style (Montserrat 0.030, top centre).
+  `render.mix_audio`: speech-to-music only over talking A1 items. Fixture `day_in_life` (`still_clip/action_clip`
+  `local_time=` writes the Apple tag); tests `unit/test_p8_day_clock.py`, `e2e/test_p8_day_in_life.py`.
 - **v0.10.1 (2026-11-06; CHANGELOG [0.10.1]): brand logos for the AI accounts.** `ui/src/components/BrandLogo.tsx`
   (`BrandLogo`, `LogoTile`) inlines the vendored SVGs in `ui/src/assets/brands/` (LobeHub lobe-icons 1.95.1, MIT,
   see `NOTICE.md`; licence shipped as `ui/public/brands/LICENSE-lobe-icons.txt`) via Vite `?raw`; one-colour marks use

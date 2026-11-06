@@ -323,9 +323,9 @@ Sources are mostly 2026 trend roundups (Buffer, async.com, Epidemic Sound via me
 loose; the formats below are the ones they agree on, ranked by how well they fit "your footage in, a finished edit
 out":
 1. **Done: photo dump / one photo + text + song** (above).
-2. **Day in my life (short):** chronological clips of one day, small time stamps from the capture time ("6:42 am"),
-   light music, natural sound kept, ~1–2 s a clip. It's mostly the existing `aesthetic` playbook plus
-   time-of-day cards. Highest value next.
+2. **Done (v0.11): day in my life (short):** chronological clips of one day, small time stamps from the capture
+   time ("6:42 am"), light music, natural sound kept, ~1–2 s a clip. Its own playbook (`day_in_life`); see
+   "v0.11" below.
 3. **POV / text on video + a song:** the photo-reel engine on video clips: your lines on the beat over short clips,
    the hook line on frame one.
 4. **Silent / aesthetic vlog** (non-verbal Shorts are a named 2026 trend): no talking, foley up (pour, steps, keys),
@@ -415,3 +415,36 @@ top-class UI, progress that doesn't look frozen, and the vision: an autonomous p
    stuck out 1 px on the right; the Settings button was squeezed to 18 px beside the theme button. The chip is now
    the centred logo with the dot as a corner badge, and Settings and the theme button stack. Wide layout measured
    unchanged.
+
+### v0.11 (day in my life), reviewed as an editor
+The `day_in_life` fixture is one Saturday off a phone, 6:42 am to 11:05 pm (+05:30): fifteen vertical clips with
+the iPhone local-time tag, some with the sounds of the day, a near-duplicate sunset, a shaky clip, one clip from the
+evening before, a warm 96 BPM song and a hype track. Findings from watching the first cuts, all fixed:
+1. **The hype track was picked.** A front-mode music brief asks for 90 + 50 × pace BPM (117–162 here), so the 144 BPM
+   hype track fitted and the 96 BPM song didn't. A playbook can now set its own range (a day: 80–125 BPM), and its
+   mood list starts with happy and warm.
+2. **The 11:05 pm bedroom clip was dropped as a "near-duplicate" of the 6:42 am one.** It's the same room 16 hours
+   later: the night, the bookend of the day. Look-alike shots are now retakes only within half an hour (a cheap
+   context-stage pass, so cached analyses don't need re-analysing).
+3. **The song looped mid-cut** (a 22 s track under a 29 s cut). A day's song now starts where the whole cut fits
+   (here the verse, building into the chorus), so it plays through and fades out at the end.
+4. **Moments held 2.5 s.** Every synthetic pan or push-in has an "action peak", so the "hold action longer" rule
+   applied to almost all of them. Now it's an even groove: the same number of beats for every moment (~1.5–1.9 s),
+   with only the day's first and last moments held twice as long.
+5. **Three good moments were cut, the beach jump among them.** The length was estimated at 1.6 s a moment, but at
+   96 BPM a moment is 3 beats (1.88 s), so the day overflowed and the selection dropped the best clip of the
+   evening. The length now comes from the song's actual beat: every usable moment of a normal day is in.
+6. **No stamp on the last moment.** "11:05 pm" fell within 3 s of the 9:40 pm stamp and was skipped. The first and
+   last moments are now always stamped, and the stamps in between keep 3 s clear of both.
+7. **"Music only 4 dB under the voice"** on a cut with no voice. The dialogue stem carries the clips' natural sound
+   too; the check now counts only real talking.
+8. While looking: on the fixture's vertical clips, fast pans read as static and a shaky beach clip as steady. The
+   fixture's pans move ~6× faster than its horizontal ones relative to the frame, and its smooth sky and sand give
+   optical flow nothing to hold on to. A textured scene for the shaky clip is detected; real-footage behaviour still
+   needs a check on real vertical clips.
+9. Frames checked in the render (540×960 preview): "6:42 am" small at the top centre, "a day in my life" in clean
+   lowercase in the middle, and the day closing on "11:05 pm" in the same room. Loudness −14.4 LUFS, true peak
+   −1.3 dBTP; the critic scores pacing and genre fit 10.
+10. Found on the way: with an AI editor connected, photo reels (and now days) were sent to the AI story pass, which
+    reorders "for causality, not shooting order" and replaces the song cue, so cuts left the beat grid. Beat-cut
+    formats now keep the rules layout; a stub-AI test covers both.

@@ -4,6 +4,39 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-11-06
+### Added — Day in my life
+- **A new format for a day of phone clips.** When a shoot holds five or more clips from one day, spread over three
+  hours or more and mostly without talking, PrePro cuts a **Day in my life** Reel (9:16):
+  - **In the order it happened**, by each clip's own capture time, not by file name.
+  - **On the beat of a light song.** Every moment lasts a whole number of beats (about a second and a half), and the
+    first and last moments of the day hold longer. The song plays through without a loop seam. Hype and epic
+    tracks are avoided.
+  - **Spread over the day.** When the day doesn't fit, the best moment of each stretch of it stays in, so the
+    morning doesn't eat the video. Everything left out says why and can be brought back.
+  - **"a day in my life" on the first frame** (or your own first line from the brief).
+  - **Small time stamps** ("6:42 am") where the day starts, whenever it moves on (a new part of the day, or 40
+    minutes later) and where it ends. They are never on every clip and never closer than three seconds. One
+    decision in the review turns them all off.
+  - **The sounds of the day** (a pan, typing, waves, friends laughing) stay under the song.
+- **Your own clock.** "6:42 am" is the time your phone showed. It comes from an iPhone video's local creation date, a
+  photo's EXIF time and offset, or for Android's UTC-only videos, the zone the shoot's other files state (else this
+  computer's). Shooting days run 4 am to 4 am, so the 1 am ride home belongs to the night before (this also fixes
+  "Day 1 / Day 2" cards).
+
+### Changed
+- **With an AI editor connected, photo reels and days stay on the beat.** The AI used to reorder their moments "for
+  causality" and replace the song cue, which took every cut off the beat and a day out of order. These formats now
+  keep the rules engine's layout, and the AI still helps with directions and shot descriptions.
+- **Look-alike shots are retakes only when shot within half an hour.** Your room at 6:42 am and again at 11:05 pm
+  are two moments of the day, not a duplicate (re-checked without re-analysing your footage).
+- A genre can set its own song tempo range (a day: 80–125 BPM).
+
+### Fixed
+- The "music under the voice" check counted natural sound (steps, waves) as a voice, so a wordless cut with its
+  sounds kept was flagged.
+- In the review, a moment brought back into a day goes where it happened, and every cut stays on the beat.
+
 ## [0.10.1] — 2026-11-06
 ### Changed
 - **The real logos of Claude, ChatGPT, Gemini and the other AI services** in Settings → AI editor (each account,
