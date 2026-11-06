@@ -326,8 +326,8 @@ out":
 2. **Done (v0.11): day in my life (short):** chronological clips of one day, small time stamps from the capture
    time ("6:42 am"), light music, natural sound kept, ~1–2 s a clip. Its own playbook (`day_in_life`); see
    "v0.11" below.
-3. **POV / text on video + a song:** the photo-reel engine on video clips: your lines on the beat over short clips,
-   the hook line on frame one.
+3. **Done (v0.12): POV / text on video + a song:** your lines on the beat over short clips, the hook line on frame
+   one. Its own playbook (`text_reel`); see "v0.12" below.
 4. **Silent / aesthetic vlog** (non-verbal Shorts are a named 2026 trend): no talking, foley up (pour, steps, keys),
    soft music, minimal lowercase captions, slow holds.
 5. **GRWM / storytime over a routine:** talking (or a voiceover) over getting-ready B-roll. Needs the talk to stay
@@ -448,3 +448,21 @@ evening before, a warm 96 BPM song and a hype track. Findings from watching the 
 10. Found on the way: with an AI editor connected, photo reels (and now days) were sent to the AI story pass, which
     reorders "for causality, not shooting order" and replaces the song cue, so cuts left the beat grid. Beat-cut
     formats now keep the rules layout; a stub-AI test covers both.
+
+### v0.12 (your words on video), reviewed as an editor
+The aesthetic cooking shoot (six vertical clips, a calm 76 BPM song and a hype track) with a brief of four lines
+("pov: you finally learned to cook" …):
+1. The format is chosen from the brief's lines (it's a brief-driven direction, so `guess_genres` doesn't see it):
+   first at 0.97, with the footage's own genres after it; a day keeps its own format first, photos their photo reel.
+2. Every line arrives with a cut on the beat (76 BPM: a clip holds 3–4 beats), word for word, one at a time, centred
+   (no faces here). The last line ran over two clips (3 + 2 beats, 3.9 s), the cut changing under it on the beat.
+   Frames checked: balanced line breaks ("pov: you finally / learned to cook"), readable even over the busy plate.
+3. **The critic said one cut was off the beat.** It was the cut at 11.05 s, past the last beat the analysis heard
+   (the song's quiet outro). The compiler carries the grid on at the song's tempo, so the cut was on the beat. The
+   critic now carries the grid on the same way. A reel's song also now has to cover the whole reel when it starts,
+   as a day's does.
+4. The planned length ignored rounding to whole beats (10.9 s planned, 12.6 s cut). It is now measured in the song's
+   beats.
+5. Open: the rules engine can't tell which clip fits which line ("pov: you finally learned to cook" opened on the
+   room, not the food), because that needs to know what's in the shot. An AI editor could match lines to clips
+   without touching the beat grid. Not done yet: beat-cut formats keep the rules layout.

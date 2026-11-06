@@ -1,7 +1,7 @@
 {
   "name": "prepro-desktop",
   "productName": "PrePro",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "PrePro — the AI pre-edit engine for creators (desktop app)",
   "main": "main.js",
   "author": {

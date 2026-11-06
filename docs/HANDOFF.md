@@ -8,6 +8,16 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
+  brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
+  — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).
+  `_story_text_reel`: cover = best `_moment_score`, then clips in shooting order; each line gets one or more clips
+  (k beats ≈ 1.3 s, up to 2k per clip, never a sliver left) until `_read_time(line)` (+0.5 s for the last) is
+  covered; fresh windows when clips run out, a repeat only as a last resort; `self._words` = (line, first clip
+  index, duration). `_polish_text_reel`: the song on the grid (section "words") and each line as a `photo`-style
+  text at `clip:<k>` (new compiler anchor: the k-th V1 item). `BEAT_CUT` includes it. `_reel_grid` makes a day's or a
+  reel's song cover the whole cut. Critic: text_reel signature checks; the beat check carries the grid past the
+  last analysed beat. Tests `e2e/test_p9_words_on_video.py` (aesthetic_cooking + a brief).
 - **v0.11.0 (2026-11-06; CHANGELOG [0.11.0], QA "v0.11"): Day in my life.** Playbook `day_in_life` (9:16, BPM
   80–125 via the new `music.bpm` key read by `assist.music.brief_for`). `analyze/clock.py`: the creator's local clock
   (`local_time`: iPhone `com.apple.quicktime.creationdate`, photo EXIF offset, else UTC in `shoot_zone` / the PC's

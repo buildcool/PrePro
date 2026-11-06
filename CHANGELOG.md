@@ -4,6 +4,22 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-11-06
+### Added — your words on video
+- **POV / text on video.** Write your lines in the brief (a `Text:` block, "pov: …" lines or lines in quotes) and give
+  PrePro a handful of clips and a song. You get a Reel where:
+  - your first line opens on your most striking clip, from the first frame (the hook);
+  - every next line arrives with a cut on the song's beat and stays up until it can be read. A long line runs over
+    two clips, and the cut changes under it on the beat;
+  - your words appear exactly as you wrote them, one line at a time, centred and moved clear of faces;
+  - the last line holds a little longer, and the song plays through to the end.
+  When the shoot is a whole day, the day-in-my-life cut stays first and your lines go on it; photos still get the
+  photo reel.
+
+### Changed
+- The critic's "cut on the beat" check carries the song's grid on past the last beat it could hear (a quiet outro),
+  like the compiler does, so cuts there no longer count as off the beat.
+
 ## [0.11.0] — 2026-11-06
 ### Added — Day in my life
 - **A new format for a day of phone clips.** When a shoot holds five or more clips from one day, spread over three
