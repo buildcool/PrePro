@@ -17,6 +17,7 @@ from __future__ import annotations
 import functools
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -94,24 +95,33 @@ def find_cli(name: str) -> str | None:
     return next((str(c) for c in cands if c.is_file()), None)
 
 
-@functools.lru_cache(maxsize=16)
-def _version_cached(exe: str, stamp: float) -> str | None:
+_VERSIONS: dict[tuple[str, float], str | None] = {}
+
+
+def _ask_version(exe: str) -> str | None:
     from .providers import launch_command
 
     try:
         r = subprocess.run([*launch_command(exe), "--version"], capture_output=True, timeout=15)
         out = (r.stdout or r.stderr).decode("utf-8", "replace").strip().splitlines()
-        return out[0][:60] if out and r.returncode == 0 else None
     except Exception:
         return None
+    if not out or r.returncode != 0:
+        return None
+    m = re.search(r"\d+(?:\.\d+)+", out[0])        # "2.1.318 (Claude Code)" -> "2.1.318": the card already names the tool
+    return m.group(0) if m else out[0][:40]
 
 
-def cli_version(exe: str) -> str | None:
+def cli_version(exe: str, *, ask: bool = True) -> str | None:
+    """The installed CLI's version. Asked once per install (kept until the file changes); ask=False only reads what's known."""
     try:
         stamp = Path(exe).stat().st_mtime
     except OSError:
         stamp = 0.0
-    return _version_cached(exe, stamp)
+    key = (exe, stamp)
+    if key not in _VERSIONS and ask:
+        _VERSIONS[key] = _ask_version(exe)
+    return _VERSIONS.get(key)
 
 
 # ---------------------------------------------------------------- status
@@ -144,7 +154,7 @@ def overview(settings: Settings | None = None, *, versions: bool = True) -> dict
     for p in PLANS:
         exe = find_cli(p["exe"])
         plans.append({**{k: v for k, v in p.items() if k not in ("install", "signin")},
-                      "installed": bool(exe), "path": exe, "version": cli_version(exe) if (exe and versions) else None,
+                      "installed": bool(exe), "path": exe, "version": cli_version(exe, ask=versions) if exe else None,
                       "install_cmd": p["install"]["nt" if os.name == "nt" else "posix"], "npm": bool(shutil.which("npm")),
                       "test": tests.get(p["id"]), "training": TRAINING.get(p["kind"], ""),
                       "model": (s.connectors.get(p["id"]) or ConnectorConfig(kind=p["kind"])).model})

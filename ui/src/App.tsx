@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
+import { LogoTile } from "./components/BrandLogo";
 import Icon from "./components/Icon";
 import Home from "./pages/Home";
 import Project from "./pages/Project";
@@ -45,8 +46,8 @@ function AIChip({ ai }: { ai: AIOverview | null }) {
   const test = plan?.test ?? key?.test ?? local?.test ?? null;
   const tone = id === "basic" ? "" : test ? (test.ok ? "ok" : "bad") : "warn";
   return (
-    <button className="ai-chip" onClick={() => go({ page: "settings", section: "ai" })} title="AI editor — open settings">
-      <Icon name="sparkles" />
+    <button className="ai-chip" onClick={() => go({ page: "settings", section: "ai" })} title={`AI editor: ${name} — open settings`}>
+      <LogoTile id={id} />
       <span className="txt col grow" style={{ gap: 0 }}>
         <span className="who ellipsis">{name}</span>
         <span className="what">{id === "basic" ? "No AI connected · connect one" : plan ? "Your plan" : key ? "Your API key" : "On this PC"}</span>

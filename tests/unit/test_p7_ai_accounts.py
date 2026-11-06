@@ -131,6 +131,27 @@ def test_plans_are_found_where_installers_put_them(tmp_path, monkeypatch):
     assert accounts.find_cli("codex") is None
 
 
+def test_cli_versions_read_cleanly_and_are_asked_once(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from prepro.brain import accounts
+
+    asked = []
+
+    def run(cmd, **kw):
+        asked.append(cmd)
+        return SimpleNamespace(returncode=0, stdout=b"2.1.318 (Claude Code)\n", stderr=b"")
+
+    monkeypatch.setattr(accounts.subprocess, "run", run)
+    monkeypatch.setattr(accounts, "_VERSIONS", {})
+    exe = tmp_path / "claude.exe"
+    exe.write_bytes(b"")
+    assert accounts.cli_version(str(exe), ask=False) is None              # nothing known yet, and nothing launched
+    assert accounts.cli_version(str(exe)) == "2.1.318"                     # the card already says "Claude Code"
+    assert accounts.cli_version(str(exe), ask=False) == "2.1.318"          # a click's quick refresh keeps it on the card
+    assert len(asked) == 1
+
+
 def test_gemini_cli_connector(tmp_path, monkeypatch):
     from prepro.brain.providers import GeminiCLI, ProviderError
     from prepro.config import ConnectorConfig

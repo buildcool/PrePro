@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { api, followJob, type Job } from "../api";
 import { go, useToast } from "../App";
+import { LogoTile } from "../components/BrandLogo";
 import Icon from "../components/Icon";
 import TaskProgress from "../components/TaskProgress";
 import { getTheme, setTheme, type ThemeMode } from "../theme";
@@ -20,20 +21,10 @@ export const SECTIONS: [string, string, string][] = [
   ["about", "About", "info"],
 ];
 
-const MARK: Record<string, [string, string]> = {
-  "claude-plan": ["C", "#c96442"], "chatgpt-plan": ["G", "#10a37f"], "gemini-plan": ["G", "#4f7cf7"],
-  "claude-api": ["A", "#c96442"], "openai-api": ["O", "#10a37f"], gemini: ["G", "#4f7cf7"], "xai-api": ["X", "#3a3a3a"],
-  openrouter: ["R", "#6467f2"], ollama: ["L", "#5b5f66"],
-};
 const PASSES: [string, string][] = [
   ["director", "Directions, hooks, what's missing"], ["story", "Story order"], ["polish", "Music, memes, SFX, text"],
   ["critic", "Senior-editor review"], ["vision", "Shot tags from thumbnails"], ["brief", "Reading your brief"], ["revise", "Your timeline notes"],
 ];
-
-function Mark({ id }: { id: string }) {
-  const [ch, bg] = MARK[id] ?? ["•", "#5b5f66"];
-  return <div className="amark" style={{ background: bg }} aria-hidden>{ch}</div>;
-}
 
 function Row({ title, sub, children }: { title: ReactNode; sub?: ReactNode; children?: ReactNode }) {
   return (
@@ -178,8 +169,7 @@ function AISection() {
         <div className="editor-pick" role="radiogroup" aria-label="AI editor">
           {["basic", ...ai.ready].map((id) => (
             <button key={id} className={`pick${ai.editor === id ? " on" : ""}`} role="radio" aria-checked={ai.editor === id} onClick={() => put({ editor: id })}>
-              {id === "basic" ? <div className="amark" style={{ background: "var(--panel-3)", color: "var(--fg)", width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center" }}><Icon name="wand" /></div>
-                : <div style={{ width: 34, height: 34 }}><Mark id={id} /></div>}
+              <LogoTile id={id} />
               <div className="col" style={{ gap: 0 }}>
                 <span className="t">{label(id)}</span>
                 <span className="s">{sub(id)}</span>
@@ -212,7 +202,7 @@ function AISection() {
           <div className="set-group">
             {ai.local.map((l) => (
               <div key={l.id} className="acct">
-                <Mark id={l.id} />
+                <LogoTile id={l.id} />
                 <div className="col" style={{ gap: 2 }}>
                   <div className="name">{l.name} <span className="chip ok">nothing leaves this PC</span></div>
                   <div className="sub">Model {l.model}</div>
@@ -272,7 +262,7 @@ function PlanCard({ p, editor, testing, onTest, onUse, reload }: { p: PlanAccoun
   const needsNode = p.needs_npm && !p.npm;
   return (
     <div className="acct">
-      <Mark id={p.id} />
+      <LogoTile id={p.id} />
       <div className="col" style={{ gap: 3, minWidth: 0 }}>
         <div className="name">
           {p.name} <span className="dim small" style={{ fontWeight: 500 }}>· {p.plan}</span>
@@ -347,7 +337,7 @@ function KeyCard({ k, editor, testing, onTest, onUse, onChange }: { k: KeyAccoun
   };
   return (
     <div className="acct">
-      <Mark id={k.id} />
+      <LogoTile id={k.id} />
       <div className="col" style={{ gap: 3, minWidth: 0 }}>
         <div className="name">
           {k.name}
@@ -526,6 +516,7 @@ function About() {
         <Row title="Your data" sub={g ? g.data_dir : "…"} />
         <Row title="Releases and what's new"><a className="btn small" href="https://github.com/buildcool/PrePro/releases" target="_blank" rel="noreferrer"><Icon name="external" size={14} /> Open</a></Row>
         <Row title="Privacy" sub="Footage never leaves this PC. Only text (and, if you allow, small thumbnails) goes to the AI editor you choose." />
+        <Row title="Logos" sub="Claude, Anthropic, ChatGPT, OpenAI, Gemini, Grok, xAI, OpenRouter and Ollama are trademarks of their owners, shown only to name the service you connect; PrePro isn't affiliated with them. Logo files: LobeHub lobe-icons (MIT)." />
       </div>
     </>
   );

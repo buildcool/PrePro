@@ -4,6 +4,16 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-11-06
+### Changed
+- **The real logos of Claude, ChatGPT, Gemini and the other AI services** in Settings → AI editor (each account,
+  the "Who edits" picker) and in the sidebar, where you can see at a glance who edits your cuts. They replace the
+  letter tiles. Logos that are a single colour follow light and dark mode; Claude and Gemini keep their own colours.
+  The logo files are LobeHub lobe-icons (MIT, licence shipped with the app); the logos are their owners' trademarks,
+  shown only to name the service (Settings → About says so).
+- The installed tool's version reads cleanly ("Through Claude Code 2.1.318", not "2.1.318 (Claude Code)") and no
+  longer disappears from the card after you click something.
+
 ## [0.10.0] — 2026-11-06
 ### Added — the autonomous pre-editor
 - **One click from a shoot folder to a finished, exported cut.** Paste or choose a folder and press **Make my first

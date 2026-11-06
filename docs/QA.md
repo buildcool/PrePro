@@ -398,3 +398,16 @@ top-class UI, progress that doesn't look frozen, and the vision: an autonomous p
    on screen together in ≥ 15 % of the sampled frames (ANALYSIS_VERSION 13). It went unnoticed since v0.8 because
    the real-media round of the verification covers only the craft, gaming, speaker and photo files. test_m1 now
    runs in that round too.
+
+### v0.10.1 (brand logos), checked in the built-in browser
+1. **Reported by the user:** the account cards showed letter tiles ("C", "G", "G") instead of the Claude, ChatGPT
+   and Gemini logos, so signing in didn't look like their sign-in. The cards, the "Who edits" picker and the sidebar
+   chip now show the real logos (LobeHub lobe-icons, MIT). Simple Icons was tried first; it has no OpenAI or xAI logo.
+2. Checked at 1280 px in dark and light: every account shows its logo. The one-colour marks (OpenAI, Anthropic, xAI,
+   OpenRouter) are white on dark and black on light; Claude stays orange; Gemini keeps its gradient. Making Claude
+   the AI editor put its logo in the sidebar chip.
+3. Gemini's logo can be on screen four times (plan, key, picker, sidebar), and its gradients are found by id. With
+   shared ids, a hidden first copy can blank the others in some browsers. That wasn't seen here; each copy now gets
+   its own ids as a precaution.
+4. While looking, the Claude card read "Through Claude Code 2.1.318 (Claude Code)", and the version vanished after any
+   click (the quick refresh skipped it). The version is now just the number and stays put; a unit test covers both.

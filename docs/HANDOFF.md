@@ -8,6 +8,12 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.10.1 (2026-11-06; CHANGELOG [0.10.1]): brand logos for the AI accounts.** `ui/src/components/BrandLogo.tsx`
+  (`BrandLogo`, `LogoTile`) inlines the vendored SVGs in `ui/src/assets/brands/` (LobeHub lobe-icons 1.95.1, MIT,
+  see `NOTICE.md`; licence shipped as `ui/public/brands/LICENSE-lobe-icons.txt`) via Vite `?raw`; one-colour marks use
+  `currentColor`, Gemini's gradient ids are made unique per copy (`useId`). Used by the account cards, the "Who edits"
+  picker and the sidebar `AIChip`. Simple Icons was tried first but has no OpenAI or xAI logos. `accounts.cli_version`
+  now returns just the version number and `ask=False` reads the cached one (so PUT responses keep it).
 - **v0.10.0 (released 2026-11-06; CHANGELOG [0.10.0], QA "v0.10"): the autonomous pre-editor, AI accounts, a redesigned app.**
   - One click: `POST /projects/{pid}/autocut` (server/app.py) runs analysis → build("auto") → preview render → export
     (fcp7, otio, srt, report) as one job with steps (`Jobs.submit(steps=…)`, `Job.phase(k, lo, hi)` maps each step's
