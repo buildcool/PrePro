@@ -106,13 +106,7 @@ public enum Knowledge {
         switch node {
         case .scalar(let s):
             if s.style == .singleQuoted || s.style == .doubleQuoted { return .string(s.string) }
-            switch node.tag.name {
-            case .null: return .null
-            case .bool: return node.bool.map(JSONValue.bool) ?? .string(s.string)
-            case .int: return node.int.map { .number(Double($0)) } ?? .string(s.string)
-            case .float: return node.float.map { .number($0) } ?? .string(s.string)
-            default: return .string(s.string)
-            }
+            return plain(s.string)
         case .sequence(let seq):
             return .array(seq.map { value($0) })
         case .mapping(let map):
@@ -124,6 +118,23 @@ public enum Knowledge {
         default:
             return .null
         }
+    }
+
+    /// An unquoted YAML scalar, typed the way PyYAML (the desktop's reader) types it: null, YAML 1.1 booleans
+    /// (yes/no/on/off/true/false), integers, floats (with a dot), anything else a string.
+    static func plain(_ s: String) -> JSONValue {
+        if ["", "~", "null", "Null", "NULL"].contains(s) { return .null }
+        if ["yes", "Yes", "YES", "true", "True", "TRUE", "on", "On", "ON"].contains(s) { return .bool(true) }
+        if ["no", "No", "NO", "false", "False", "FALSE", "off", "Off", "OFF"].contains(s) { return .bool(false) }
+        let digits = s.replacingOccurrences(of: "_", with: "")
+        if s.range(of: #"^[-+]?(0|[1-9][0-9_]*)$"#, options: .regularExpression) != nil, let i = Int(digits) {
+            return .number(Double(i))
+        }
+        if s.range(of: #"^[-+]?([0-9][0-9_]*)?\.[0-9_]*([eE][-+]?[0-9]+)?$"#, options: .regularExpression) != nil,
+           let d = Double(digits) {
+            return .number(d)
+        }
+        return .string(s)
     }
 
     nonisolated(unsafe) private static var cache: [String: Playbook]?

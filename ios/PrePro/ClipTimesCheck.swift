@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreTransferable
 import ImageIO
+import Photos
 import PhotosUI
 import PreProCore
 import SwiftUI

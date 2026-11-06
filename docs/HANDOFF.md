@@ -8,6 +8,15 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **PrePro for iPhone (started 2026-11-07): plan `docs/IOS_PLAN.md` (approved), tester guide `docs/IOS_INSTALL.md`.**
+  Native SwiftUI app (iOS 26), $0 toolchain: no Mac here. GitHub's macOS runners (`.github/workflows/ios.yml`,
+  `runs-on: macos-26`, free for this public repo) generate the project with XcodeGen (`ios/project.yml`), run
+  `swift test` for `ios/PreProCore` and UI tests on an iPhone 17 Pro simulator, and put an unsigned `PrePro.ipa` on
+  the `ios-nightly` pre-release. Testers (primary iPhone 17 Pro, secondary iPhone 17) install it with SideStore and
+  their own free Apple ID. `PreProCore` mirrors the desktop JSON (schema/timeline.py, plan.py) and reads
+  `src/prepro/knowledge/*.yaml` (copied in by CI, gitignored); golden decisions from `scripts/export_parity.py`.
+  Milestones M0–M7 in the plan; M0 = core skeleton + clock port + starter app (build number, Apple Intelligence status,
+  clip-time check, test report). CI failures show as public annotations (logs need a sign-in).
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).
