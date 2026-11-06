@@ -31,6 +31,8 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 - **Look-alike shots are retakes only when shot within half an hour.** Your room at 6:42 am and again at 11:05 pm
   are two moments of the day, not a duplicate (re-checked without re-analysing your footage).
 - A genre can set its own song tempo range (a day: 80–125 BPM).
+- The music decision in the review says what the song does in plain words ("up front", "under the talking"), not
+  the internal "as front / as bed".
 
 ### Fixed
 - The "music under the voice" check counted natural sound (steps, waves) as a voice, so a wordless cut with its

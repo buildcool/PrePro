@@ -1135,6 +1135,9 @@ def _sfx_item(ctx: Ctx, asset: str, t0: float, gain: float = -8.0) -> Item:
                 role="sfx", note=f"builtin:{name}")
 
 
+MUSIC_WORDS = {"front": "up front", "bed": "under the talking", "light": "softly, under the clips' own sound"}   # the music's job, in words
+
+
 def _lay_music(ctx: Ctx, total: float) -> None:
     pb = K.playbook(ctx.d.playbook)
     bed_db, front_db = float(pb.music.get("bed_db", -20)), float(pb.music.get("front_db", -8))
@@ -1226,8 +1229,8 @@ def _lay_music(ctx: Ctx, total: float) -> None:
             ctx.items.append(item)
             pos += seg_len
             cur_off = 0.0
-        modes = "/".join(sorted({p[2].mode for p in parts}))
-        ctx.suggest("music", f"{a.name} as {modes} ({parts[0][2].why}); {why}", conf=0.8, t=g0,
+        modes = " and ".join(MUSIC_WORDS.get(m, m) for m in sorted({p[2].mode for p in parts}))
+        ctx.suggest("music", f"{a.name} {modes} ({parts[0][2].why}); {why}", conf=0.8, t=g0,
                     alts=parts[0][2].alternatives, payload={"track": a.id, "offset": off, "key": "music:" + ",".join(p[2].section for p in parts),
                                                             "sections": [p[2].section for p in parts]})
     for cue in ctx.polish.music:
