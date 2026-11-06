@@ -13,6 +13,8 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
   shown only to name the service (Settings → About says so).
 - The installed tool's version reads cleanly ("Through Claude Code 2.1.318", not "2.1.318 (Claude Code)") and no
   longer disappears from the card after you click something.
+- In a narrow window the sidebar's AI chip is just the logo, with its status dot as a badge, and Settings and the
+  theme button stack instead of squeezing into one row.
 
 ## [0.10.0] — 2026-11-06
 ### Added — the autonomous pre-editor

@@ -473,7 +473,10 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   .sidebar .lbl, .brand b, .brand .ver, .nav-sec, .ai-chip .txt, .nav .n { display: none; }
   .nav { justify-content: center; padding: 9px; }
   .nav.sub { padding-left: 9px; }
-  .ai-chip { justify-content: center; padding: 10px 0; }
+  .ai-chip { justify-content: center; padding: 6px; position: relative; }   /* just the logo; the status dot becomes its badge */
+  .ai-chip .dot { position: absolute; top: 3px; right: 3px; box-shadow: 0 0 0 2px var(--panel); }
+  .foot-acts { flex-direction: column; align-items: stretch; }
+  .foot-acts .icon-btn { align-self: center; }
   .settings { grid-template-columns: 1fr; }
   .settings-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
   .settings-nav h1 { display: none; }

@@ -112,7 +112,7 @@ export default function App() {
             {health && !health.ffmpeg && <span className="chip bad" style={{ alignSelf: "flex-start" }}>ffmpeg not found</span>}
             <UpdatePill onOpen={() => go({ page: "settings", section: "updates" })} />
             <AIChip ai={ai} />
-            <div className="row nowrap" style={{ gap: 4 }}>
+            <div className="row nowrap foot-acts" style={{ gap: 4 }}>
               <button className={`nav grow${route.page === "settings" ? " on" : ""}`} onClick={() => go({ page: "settings", section: "general" })}>
                 <Icon name="settings" /> <span className="lbl">Settings</span>
               </button>

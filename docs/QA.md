@@ -411,3 +411,7 @@ top-class UI, progress that doesn't look frozen, and the vision: an autonomous p
    its own ids as a precaution.
 4. While looking, the Claude card read "Through Claude Code 2.1.318 (Claude Code)", and the version vanished after any
    click (the quick refresh skipped it). The version is now just the number and stays put; a unit test covers both.
+5. Narrow window (820 px, collapsed sidebar): the new 30 px logo tile touched the chip's left edge and the status dot
+   stuck out 1 px on the right; the Settings button was squeezed to 18 px beside the theme button. The chip is now
+   the centred logo with the dot as a corner badge, and Settings and the theme button stack. Wide layout measured
+   unchanged.
