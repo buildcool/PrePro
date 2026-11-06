@@ -1,0 +1,34 @@
+{
+ "playbook": "text_reel",
+ "duration": 12.629,
+ "width": 1080,
+ "height": 1920,
+ "tracks": {
+  "V1": 5,
+  "T1": 4,
+  "A1": 2,
+  "A2": 1
+ },
+ "v1_rec_in": [
+  0.0,
+  3.158,
+  5.526,
+  8.684,
+  11.051
+ ],
+ "texts": [
+  "pov: you finally learned to cook",
+  "and it's actually good",
+  "sunday mornings hit different now",
+  "save this for your next slow weekend"
+ ],
+ "suggestion_keys": [
+  "fx:text:clip:0|pov: you finally learned",
+  "fx:text:clip:1|and it's actually good",
+  "fx:text:clip:2|sunday mornings hit diff",
+  "fx:text:clip:3|save this for your next ",
+  "hook",
+  "music:words",
+  "shot:C03.k0"
+ ]
+}

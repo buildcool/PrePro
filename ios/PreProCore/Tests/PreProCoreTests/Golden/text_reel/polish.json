@@ -1,0 +1,82 @@
+{
+ "direction_id": "d1",
+ "music": [
+  {
+   "section": "words",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "76 BPM — the clips change on its beats, from its chorus",
+   "gain_db": 0.0,
+   "offset": 22.129
+  }
+ ],
+ "effects": [
+  {
+   "type": "text",
+   "at": "clip:0",
+   "asset": null,
+   "value": null,
+   "text": "pov: you finally learned to cook",
+   "style": "photo",
+   "dur": 3.106,
+   "intent": "brief",
+   "why": "your line 1, from the first frame: it is the hook",
+   "confidence": 1.0,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "clip:1",
+   "asset": null,
+   "value": null,
+   "text": "and it's actually good",
+   "style": "photo",
+   "dur": 2.317,
+   "intent": "brief",
+   "why": "your line 2, on the beat",
+   "confidence": 1.0,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "clip:2",
+   "asset": null,
+   "value": null,
+   "text": "sunday mornings hit different now",
+   "style": "photo",
+   "dur": 3.106,
+   "intent": "brief",
+   "why": "your line 3, on the beat",
+   "confidence": 1.0,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "clip:3",
+   "asset": null,
+   "value": null,
+   "text": "save this for your next slow weekend",
+   "style": "photo",
+   "dur": 3.895,
+   "intent": "brief",
+   "why": "your line 4, on the beat",
+   "confidence": 1.0,
+   "position": "center"
+  }
+ ],
+ "broll_gaps": [],
+ "vo_script": [],
+ "look": "natural",
+ "notes": []
+}

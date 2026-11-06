@@ -1,0 +1,46 @@
+{
+ "playbook": "day_in_life",
+ "duration": 28.12,
+ "width": 1080,
+ "height": 1920,
+ "tracks": {
+  "V1": 13,
+  "T1": 8,
+  "A1": 6,
+  "A2": 1
+ },
+ "v1_rec_in": [
+  0.0,
+  3.762,
+  5.643,
+  7.5,
+  9.381,
+  11.262,
+  13.143,
+  15.0,
+  16.881,
+  18.762,
+  20.62,
+  22.5,
+  24.381
+ ],
+ "texts": [
+  "6:42 am",
+  "a day in my life",
+  "7:31 am",
+  "9:45 am",
+  "1:05 pm",
+  "4:30 pm",
+  "6:15 pm",
+  "11:05 pm"
+ ],
+ "suggestion_keys": [
+  "fx:text:start|a day in my life",
+  "hook",
+  "music:morning,midday,afternoon,evening,night",
+  "shot:C01.k0",
+  "shot:C12.k0",
+  "shot:C13.k0",
+  "stamps"
+ ]
+}

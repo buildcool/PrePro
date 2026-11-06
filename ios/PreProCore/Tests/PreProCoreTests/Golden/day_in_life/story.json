@@ -1,0 +1,170 @@
+{
+ "direction_id": "d1",
+ "hook_id": "h0",
+ "items": [
+  {
+   "ref": "C02.k0",
+   "role": "hook",
+   "t0": 0.0,
+   "t1": 3.762,
+   "section": "morning",
+   "note": "6:42 am · the first moment of your day",
+   "whole": false,
+   "beats": 6
+  },
+  {
+   "ref": "C03.k0",
+   "role": "moment",
+   "t0": 1.309,
+   "t1": 3.191,
+   "section": "morning",
+   "note": "7:05 am",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C04.k0",
+   "role": "moment",
+   "t0": 0.559,
+   "t1": 2.44,
+   "section": "morning",
+   "note": "7:31 am",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C05.k0",
+   "role": "moment",
+   "t0": 4.119,
+   "t1": 6.0,
+   "section": "morning",
+   "note": "8:20 am",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C06.k0",
+   "role": "moment",
+   "t0": 0.0,
+   "t1": 1.881,
+   "section": "morning",
+   "note": "9:45 am",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C07.k0",
+   "role": "moment",
+   "t0": 3.059,
+   "t1": 4.941,
+   "section": "morning",
+   "note": "11:10 am",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C16.k0",
+   "role": "moment",
+   "t0": 0.0,
+   "t1": 1.881,
+   "section": "midday",
+   "note": "1:05 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C08.k0",
+   "role": "moment",
+   "t0": 0.559,
+   "t1": 2.44,
+   "section": "midday",
+   "note": "1:20 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C09.k0",
+   "role": "moment",
+   "t0": 0.0,
+   "t1": 1.881,
+   "section": "afternoon",
+   "note": "4:30 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C10.k0",
+   "role": "moment",
+   "t0": 0.0,
+   "t1": 1.881,
+   "section": "evening",
+   "note": "5:48 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C11.k0",
+   "role": "moment",
+   "t0": 1.309,
+   "t1": 3.191,
+   "section": "evening",
+   "note": "6:15 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C14.k0",
+   "role": "moment",
+   "t0": 1.059,
+   "t1": 2.941,
+   "section": "night",
+   "note": "9:40 pm",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C15.k0",
+   "role": "moment",
+   "t0": 0.0,
+   "t1": 3.762,
+   "section": "night",
+   "note": "11:05 pm · the last moment of your day",
+   "whole": false,
+   "beats": 6
+  }
+ ],
+ "sections": [
+  {
+   "name": "morning",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  },
+  {
+   "name": "midday",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  },
+  {
+   "name": "afternoon",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  },
+  {
+   "name": "evening",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  },
+  {
+   "name": "night",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  }
+ ],
+ "chapters": [],
+ "why": "your day in the order it happened, 6:42 am to 11:05 pm: every moment lasts 3 beats of the song (96 BPM), the first and the last moment hold longer"
+}

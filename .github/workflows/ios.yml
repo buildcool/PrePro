@@ -1,0 +1,89 @@
+name: ios
+# PrePro for iPhone, built for $0 on GitHub's macOS runners (free for this public repo): PreProCore's tests on the Mac,
+# the app built and UI-tested on an iPhone Simulator, and an unsigned .ipa that testers install with SideStore and
+# their own free Apple ID. Pushes to dev also update the `ios-nightly` pre-release (never the "latest" release, so the
+# desktop updater doesn't see it).
+on:
+  push:
+    branches: [dev, main]
+    paths: ["ios/**", "src/prepro/knowledge/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ios:
+    runs-on: macos-26
+    env:
+      BUILD: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain (as a public notice)
+        run: echo "::notice title=Xcode on macos-26::$(xcodebuild -version | tr '\n' ' ')"
+      - name: Knowledge from the desktop engine (one source of truth)
+        run: |
+          mkdir -p ios/PreProCore/Sources/PreProCore/Resources/knowledge
+          cp src/prepro/knowledge/*.yaml ios/PreProCore/Sources/PreProCore/Resources/knowledge/
+      - name: PreProCore tests (on the Mac)
+        working-directory: ios/PreProCore
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/core.log" || {
+            # logs need a GitHub sign-in, annotations don't: say what broke
+            grep -E "error:|failed|XCTAssert" "$RUNNER_TEMP/core.log" | head -30 | while IFS= read -r l; do echo "::error title=PreProCore::${l:0:900}"; done
+            exit 1
+          }
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+      - name: Pick an iPhone 17 Pro simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          c = [x for rt, xs in sorted(d.items()) if "iOS" in rt for x in xs if x["name"].startswith("iPhone")]
+          pick = [x for x in c if x["name"] == "iPhone 17 Pro"] or c
+          print(pick[-1]["udid"] if pick else "")')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Simulator::$(xcrun simctl list devices available | grep "$UDID" | head -1 | xargs)"
+      - name: Build and UI tests (Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test -project ios/PrePro.xcodeproj -scheme PrePro -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=$BUILD 2>&1 | tee "$RUNNER_TEMP/app.log" > /dev/null || {
+            grep -E "error:|failed|XCTAssert" "$RUNNER_TEMP/app.log" | grep -v "^note:" | head -30 | while IFS= read -r l; do echo "::error title=App::${l:0:900}"; done
+            exit 1
+          }
+      - name: Unsigned .ipa
+        run: |
+          set -o pipefail
+          xcodebuild archive -project ios/PrePro.xcodeproj -scheme PrePro -configuration Release -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/PrePro.xcarchive" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=$BUILD 2>&1 | tee "$RUNNER_TEMP/archive.log" > /dev/null || {
+            grep -E "error:" "$RUNNER_TEMP/archive.log" | head -30 | while IFS= read -r l; do echo "::error title=Archive::${l:0:900}"; done
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/PrePro.xcarchive/Products/Applications/PrePro.app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry PrePro.ipa Payload)
+          echo "::notice title=PrePro.ipa::build $BUILD, $(du -h "$RUNNER_TEMP/ipa/PrePro.ipa" | cut -f1)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrePro-ios-build-${{ github.run_number }}
+          path: ${{ runner.temp }}/ipa/PrePro.ipa
+      - name: Update the ios-nightly pre-release
+        if: github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="PrePro for iPhone, test build $BUILD (commit ${GITHUB_SHA:0:7}). Install it with SideStore and your own free Apple ID: see docs/IOS_INSTALL.md."
+          if ! gh release view ios-nightly >/dev/null 2>&1; then
+            gh release create ios-nightly --prerelease --target "$GITHUB_SHA" --title "PrePro for iPhone (test build)" --notes "$NOTES"
+          else
+            gh release edit ios-nightly --prerelease --notes "$NOTES"
+          fi
+          gh release upload ios-nightly "$RUNNER_TEMP/ipa/PrePro.ipa" --clobber

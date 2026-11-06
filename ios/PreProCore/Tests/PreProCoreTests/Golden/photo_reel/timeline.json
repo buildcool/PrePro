@@ -1,0 +1,764 @@
+{
+ "id": "d1-photo_reel",
+ "name": "Photo reel · Reel/Short · ~12 s",
+ "direction_id": "d1",
+ "playbook": "photo_reel",
+ "fps": 30.0,
+ "width": 1080,
+ "height": 1920,
+ "items": [
+  {
+   "id": "m11",
+   "ref": null,
+   "track": "A2",
+   "kind": "audio",
+   "asset_id": "A01",
+   "src_in": 14.443,
+   "src_out": 27.632,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [
+    [
+     0.0,
+     -6.0
+    ]
+   ],
+   "fade_in": 0.05,
+   "fade_out": 1.5,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": null,
+   "role": "music",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  },
+  {
+   "id": "t10",
+   "ref": "fx:text:photo:0|Calangute · Oct 2026",
+   "track": "T1",
+   "kind": "text",
+   "asset_id": null,
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": "Calangute · Oct 2026",
+   "style": "photo",
+   "position": "upper",
+   "text_y": 0.1768,
+   "text_scale": null,
+   "duration": 2.341,
+   "role": "text",
+   "section": null,
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  },
+  {
+   "id": "v1",
+   "ref": "I02.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I02",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.4598,
+    "cy": 0.4171,
+    "zoom": 1.07,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.4598,
+      "cy": 0.4171,
+      "zoom": 1.07
+     },
+     {
+      "t": 2.391,
+      "cx": 0.4598,
+      "cy": 0.4171,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 2.391,
+   "role": "hook",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v2",
+   "ref": "I01.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I01",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 2.391,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.4694,
+    "cy": 0.5,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.4694,
+      "cy": 0.5,
+      "zoom": 1.0
+     },
+     {
+      "t": 1.208,
+      "cx": 0.5,
+      "cy": 0.5,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.208,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v3",
+   "ref": "I04.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I04",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 3.599,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.5,
+    "cy": 0.45,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.5,
+      "cy": 0.45,
+      "zoom": 1.0
+     },
+     {
+      "t": 1.184,
+      "cx": 0.5,
+      "cy": 0.45,
+      "zoom": 1.07
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.184,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v4",
+   "ref": "I05.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I05",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 4.783,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.4694,
+    "cy": 0.5,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.4694,
+      "cy": 0.5,
+      "zoom": 1.0
+     },
+     {
+      "t": 1.208,
+      "cx": 0.5,
+      "cy": 0.5,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.208,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v5",
+   "ref": "I11.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I11",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 5.9910000000000005,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.5,
+    "cy": 0.5,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.5,
+      "cy": 0.5,
+      "zoom": 1.0
+     },
+     {
+      "t": 1.207,
+      "cx": 0.5,
+      "cy": 0.5,
+      "zoom": 1.04
+     }
+    ],
+    "fit": true
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.207,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v6",
+   "ref": "I07.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I07",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 7.198,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.5,
+    "cy": 0.45,
+    "zoom": 1.07,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.5,
+      "cy": 0.45,
+      "zoom": 1.07
+     },
+     {
+      "t": 1.184,
+      "cx": 0.5,
+      "cy": 0.45,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.184,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v7",
+   "ref": "I08.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I08",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 8.382,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.5229,
+    "cy": 0.5,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.5229,
+      "cy": 0.5,
+      "zoom": 1.0
+     },
+     {
+      "t": 1.208,
+      "cx": 0.5,
+      "cy": 0.5,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.208,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v8",
+   "ref": "I09.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I09",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 9.59,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.5487,
+    "cy": 0.4132,
+    "zoom": 1.07,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.5487,
+      "cy": 0.4132,
+      "zoom": 1.07
+     },
+     {
+      "t": 2.391,
+      "cx": 0.5487,
+      "cy": 0.4132,
+      "zoom": 1.0
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 2.391,
+   "role": "photo",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "v9",
+   "ref": "I02.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I02",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 11.981,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.4598,
+    "cy": 0.4171,
+    "zoom": 1.1054,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.4598,
+      "cy": 0.4171,
+      "zoom": 1.1054
+     },
+     {
+      "t": 1.208,
+      "cx": 0.4598,
+      "cy": 0.4171,
+      "zoom": 1.07
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 1.208,
+   "role": "loop",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  }
+ ],
+ "captions": [],
+ "markers": [
+  {
+   "t": 0.0,
+   "name": "hook",
+   "note": "cover: your most striking photo first",
+   "color": "green",
+   "suggestion_id": "sg4"
+  },
+  {
+   "t": 11.981,
+   "name": "loop",
+   "note": "loop ending: back to the cover so the Reel replays seamlessly",
+   "color": "green",
+   "suggestion_id": "sg5"
+  },
+  {
+   "t": 0.0,
+   "name": "motion",
+   "note": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+   "color": "green",
+   "suggestion_id": "sg6"
+  },
+  {
+   "t": 0.0,
+   "name": "text",
+   "note": "where and when, from your photos — on the cover only: “Calangute · Oct 2026”",
+   "color": "green",
+   "suggestion_id": "sg7"
+  },
+  {
+   "t": 0.0,
+   "name": "music",
+   "note": "golden_hour_100.wav up front (99 BPM — the photos change on its beats; it starts at 14.4s, the drop); starts at 14.4s, where the cut's beat ",
+   "color": "green",
+   "suggestion_id": "sg8"
+  }
+ ],
+ "suggestions": [
+  {
+   "id": "sg1",
+   "type": "cut",
+   "status": "applied",
+   "confidence": 0.75,
+   "reason": "Left out IMG_0003.jpg — a burst shot — the sharpest of the burst is in",
+   "source": "rules",
+   "t": null,
+   "item_ids": [],
+   "payload": {
+    "asset": "I03",
+    "shot": "I03.k0",
+    "key": "shot:I03.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg2",
+   "type": "cut",
+   "status": "applied",
+   "confidence": 0.75,
+   "reason": "Left out IMG_0006.jpg — blurry",
+   "source": "rules",
+   "t": null,
+   "item_ids": [],
+   "payload": {
+    "asset": "I06",
+    "shot": "I06.k0",
+    "key": "shot:I06.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg3",
+   "type": "cut",
+   "status": "applied",
+   "confidence": 0.75,
+   "reason": "Left out IMG_0010.jpg — dark",
+   "source": "rules",
+   "t": null,
+   "item_ids": [],
+   "payload": {
+    "asset": "I10",
+    "shot": "I10.k0",
+    "key": "shot:I10.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg4",
+   "type": "hook",
+   "status": "applied",
+   "confidence": 0.85,
+   "reason": "cover: your most striking photo first",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [
+    "v1"
+   ],
+   "payload": {
+    "key": "cover:I02.k0",
+    "ref": "I02.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg5",
+   "type": "loop",
+   "status": "applied",
+   "confidence": 0.75,
+   "reason": "loop ending: back to the cover so the Reel replays seamlessly",
+   "source": "rules",
+   "t": 11.981,
+   "item_ids": [
+    "v9"
+   ],
+   "payload": {
+    "key": "loop:I02.k0",
+    "ref": "I02.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg6",
+   "type": "motion",
+   "status": "applied",
+   "confidence": 0.8,
+   "reason": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [
+    "v1",
+    "v2",
+    "v3",
+    "v4",
+    "v5",
+    "v6",
+    "v7",
+    "v8",
+    "v9"
+   ],
+   "payload": {
+    "key": "photomotion"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg7",
+   "type": "text",
+   "status": "applied",
+   "confidence": 0.8,
+   "reason": "where and when, from your photos — on the cover only: “Calangute · Oct 2026”",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [
+    "t10"
+   ],
+   "payload": {
+    "key": "fx:text:photo:0|Calangute · Oct 2026"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg8",
+   "type": "music",
+   "status": "applied",
+   "confidence": 0.8,
+   "reason": "golden_hour_100.wav up front (99 BPM — the photos change on its beats; it starts at 14.4s, the drop); starts at 14.4s, where the cut's beat grid begins",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [],
+   "payload": {
+    "track": "A01",
+    "offset": 14.443,
+    "key": "music:reel",
+    "sections": [
+     "reel"
+    ]
+   },
+   "alternatives": [],
+   "lint": []
+  }
+ ],
+ "music_spans": [
+  {
+   "t0": 0.0,
+   "t1": 13.189,
+   "mode": "front",
+   "section": "reel"
+  }
+ ],
+ "look": null,
+ "meta": {
+  "target": 12.0,
+  "hook": {
+   "id": "h0",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I02.k0"
+   ],
+   "text_hook": "Calangute · Oct 2026",
+   "why": "open on your most striking photo (I02): colour, contrast and a face stop the scroll",
+   "score": 0.945
+  },
+  "story_why": "cut on the beat of the song (99 BPM, from its drop): every photo lasts 2 beat(s)",
+  "vo_script": [],
+  "broll_gaps": [],
+  "music": [
+   {
+    "section": "reel",
+    "mode": "front",
+    "track_id": "A01",
+    "alternatives": [],
+    "brief": {
+     "mood": "neutral",
+     "energy": "medium",
+     "bpm_min": 80,
+     "bpm_max": 120,
+     "genre": "",
+     "vocals_ok": false,
+     "structure_needs": [],
+     "search_terms": []
+    },
+    "why": "99 BPM — the photos change on its beats; it starts at 14.4s, the drop",
+    "gain_db": 0.0,
+    "offset": 14.443
+   }
+  ],
+  "word_t": {}
+ }
+}

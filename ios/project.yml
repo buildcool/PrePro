@@ -1,0 +1,54 @@
+# XcodeGen spec for PrePro for iPhone. The Xcode project is generated on CI (`xcodegen generate`), never edited by hand.
+name: PrePro
+options:
+  bundleIdPrefix: io.github.buildcool
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+packages:
+  PreProCore:
+    path: PreProCore
+targets:
+  PrePro:
+    type: application
+    platform: iOS
+    sources:
+      - path: PrePro
+    dependencies:
+      - package: PreProCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.buildcool.prepro
+        PRODUCT_NAME: PrePro
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: PrePro
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.photography
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+  PreProUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PreProUITests
+    dependencies:
+      - target: PrePro
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.buildcool.prepro.uitests
+        TEST_TARGET_NAME: PrePro
+schemes:
+  PrePro:
+    build:
+      targets:
+        PrePro: all
+    test:
+      targets:
+        - PreProUITests

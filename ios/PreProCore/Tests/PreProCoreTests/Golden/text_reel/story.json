@@ -1,0 +1,66 @@
+{
+ "direction_id": "d1",
+ "hook_id": "h0",
+ "items": [
+  {
+   "ref": "C05.k0",
+   "role": "hook",
+   "t0": 0.0,
+   "t1": 3.156,
+   "section": "words",
+   "note": "your line 1 — the hook",
+   "whole": false,
+   "beats": 4
+  },
+  {
+   "ref": "C01.k0",
+   "role": "words",
+   "t0": 0.0,
+   "t1": 2.367,
+   "section": "words",
+   "note": "your line 2",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C02.k0",
+   "role": "words",
+   "t0": 0.0,
+   "t1": 3.156,
+   "section": "words",
+   "note": "your line 3",
+   "whole": false,
+   "beats": 4
+  },
+  {
+   "ref": "C04.k0",
+   "role": "words",
+   "t0": 0.0,
+   "t1": 2.367,
+   "section": "words",
+   "note": "your line 4",
+   "whole": false,
+   "beats": 3
+  },
+  {
+   "ref": "C06.k0",
+   "role": "words",
+   "t0": 0.711,
+   "t1": 2.289,
+   "section": "words",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  }
+ ],
+ "sections": [
+  {
+   "name": "words",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  }
+ ],
+ "chapters": [],
+ "why": "your 4 lines on your clips, in the order you shot them, cut on the beat of the song (76 BPM); your first line opens on the most striking clip"
+}
