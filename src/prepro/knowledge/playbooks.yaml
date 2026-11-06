@@ -88,6 +88,22 @@ day_in_life:
           Holding on a moment where nothing happens]
   hooks: [first_moment, visual_spectacle]
 
+text_reel:
+  name: Your words on video
+  aspect: "9:16"
+  target: [6, 45]
+  keep_ratio: 1.0
+  structure: [hook_line, line_by_line, last_line_holds]
+  pacing: {aroll_shot: [1, 3], broll_shot: [0.8, 3.0], tightness: 0.6, breath: 0.1, max_pause: 0.5, dead_zone: 8}
+  budgets: {zoom: 0.5, sfx: 0, meme: 0, transition: 0, text: 40, slowmo: 0}
+  captions: {default: "off", words: [2, 4], lines: 2, max_cps: 14}
+  music: {mode: front, bed_db: -20, front_db: -8, bpm: [75, 130], prefer: [happy, warm, chill, upbeat, calm, aesthetic], avoid: []}
+  memes: never
+  transitions: {default: cut, allowed: [cut], at: [beat]}
+  signature: [hook_line_first_frame, cut_on_the_beat, your_words_word_for_word, readable_lines]
+  donts: [Lines that flash by too fast to read, Text across a face, Cuts off the beat, Changing the creator's words]
+  hooks: [visual_spectacle]
+
 teaser:
   name: Teaser / trailer
   aspect: "9:16"

@@ -45,10 +45,11 @@ MEME_KEYWORDS = {
     "hype": ["hype", "airhorn", "lets", "go", "win"],
 }
 LOOK_BY_PLAYBOOK = {"story_vlog": "warm", "travel_film": "teal_orange", "hype_reel": "punchy", "aesthetic": "pastel", "teaser": "teal_orange",
-                    "talking_head": "natural", "podcast_clip": "natural", "gaming": "punchy", "comedy": "natural", "day_in_life": "natural"}
+                    "talking_head": "natural", "podcast_clip": "natural", "gaming": "punchy", "comedy": "natural", "day_in_life": "natural",
+                    "text_reel": "natural"}
 # formats cut on the song's beat grid: the rules engine lays out their story and music (an AI editor reordering the
 # moments "for causality" would undo the order they happened in and take every cut off the beat)
-BEAT_CUT = ("photo_reel", "day_in_life")
+BEAT_CUT = ("photo_reel", "day_in_life", "text_reel")
 
 
 def words_to_digits(text: str) -> str:
@@ -326,7 +327,16 @@ class BasicBrain:
                                            + ", with what this is on screen",
                                        score=round(0.6 + 0.3 * min(1.0, first.quality or 0.0), 3)))
                 return opts
-        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic", "photo_reel", "day_in_life")
+        if playbook == "text_reel" and self.text_lines():
+            # your first line is the hook: on the most striking clip, from the first frame
+            clips = self.good_shots()
+            if clips:
+                cover = max(clips, key=self._moment_score)
+                opts.append(HookOption(id=f"h{len(opts)}", kind="visual_spectacle", refs=[cover.id], text_hook=self.text_lines()[0],
+                                       why="your first line on your most striking clip, from the first frame",
+                                       score=round(0.65 + 0.3 * min(1.0, cover.quality or 0.0), 3)))
+                return opts
+        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic", "photo_reel", "day_in_life", "text_reel")
         if talk_ok:
             per_clip = defaultdict(int)
             cands = []
@@ -372,6 +382,13 @@ class BasicBrain:
         for g in self.pa.genres:
             if g.score >= 0.35 and g.playbook not in [k[0] for k in keys]:
                 keys.append((g.playbook, g.score, g.why, False))
+        # your own lines (a "Text:" block, POV lines) on a handful of clips: your words on video, line by line on the
+        # beat. A whole day keeps its own format first (your lines go on it too); a photo dump keeps its photo reel.
+        lines = self.text_lines()
+        if lines and not prefs.playbook and self._words_fit() and "text_reel" not in [k[0] for k in keys]:
+            at = 1 if keys and keys[0][0] == "day_in_life" else 0
+            keys.insert(at, ("text_reel", 0.97, f"your {len(lines)} line{'s' if len(lines) > 1 else ''} on your clips, each on the beat"
+                                                " of the song for as long as it takes to read", False))
         if not keys:
             keys = [("story_vlog", 0.4, "default", False)]
         speech_ok = sum(s.t1 - s.t0 for s in self.usable_segments())
@@ -464,6 +481,10 @@ class BasicBrain:
             n = len(self.day_moments())
             _grid, p, k = self._day_beat(30.0)
             est = (n + 2) * k * p if n else 0.0
+        elif pbk == "text_reel":                 # each of your lines for as long as it takes to read (in whole beats), the last longer
+            p = self._reel_grid(need=15.0, playbook="text_reel")["beat"]
+            lines = self.text_lines()
+            est = sum(np.ceil((self._read_time(t) + (0.5 if i == len(lines) - 1 else 0.0)) / p - 1e-6) * p for i, t in enumerate(lines))
         else:  # aesthetic
             est = min(45.0, broll_ok * 0.6 + speech_ok)
         if pbk == "talking_head" and est > 90:
@@ -1246,8 +1267,8 @@ class BasicBrain:
             return {"track": tid, "offset": 0.0, "beat": 0.5, "beats": [k * 0.5 for k in range(400)], "label": None, "bpm": 120.0}
         dur = self.pa.asset(tid).info.duration
         downs = m.downbeats or m.beats[::4]
-        # a day plays the song through to its end: no loop seam halfway through the evening
-        room = need * 1.15 if playbook == "day_in_life" else min(need, 8.0)
+        # a day (or your words) plays the song through to its end: no loop seam halfway through the evening
+        room = need * 1.15 if playbook in ("day_in_life", "text_reel") else min(need, 8.0)
         best = None
         for sec in sorted(m.sections, key=lambda s: -s.energy):
             cand = next((b for b in downs if b >= sec.t0 - 0.05), None)
@@ -1538,6 +1559,83 @@ class BasicBrain:
             pp.effects.append(EffectCue(type="text", at=it.ref, text=clock.stamp(when), style="stamp", dur=None, position="upper",
                                         confidence=0.8, intent="stamp", why=f"when you shot it, from the clip's own capture time — {why}"))
 
+    # ------------------------------------------------------------ your words on video
+    @staticmethod
+    def _read_time(text: str) -> float:
+        """How long a line has to stay up to be read: about three words a second, plus a moment to find it."""
+        return 0.75 + len(text.split()) / 3.0
+
+    def _words_fit(self) -> bool:
+        """Your lines go on video when the shoot is a handful of clips without much talking (photos have their own reel)."""
+        vids = [a for a in self.pa.assets if a.kind == AssetKind.BROLL and a.info.has_video and not a.info.is_image]
+        talk = sum(a.info.duration for a in self.pa.assets if a.kind == AssetKind.AROLL)
+        return (len(self.good_shots()) >= 2 and len(self.photos()) <= len(vids)
+                and talk < 0.5 * sum(a.info.duration for a in vids))
+
+    def _story_text_reel(self, d: Direction) -> StoryPlan:
+        """Your words on video. The most striking clip opens with your first line (the hook, from the first frame); each
+        next line gets the next clips in the order you shot them, cut on the song's beat, for as long as it takes to
+        read it — a long line runs over two clips, a short one fits in one — and the last line holds a little longer."""
+        lines = self.text_lines()
+        clips = self.good_shots()
+        if not lines or not clips:
+            return self._story_aesthetic(d)
+        grid = self._reel_grid(need=float(d.knobs.target_length or 15.0), playbook="text_reel")
+        p = grid["beat"]
+        k = min((1, 2, 3, 4), key=lambda n: abs(n * p - 1.3))       # a clip holds about 1.3 s, in whole beats
+        cover = max(clips, key=self._moment_score)
+        queue = [cover] + [s for s in clips if s.id != cover.id]
+        taken: dict[str, list[tuple[float, float]]] = {}
+        items: list[StoryItem] = []
+        groups: list[tuple[str, int, float]] = []                   # (line, index of its first clip, how long it's up)
+        q = 0
+        for li, line in enumerate(lines):
+            need = self._read_time(line) + (0.5 if li == len(lines) - 1 else 0.0)
+            start, got, tries = len(items), 0.0, 0
+            while got < need - 1e-6 and tries < 4 * len(queue):
+                if tries == 2 * len(queue) and len(items) == start:
+                    taken = {}                       # more words than fresh moments: a moment comes back rather than a line going
+                    q = 0
+                s = queue[q % len(queue)]
+                q += 1
+                tries += 1
+                left = max(1, int(np.ceil((need - got) / p - 1e-6)))
+                n = min(left if left <= 2 * k else 2 * k, max(1, int((s.dur - 0.05) / p)))
+                if left - n in range(1, k):                          # never leave a sliver of a clip for the end of a line
+                    n = max(1, left - k) if left > k else left
+                dur = round(n * p, 3)
+                win = self._fresh_window(s, dur, taken.get(s.id, [])) if s.id in taken else self._window(
+                    s, dur, around=s.action_peaks[0] if s.action_peaks else None)
+                if win is None or win[1] - win[0] < dur - 0.05:
+                    continue
+                taken.setdefault(s.id, []).append(win)
+                items.append(StoryItem(ref=s.id, role="hook" if not items else "words", t0=win[0], t1=win[1], section="words", beats=n,
+                                       note=(f"your line {li + 1}" if len(items) == start else "") + (" — the hook" if not items else "")))
+                got += n * p
+            if len(items) > start:
+                groups.append((line, start, round(got, 3)))
+        self._reel = {**grid, "k": k}
+        self._words = groups
+        return StoryPlan(direction_id=d.id, hook_id=d.hooks[0].id if d.hooks else None, items=items,
+                         sections=[StorySection(name="words", music_mode="front")],
+                         why=(f"your {len(groups)} line{'s' if len(groups) > 1 else ''} on your clips, in the order you shot them, cut on the"
+                              f" beat of {'the song' if grid['track'] else 'a steady beat'}"
+                              + (f" ({grid['bpm']:.0f} BPM)" if grid["track"] else "") + "; your first line opens on the most striking clip"))
+
+    def _polish_text_reel(self, d: Direction, story: StoryPlan, pp: PolishPlan) -> None:
+        """The song on the cut's beat grid, and each of your lines over its clips, word for word, off the faces."""
+        reel = getattr(self, "_reel", None) or {**self._reel_grid(float(d.knobs.target_length or 15.0), playbook="text_reel"), "k": 2}
+        if "music" not in self.no and reel["track"]:
+            label = f", from its {reel['label']}" if reel.get("label") else ""
+            pp.music.append(MusicCue(section="words", mode="front", track_id=reel["track"], offset=reel["offset"],
+                                     why=f"{reel['bpm']:.0f} BPM — the clips change on its beats{label}"))
+        if "text" in self.no:
+            return
+        for j, (line, first, dur) in enumerate(getattr(self, "_words", [])):
+            pp.effects.append(EffectCue(type="text", at=f"clip:{first}", text=line, style="photo", position="center", dur=round(dur - 0.05, 3),
+                                        confidence=1.0, intent="brief",
+                                        why=f"your line {j + 1}" + (", from the first frame: it is the hook" if j == 0 else ", on the beat")))
+
     # ------------------------------------------------------------ polish
     def polish(self, d: Direction, story: StoryPlan) -> PolishPlan:
         pb = K.playbook(d.playbook)
@@ -1548,6 +1646,9 @@ class BasicBrain:
             return pp
         if d.playbook == "day_in_life" and any(it.beats for it in story.items):   # the day, the song's beat, the time
             self._polish_day_in_life(d, story, pp)
+            return pp
+        if d.playbook == "text_reel" and any(it.beats for it in story.items):     # your words, your clips, the beat
+            self._polish_text_reel(d, story, pp)
             return pp
         target = k.target_length or 60
         # ---- music per section

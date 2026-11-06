@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from statistics import median
+
 from .. import knowledge as K
 from ..schema.analysis import ProjectAnalysis
 from ..schema.plan import CriticReport, Direction
@@ -66,12 +68,29 @@ def rules_critic(tl: Timeline, pa: ProjectAnalysis, d: Direction, findings) -> C
             present.add("loop_back_to_cover")
         if len(v1) == 1:                                 # one photo: nothing to loop back to
             sig.discard("loop_back_to_cover")
-    if d.playbook in ("photo_reel", "day_in_life"):
+    if d.playbook == "text_reel":
+        words = [i for i in tl.items if i.kind == "text" and i.style == "photo" and i.text]
+        if any(i.rec_in < 0.2 for i in words):
+            present.add("hook_line_first_frame")
+        if words:
+            present.add("your_words_word_for_word")          # only your own lines go on screen in this format
+        if words and all((i.duration or 0) >= 0.6 + len(i.text.split()) / 3.0 for i in words):
+            present.add("readable_lines")
+    if d.playbook in ("photo_reel", "day_in_life", "text_reel"):
         music = next((i for i in tl.items if i.track == "A2" and i.asset_id and pa.clips.get(i.asset_id) and pa.clips[i.asset_id].music), None)
-        if music is not None:                            # every cut (one photo: every new line) within a frame or two of a beat
+        if music is not None and len(pa.clips[music.asset_id].music.beats) > 2:
+            # every cut (one photo: every new line) within a frame or two of a beat; past the analysed beats (a quiet
+            # outro) the grid carries on at the song's tempo, as the compiler lays it
             beats = [b - music.src_in + music.rec_in for b in pa.clips[music.asset_id].music.beats]
+            period = median(b - a for a, b in zip(beats[:64], beats[1:65], strict=False))
+
+            def off_beat(c: float) -> float:
+                if c <= beats[-1] + 0.07:
+                    return min(abs(c - b) for b in beats)
+                return abs(c - (beats[-1] + round((c - beats[-1]) / period) * period))
+
             cuts = [i.rec_in for i in v1[1:]] or sorted(i.rec_in for i in tl.items if i.kind == "text")[1:]
-            if cuts and all(min(abs(c - b) for b in beats) <= 0.07 for c in cuts):
+            if cuts and all(off_beat(c) <= 0.07 for c in cuts):
                 present.add("cut_on_the_beat")
     if d.playbook == "day_in_life":
         when = [pa.clips[i.asset_id].order_key + (0.0 if i.kind == "image" else i.src_in) for i in v1 if i.asset_id in pa.clips]

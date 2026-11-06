@@ -785,6 +785,12 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             t0 = ctx.word_t[c.at]
         elif c.at.startswith("t:"):                       # an exact time (photo reels: lines land on the beat grid)
             t0 = float(c.at[2:])
+        elif c.at.startswith("clip:"):                    # the k-th clip of the cut (your words on video), for as long as asked
+            clips = sorted((i for i in ctx.items if i.track == "V1"), key=lambda i: i.rec_in)
+            k_cl = int(c.at.split(":", 1)[1])
+            if k_cl >= len(clips):
+                continue
+            t0 = clips[k_cl].rec_in
         elif c.at.startswith("photo:"):                   # the i-th photo of a photo reel (0 = the cover), for as long as it is up
             pics = sorted((i for i in ctx.items if i.track == "V1" and i.kind == "image" and i.role != "loop"), key=lambda i: i.rec_in)
             k_ph = int(c.at.split(":", 1)[1])
