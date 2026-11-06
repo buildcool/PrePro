@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from datetime import datetime
 
 from ..schema.analysis import ClipAnalysis, GenreGuess, ProjectAnalysis
 from ..schema.media import Asset, AssetKind
+from . import clock
 
 MEME_WORDS = re.compile(r"meme|reaction|bruh|lol|wtf|shock|facepalm|damage|vine|boom|sticker|cringe|wait.?what", re.I)
 SCREEN_WORDS = re.compile(r"screen|gameplay|obs|record|capture|match|stream|valorant|bgmi|pubg|minecraft|fortnite|freefire", re.I)
@@ -85,29 +87,58 @@ def place_name(pt) -> str | None:
 
 
 # bump when days/places/genre logic changes: cached analyses get just this cheap stage re-run (no re-analysis)
-CONTEXT_VERSION = 5          # 5: photo reels
+CONTEXT_VERSION = 6          # 5: photo reels; 6: days on the creator's clock (4 am to 4 am), day in my life, retakes
+                             #    only within half an hour
+
+
+RETAKE_WINDOW = 30 * 60      # seconds: the same view again within half an hour is a retake
+
+
+def split_far_duplicates(pa: ProjectAnalysis) -> None:
+    """Near-identical shots are retakes only when they were shot close together: your room at 6:42 am and again at
+    11:05 pm are the morning and the night of your day, not two takes of one shot. A look-alike group is split where
+    more than half an hour passes; each part keeps its own best take (shots without a capture time stay grouped)."""
+    groups: dict[str, list] = {}
+    for a in pa.assets:
+        for s in (pa.clips[a.id].shots if a.id in pa.clips else []):
+            if s.dup_group:
+                groups.setdefault(s.dup_group, []).append((s, clock.plausible(a.info.creation_time)))
+    for g, members in groups.items():
+        timed = sorted((m for m in members if m[1] is not None), key=lambda m: m[1])
+        parts: list[list] = []
+        for m in timed:
+            if parts and (m[1] - parts[-1][-1][1]).total_seconds() <= RETAKE_WINDOW:
+                parts[-1].append(m)
+            else:
+                parts.append([m])
+        if len(parts) <= 1:
+            continue
+        untimed = [m for m in members if m[1] is None]
+        parts[0] += untimed
+        for k, part in enumerate(parts):
+            part.sort(key=lambda m: m[0].dup_rank)          # the analysis already ranked the takes: keep that order
+            for r, (s, _t) in enumerate(part):
+                s.dup_group, s.dup_rank = (f"{g}.{k}" if len(part) > 1 else None), (r if len(part) > 1 else 0)
 
 
 def cluster_context(pa: ProjectAnalysis) -> None:
-    """Recording order, day index and place clusters (with offline reverse-geocoded names)."""
+    """Recording order, day index (shooting days on the creator's own clock) and place clusters (with offline
+    reverse-geocoded names)."""
+    split_far_duplicates(pa)
     vids = [a for a in pa.assets if a.kind in (AssetKind.AROLL, AssetKind.BROLL, AssetKind.SCREEN, AssetKind.IMAGE, AssetKind.UNKNOWN)]
-    now = datetime.now().timestamp()
-
-    def plausible(t: datetime | None) -> datetime | None:
-        # cameras with a dead clock write 1970/1904/2000-01-01 or future dates: treat as unknown
-        if t is None:
-            return None
-        ts = t.timestamp()
-        return t if 946771200 <= ts <= now + 2 * 86400 else None   # 2000-01-02 … now
-
-    times: list[tuple[Asset, datetime | None]] = [(a, plausible(a.info.creation_time)) for a in vids]
-    days = sorted({t.date() for _, t in times if t})
-    day_no = {d: k + 1 for k, d in enumerate(days)}               # Day 1, Day 2… = distinct shooting dates
+    zone = clock.shoot_zone(a.info for a in vids)
+    if zone is not None:
+        pa.stats["utc_offset_min"] = zone.utcoffset(None).total_seconds() / 60
+    else:
+        pa.stats.pop("utc_offset_min", None)
+    times: list[tuple[Asset, datetime | None]] = [(a, clock.plausible(clock.local_time(a.info, zone))) for a in vids]
+    days = sorted({clock.shooting_day(t) for _, t in times if t})
+    day_no = {d: k + 1 for k, d in enumerate(days)}               # Day 1, Day 2… = distinct shooting days
     for i, (a, t) in enumerate(sorted(times, key=lambda x: (x[1].timestamp() if x[1] else 1e18, x[0].path))):
         ca = pa.clips.setdefault(a.id, ClipAnalysis(asset_id=a.id))
         ca.order_key = t.timestamp() if t else 1e12 + i
         if t:
-            ca.day_index = day_no[t.date()]
+            ca.day_index = day_no[clock.shooting_day(t)]
     # places: greedy clustering within 25 km
     centers: list[tuple] = []
     for a in vids:
@@ -125,6 +156,27 @@ def cluster_context(pa: ProjectAnalysis) -> None:
         ca.place = centers[ca.place_cluster][1] or f"Place {ca.place_cluster + 1}"
     pa.stats["places"] = len(centers)
     pa.stats["days"] = max((c.day_index or 0) for c in pa.clips.values()) if pa.clips else 0
+
+
+DAY_NAMES = re.compile(r"ditl|day.?in.?(the|my).?life|my.?day|daily.?vlog|routine", re.I)
+
+
+def day_shape(pa: ProjectAnalysis) -> dict | None:
+    """The footage's main shooting day: how many video clips it holds (and what share of all dated clips that is), and
+    the hours it spans on the creator's clock. None without dated video clips."""
+    zone = clock.zone_from_stats(pa.stats)
+    times = []
+    for a in pa.assets:
+        if a.kind in (AssetKind.BROLL, AssetKind.AROLL) and a.info.has_video and not a.info.is_image:
+            t = clock.plausible(clock.local_time(a.info, zone))
+            if t is not None:
+                times.append(t)
+    if not times:
+        return None
+    day, n = Counter(clock.shooting_day(t) for t in times).most_common(1)[0]
+    on = sorted(t for t in times if clock.shooting_day(t) == day)
+    return {"day": day, "clips": n, "share": n / len(times), "first": on[0], "last": on[-1],
+            "hours": (on[-1] - on[0]).total_seconds() / 3600}
 
 
 def guess_genres(pa: ProjectAnalysis) -> list[GenreGuess]:
@@ -164,8 +216,19 @@ def guess_genres(pa: ProjectAnalysis) -> list[GenreGuess]:
         energy = "lots of movement" if mean_motion > 0.2 else ("some movement" if mean_motion > 0.08 else "mostly calm shots")
         add("hype_reel", 0.45 + min(0.35, mean_motion * 0.6) + 0.15 * has_hype + 0.1 * (broll_t < 60) - 0.15 * (aroll_t / video_t),
             f"{energy} in the B-roll" + (", and a high-energy track" if has_hype else "") + ("" if mean_motion > 0.08 else " — a hype cut would be a stretch"))
+    # a day in my life: one shooting day's clips from morning to night, mostly without talking (a day of photos is a
+    # photo dump, below)
+    shape = day_shape(pa)
+    n_photos = sum(1 for a in k[AssetKind.IMAGE] if a.id in pa.clips)
+    day = None
+    if (shape and shape["clips"] >= 5 and shape["hours"] >= 3.0 and shape["share"] >= 0.75 and broll_t / video_t >= 0.5
+            and n_photos <= shape["clips"]):
+        named = any(DAY_NAMES.search(a.path) for a in pa.assets)
+        day = 0.66 + 0.25 * min(1.0, (shape["hours"] - 3.0) / 5.0) + 0.06 * (shape["clips"] >= 10) + 0.1 * named
+        add("day_in_life", day, f"{shape['clips']} clips from one day, {clock.stamp(shape['first'])} to {clock.stamp(shape['last'])}"
+            " — your day in the order it happened, cut on the beat, with small time stamps")
     if broll_t / video_t > 0.5 and (food_hint or (mean_motion < 0.25 and vertical)):
-        add("aesthetic", 0.6 + 0.25 * food_hint, "calm close-ups / routine footage" + (" with food" if food_hint else ""))
+        add("aesthetic", 0.6 + 0.25 * food_hint - (0.1 if day else 0.0), "calm close-ups / routine footage" + (" with food" if food_hint else ""))
     # comedy: punchline-style talking + a meme/SFX kit in the folder (skits, roasts, reaction bits)
     memes_n = len(k[AssetKind.MEME_IMAGE]) + len(k[AssetKind.MEME_VIDEO])
     comedic_sfx = any(re.search(r"laugh|scratch|boom|bruh|fail|airhorn|rimshot", a.path, re.I) for a in k[AssetKind.SFX])

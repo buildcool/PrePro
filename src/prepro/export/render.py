@@ -401,7 +401,8 @@ def mix_audio(pa: ProjectAnalysis, proj: Project, tl: Timeline, out: Path, *, ta
         stems[k] *= gain
     tp = float(20 * np.log10(max(1e-9, _true_peak(mix))))
     out_lufs = round(after, 2) if after is not None else None
-    # speech-to-music ratio while someone talks
+    # speech-to-music ratio while someone talks (only where someone does: the sounds of a place — steps, a pan, waves —
+    # share the dialogue stem, and music over them is meant to be the louder one)
     sm = None
     d, m = stems["dialogue"][: len(mix)], stems["music"][: len(mix)]
     hop = SR // 10
@@ -409,7 +410,11 @@ def mix_audio(pa: ProjectAnalysis, proj: Project, tl: Timeline, out: Path, *, ta
     if k > 5:
         dr = np.sqrt((d[: k * hop].reshape(k, hop, 2) ** 2).mean(axis=(1, 2)))
         mr = np.sqrt((m[: k * hop].reshape(k, hop, 2) ** 2).mean(axis=(1, 2)))
-        talk = dr > 10 ** (-40 / 20)
+        spoken = np.zeros(k, dtype=bool)
+        for it in tl.items:
+            if it.track == "A1" and it.role != "natural":
+                spoken[max(0, int(it.rec_in * 10)): max(0, int(np.ceil(it.rec_out * 10)))] = True
+        talk = (dr > 10 ** (-40 / 20)) & spoken
         if talk.sum() > 3 and (mr[talk] > 1e-6).any():
             sm = round(float(np.median(20 * np.log10(dr[talk] + 1e-9) - 20 * np.log10(mr[talk] + 1e-9))), 1)
     sf.write(str(out), mix, SR, subtype="PCM_16")

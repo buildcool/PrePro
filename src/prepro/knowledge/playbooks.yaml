@@ -71,6 +71,23 @@ aesthetic:
   donts: [Cartoon SFX, Memes, Hard zooms, Loud music over natural sound]
   hooks: [result_first, visual_spectacle]
 
+day_in_life:
+  name: Day in my life
+  aspect: "9:16"
+  target: [15, 60]
+  keep_ratio: 0.5
+  structure: [first_moment, morning, midday, afternoon, evening, night]
+  pacing: {aroll_shot: [2, 5], broll_shot: [1.0, 2.4], tightness: 0.6, breath: 0.1, max_pause: 0.5, dead_zone: 6}
+  budgets: {zoom: 0.5, sfx: 0, meme: 0, transition: 0, text: 24, slowmo: 0}
+  captions: {default: clean, words: [3, 6], lines: 2, max_cps: 15, case: lower}
+  music: {mode: front, bed_db: -20, front_db: -11, bpm: [80, 125], prefer: [happy, warm, chill, upbeat, calm, aesthetic], avoid: [hype, epic]}
+  memes: never
+  transitions: {default: cut, allowed: [cut], at: [beat]}
+  signature: [chronological_order, time_stamps, cut_on_the_beat, natural_sound_kept, text_hook]
+  donts: [Moments out of the order they happened, A time stamp on every clip, Music drowning the sounds of the day,
+          Holding on a moment where nothing happens]
+  hooks: [first_moment, visual_spectacle]
+
 teaser:
   name: Teaser / trailer
   aspect: "9:16"

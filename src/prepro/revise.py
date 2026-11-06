@@ -115,7 +115,36 @@ def _insert_ref(story: StoryPlan, pa: ProjectAnalysis, ref: str, role: str) -> N
 
 def _is_reel(s: StoryPlan) -> bool:
     """A photo reel: its pictures hold whole beats of the song (the compiler lays them on the beat grid)."""
-    return any(it.beats for it in s.items)
+    return any(it.beats for it in s.items) and all(it.section == "reel" for it in s.items)
+
+
+def _is_day(s: StoryPlan) -> bool:
+    """A day in my life: moments in the order they happened, each holding whole beats of the song."""
+    return any(it.beats for it in s.items) and not _is_reel(s)
+
+
+def _insert_moment(s: StoryPlan, pa: ProjectAnalysis, ref: str) -> None:
+    """A moment brought back into a day in my life: where it happened in the day, as many beats as most moments hold
+    (the compiler lays it on the beat grid from where it starts)."""
+    if _find(s, ref) is not None:
+        return
+    _, shot = _seg_or_shot(pa, ref)
+    if shot is None:
+        return
+
+    def when(r: str, t0: float | None) -> float:
+        _, sh = _seg_or_shot(pa, r)
+        img = sh is not None and pa.asset(sh.asset_id).info.is_image
+        return _taken(pa, r) + (0.0 if img or sh is None else (t0 if t0 is not None else sh.t0))
+
+    at = when(ref, shot.t0)
+    pos = next((k for k, it in enumerate(s.items) if when(it.ref, it.t0) > at), len(s.items))
+    counts = [it.beats for it in s.items if it.beats and it.role == "moment"] or [2]
+    near = s.items[max(0, pos - 1)] if s.items else None
+    s.items.insert(pos, StoryItem(ref=ref, role="moment" if pos else "hook", t0=shot.t0, section=near.section if near else "day",
+                                  beats=max(set(counts), key=counts.count), note="brought back by you"))
+    if pos == 0 and len(s.items) > 1 and s.items[1].role == "hook":
+        s.items[1].role = "moment"
 
 
 def _taken(pa: ProjectAnalysis, ref: str) -> float:
@@ -187,6 +216,8 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                 _insert_ref(s, pa, key[4:], "body")
             elif key.startswith("shot:") and _is_reel(s):
                 _insert_photo(s, pa, key[5:])
+            elif key.startswith("shot:") and _is_day(s):
+                _insert_moment(s, pa, key[5:])
             elif key.startswith("shot:"):
                 _insert_ref(s, pa, key[5:], "broll")
             elif key.startswith("cover:"):              # another cover: the next best photo the brain offered
@@ -196,6 +227,8 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
                     _swap_cover(s, pa, nxt.refs[0], note="cover: the next most striking photo (you turned the first one down)")
             elif key == "photomotion":
                 dd.knobs.photo_motion = False
+            elif key == "stamps":                       # no time stamps on this day in my life
+                p.effects = [c for c in p.effects if not (c.type == "text" and c.intent == "stamp")]
             elif key.startswith("beat:"):
                 k = _find(s, key[5:])
                 if k is not None:

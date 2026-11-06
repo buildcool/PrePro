@@ -34,7 +34,7 @@ from ..schema.plan import (
     StoryPlan,
     StorySection,
 )
-from .basic import BasicBrain
+from .basic import BEAT_CUT, BasicBrain
 from .providers import Provider, ProviderError
 
 # ---------------------------------------------------------------- schemas (strict-mode friendly)
@@ -278,6 +278,8 @@ class AIBrain(BasicBrain):
 
     def story(self, d: Direction) -> StoryPlan:
         base = super().story(d)
+        if d.playbook in BEAT_CUT:      # laid on the song's beat grid in the order things happened: an AI reorder would undo both
+            return base
         pb = K.playbook(d.playbook)
         data = self._call("story", f"TASK: build the story for direction “{d.name}” (playbook {d.playbook}: structure {' → '.join(pb.structure)}; "
                           f"target {d.knobs.target_length:.0f}s; hook first: {d.hooks[0].refs if d.hooks else 'your choice'}). "
@@ -336,6 +338,8 @@ class AIBrain(BasicBrain):
 
     def polish(self, d: Direction, story: StoryPlan) -> PolishPlan:
         base = super().polish(d, story)
+        if d.playbook in BEAT_CUT:      # the song starts where the beat grid does; its words and stamps are already placed
+            return base
         pb = K.playbook(d.playbook)
         data = self._call("polish", f"TASK: polish direction “{d.name}” ({d.playbook}). Budgets per minute: {json.dumps(pb.budgets)}. "
                           f"Music: pick track ids ONLY from MUSIC (bed under speech = instrumental), or null + search_terms. Effects anchor 'at' = a word/segment/shot id, "

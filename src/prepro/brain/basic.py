@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 import numpy as np
 
 from .. import knowledge as K
+from ..analyze import clock
 from ..assist.music import brief_for, rank_tracks, soundtrack_mode
 from ..schema.analysis import ProjectAnalysis, Segment, Shot
 from ..schema.brief import CreatorBrief
@@ -43,7 +45,10 @@ MEME_KEYWORDS = {
     "hype": ["hype", "airhorn", "lets", "go", "win"],
 }
 LOOK_BY_PLAYBOOK = {"story_vlog": "warm", "travel_film": "teal_orange", "hype_reel": "punchy", "aesthetic": "pastel", "teaser": "teal_orange",
-                    "talking_head": "natural", "podcast_clip": "natural", "gaming": "punchy", "comedy": "natural"}
+                    "talking_head": "natural", "podcast_clip": "natural", "gaming": "punchy", "comedy": "natural", "day_in_life": "natural"}
+# formats cut on the song's beat grid: the rules engine lays out their story and music (an AI editor reordering the
+# moments "for causality" would undo the order they happened in and take every cut off the beat)
+BEAT_CUT = ("photo_reel", "day_in_life")
 
 
 def words_to_digits(text: str) -> str:
@@ -309,7 +314,19 @@ class BasicBrain:
                                            + f" ({cover.asset_id}): colour, contrast" + (" and a face" if cover.faces else "")
                                            + " stop the scroll",
                                        score=round((0.6 + 0.4 * (cover.aesthetic or 0)) * (1.0 - 0.1 * k), 3)))
-        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic", "photo_reel")
+        if playbook == "day_in_life":
+            # a day opens where it starts: the first moment, with what this is on screen (the time stamp and the
+            # title do the hooking; jumping to the evening first would break the day's order)
+            moments = self.day_moments()
+            if moments:
+                first = moments[0]
+                when = self.shot_clock(first)
+                opts.append(HookOption(id=f"h{len(opts)}", kind="first_moment", refs=[first.id], text_hook=self.day_title(),
+                                       why="open on the first moment of your day" + (f" ({clock.stamp(when)})" if when else "")
+                                           + ", with what this is on screen",
+                                       score=round(0.6 + 0.3 * min(1.0, first.quality or 0.0), 3)))
+                return opts
+        talk_ok = playbook not in ("travel_film", "hype_reel", "aesthetic", "photo_reel", "day_in_life")
         if talk_ok:
             per_clip = defaultdict(int)
             cands = []
@@ -380,7 +397,8 @@ class BasicBrain:
             cap_default = pb.captions.get("default", "clean")
             if aspect == "9:16" and pbk in ("story_vlog", "talking_head", "podcast_clip", "comedy", "gaming") and cap_default == "clean":
                 cap_default = "bold"      # reels/shorts are watched on mute: word-pop captions
-            knobs = Knobs(pace=prefs.pace if prefs.pace is not None else {"hype_reel": 0.9, "teaser": 0.8, "aesthetic": 0.25, "travel_film": 0.6}.get(pbk, 0.5),
+            knobs = Knobs(pace=prefs.pace if prefs.pace is not None else {"hype_reel": 0.9, "teaser": 0.8, "aesthetic": 0.25, "travel_film": 0.6,
+                                                                          "day_in_life": 0.55}.get(pbk, 0.5),
                           effects=prefs.effects or "balanced", captions=prefs.captions or cap_default,
                           humour=prefs.humour or ("light" if pb.memes in ("light", "allowed", "comedic_only") else "off"),
                           target_length=target, freedom=prefs.freedom, look=prefs.look or LOOK_BY_PLAYBOOK.get(pbk),
@@ -442,6 +460,10 @@ class BasicBrain:
         elif pbk == "photo_reel":                # ≈ 1.2 s a photo + a held cover; one photo: two to four phrases
             n = len(self.photos())
             est = 10.0 + 3.5 * max(0, len(self.text_lines()) - 2) if n <= 1 else 2.4 + 1.2 * n
+        elif pbk == "day_in_life":               # every moment of the day, k beats each; the first and the last twice that
+            n = len(self.day_moments())
+            _grid, p, k = self._day_beat(30.0)
+            est = (n + 2) * k * p if n else 0.0
         else:  # aesthetic
             est = min(45.0, broll_ok * 0.6 + speech_ok)
         if pbk == "talking_head" and est > 90:
@@ -1216,18 +1238,20 @@ class BasicBrain:
             return f"{where} · {when.strftime('%b %Y')}"
         return where or None
 
-    def _reel_grid(self, need: float) -> dict:
-        """The song and the beat grid a photo reel is cut on: a downbeat at the start of the song's strongest part (its
-        drop/chorus) that leaves enough music after it."""
-        tid, m = self._music_plan(Direction(id="x", playbook="photo_reel", name="x", aspect="9:16"), need)
+    def _reel_grid(self, need: float, playbook: str = "photo_reel") -> dict:
+        """The song and the beat grid a photo reel (or a day in my life) is cut on: a downbeat at the start of the song's
+        strongest part (its drop/chorus) that leaves enough music after it."""
+        tid, m = self._music_plan(Direction(id="x", playbook=playbook, name="x", aspect="9:16"), need)
         if m is None or len(m.beats) < 8:
             return {"track": tid, "offset": 0.0, "beat": 0.5, "beats": [k * 0.5 for k in range(400)], "label": None, "bpm": 120.0}
         dur = self.pa.asset(tid).info.duration
         downs = m.downbeats or m.beats[::4]
+        # a day plays the song through to its end: no loop seam halfway through the evening
+        room = need * 1.15 if playbook == "day_in_life" else min(need, 8.0)
         best = None
         for sec in sorted(m.sections, key=lambda s: -s.energy):
             cand = next((b for b in downs if b >= sec.t0 - 0.05), None)
-            if cand is not None and cand + min(need, 8.0) <= dur:
+            if cand is not None and cand + room <= dur:
                 best = (cand, sec.label)
                 break
         start, label = best if best else (downs[0], None)
@@ -1351,6 +1375,169 @@ class BasicBrain:
             pp.effects.append(EffectCue(type="text", at="photo:0", text=title, style="photo", position="upper", dur=None,
                                         confidence=0.8, why="where and when, from your photos — on the cover only"))
 
+    # ------------------------------------------------------------ day in my life
+    def shot_clock(self, s: Shot, at: float | None = None) -> datetime | None:
+        """When a moment happened on the creator's clock: the clip's start time plus how far into the clip it is."""
+        a = self.assets[s.asset_id]
+        t = clock.plausible(clock.local_time(a.info, clock.zone_from_stats(self.pa.stats)))
+        if t is None:
+            return None
+        if a.kind == AssetKind.IMAGE or a.info.is_image:
+            return t
+        return t + timedelta(seconds=float(at if at is not None else s.t0))
+
+    def day_moments(self) -> list[Shot]:
+        """Every usable moment of the footage's main shooting day, in the order it happened: B-roll shots and photos
+        (one per burst; dark, blurry, shaky and pocket shots out unless the brief keeps them)."""
+        from ..analyze.context import day_shape
+
+        cache = getattr(self, "_moments", None)
+        if cache is not None:
+            return cache
+        shape = day_shape(self.pa)
+        out = []
+        for s in self.good_shots() + self.photos():
+            t = self.shot_clock(s)
+            if t is None:
+                continue
+            forced = s.id in self.included or s.asset_id in self.included
+            if shape and clock.shooting_day(t) != shape["day"] and not forced:
+                continue
+            out.append((t, s))
+        out.sort(key=lambda x: (x[0], x[1].t0))
+        self._moments = [s for _, s in out]
+        return self._moments
+
+    def _day_beat(self, need: float) -> tuple[dict, float, int]:
+        """The song's beat grid for a day in my life, its beat length, and how many beats a moment holds: about a
+        second and a half (90 BPM → 2 beats, 96 → 3, 120 → 3, 150 → 4)."""
+        grid = self._reel_grid(need=need, playbook="day_in_life")
+        p = grid["beat"]
+        return grid, p, min((1, 2, 3, 4), key=lambda n: abs(n * p - 1.6))
+
+    def _moment_score(self, s: Shot) -> float:
+        """What makes a moment worth its second and a half: sharp and well made, something happening, a person in it."""
+        return ((s.quality or 0) + 0.25 * bool(s.action_peaks) + 0.2 * (s.aesthetic or 0) + 0.1 * min(1.0, s.motion / 0.12)
+                + 0.1 * bool(s.faces))
+
+    def day_title(self) -> str | None:
+        """Words for the first frame: the creator's own first line, else "a day in my life"."""
+        lines = self.text_lines()
+        if lines:
+            return lines[0]
+        start = next((r.target for r in self.rules if r.kind == "add_text" and r.anchor == "start"), None)
+        if start:
+            return start
+        # not "in <place>": the offline map names the nearest village, which is rarely what you'd call the place
+        return "a day in my life"
+
+    def _story_day_in_life(self, d: Direction) -> StoryPlan:
+        """One day in the order it happened. Every moment lasts whole beats of the song (about a second and a half);
+        the first and the last moment of the day are always in and hold longer; when there's more than fits, the rest
+        are picked evenly across the day — the best moment of each stretch — so the morning doesn't eat the video."""
+        pool = self.day_moments()
+        if len(pool) < 3:
+            return self._story_aesthetic(d)
+        target = float(d.knobs.target_length or 30.0)
+        grid, p, k = self._day_beat(target)
+        first, last, middle = pool[0], pool[-1], pool[1:-1]
+        n_mid = max(1, int(round(target / p)) - 4 * k) // k        # the first and the last hold two counts each
+        if (4 + len(middle)) * k * p <= float(d.target_max or target * 1.15):
+            n_mid = len(middle)                                     # it all fits: every moment of the day is in
+        if n_mid < len(middle):
+            picks: list[Shot] = []
+            for b in range(n_mid):
+                lo, hi = round(b * len(middle) / n_mid), round((b + 1) * len(middle) / n_mid)
+                bucket = middle[lo:max(hi, lo + 1)]
+                prev = picks[-1].asset_id if picks else first.asset_id
+                picks.append(max(bucket, key=lambda s: self._moment_score(s) - (0.3 if s.asset_id == prev else 0.0)))
+            middle = picks
+        chosen = [first, *middle, last]
+        items: list[StoryItem] = []
+        for i, s in enumerate(chosen):
+            photo = self.assets[s.asset_id].kind == AssetKind.IMAGE
+            n = 2 * k if i in (0, len(chosen) - 1) else k            # an even groove; the day's first and last moment linger
+            while not photo and n > 1 and n * p > s.dur - 0.05:      # a short clip gets fewer beats, never a freeze
+                n -= 1
+            if not photo and n * p > s.dur - 0.05:
+                continue
+            dur = round(n * p, 3)
+            t0, t1 = (0.0, dur) if photo else self._window(s, dur, around=s.action_peaks[0] if s.action_peaks else None)
+            when = self.shot_clock(s, t0)
+            role = "hook" if not items else "moment"
+            note = ("the first moment of your day" if not items else "the last moment of your day" if i == len(chosen) - 1 else "")
+            items.append(StoryItem(ref=s.id, role=role, t0=t0, t1=t1, section=clock.part_of_day(when) if when else "day", beats=n,
+                                   note=(f"{clock.stamp(when)} · {note}" if when and note else clock.stamp(when) if when else note)))
+        sections = [StorySection(name=n, music_mode="front") for n in dict.fromkeys(it.section for it in items)]
+        self._reel = {**grid, "k": k}
+        a, b = self.shot_clock(chosen[0]), self.shot_clock(chosen[-1])
+        song = f"the song ({grid['bpm']:.0f} BPM)" if grid["track"] else "a steady beat (there's no song in your music folder)"
+        more = len(pool) - len(items)
+        return StoryPlan(direction_id=d.id, hook_id=d.hooks[0].id if d.hooks else None, items=items, sections=sections,
+                         why=("your day in the order it happened" + (f", {clock.stamp(a)} to {clock.stamp(b)}" if a and b else "")
+                              + f": every moment lasts {k} beat{'s' if k > 1 else ''} of {song}, the first and the last moment hold"
+                              " longer" + (f"; {more} more moment{'s wait' if more > 1 else ' waits'} in the review if you want a"
+                                           " longer day" if more > 0 else "")))
+
+    def _polish_day_in_life(self, d: Direction, story: StoryPlan, pp: PolishPlan) -> None:
+        """The song on the cut's beat grid, what this is on the first frame, your own lines across the day, and a small
+        time stamp whenever the day moves on (not on every clip: that's a ticking clock, not a story)."""
+        reel = getattr(self, "_reel", None) or {**self._reel_grid(float(d.knobs.target_length or 30.0), playbook="day_in_life"), "k": 2}
+        if "music" not in self.no:
+            if reel["track"]:
+                label = f", from its {reel['label']}" if reel.get("label") else ""
+                for sec in story.sections:
+                    pp.music.append(MusicCue(section=sec.name, mode="front", track_id=reel["track"], offset=reel["offset"],
+                                             why=f"{reel['bpm']:.0f} BPM — your moments change on its beats{label}; the sounds of"
+                                                 " your day stay under it"))
+            elif story.sections:
+                pb = K.playbook("day_in_life")
+                pp.music.append(MusicCue(section=story.sections[0].name, mode="front", track_id=None,
+                                         brief=brief_for("front", pb, self.brief.prefs.music_mood, need_secs=float(d.knobs.target_length or 30)),
+                                         why="a light, warm song would carry the day"))
+        if "text" in self.no or not story.items:
+            return
+        lines = self.text_lines()
+        title = self.day_title()
+        if title:
+            read = round(max(2.4, 0.8 + len(title.split()) / 3.0), 1)
+            pp.effects.append(EffectCue(type="text", at="start", text=title, style="photo", position="center", dur=read,
+                                        confidence=1.0 if lines else 0.75, intent="brief" if lines else "title",
+                                        why="your line, on the first frame" if lines else "what this is, on the first frame — it works on mute"))
+        # your other lines, spread evenly over the day's moments
+        rest = lines[1:]
+        for j, line in enumerate(rest, start=1):
+            it = story.items[min(len(story.items) - 1, round(j * len(story.items) / (len(rest) + 1)))]
+            pp.effects.append(EffectCue(type="text", at=it.ref, text=line, style="photo", position="center",
+                                        dur=round(max(1.8, 0.8 + len(line.split()) / 3.0), 1), confidence=1.0, intent="brief",
+                                        why=f"your line {j + 1}, on the day's moment it falls on"))
+        # time stamps: where the day starts and where it ends, and between them whenever the day moves on (a new part
+        # of the day, or 40 minutes later) — at least three seconds apart on screen, on moments long enough to read one
+        timed, t = [], 0.0
+        for it in story.items:
+            dur = (it.t1 or 0.0) - (it.t0 or 0.0)
+            sh = self._shot(it.ref)
+            when = self.shot_clock(sh, it.t0) if sh is not None else None
+            if when is not None and dur >= 1.25:
+                timed.append((t, it, when))
+            t += dur
+        if not timed:
+            return
+        picks = [timed[0]]
+        end = timed[-1] if len(timed) > 1 and timed[-1][0] - timed[0][0] >= 2.9 else None
+        for row in timed[1:-1]:
+            t_on, it, when = row
+            last_t, last_it, last_when = picks[-1]
+            moved = it.section != last_it.section or when - last_when >= timedelta(minutes=40)
+            if moved and t_on - last_t >= 2.9 and (end is None or end[0] - t_on >= 2.9):
+                picks.append(row)
+        if end is not None:
+            picks.append(end)
+        for k_st, (_t_on, it, when) in enumerate(picks):
+            why = "where your day starts" if k_st == 0 else "where your day ends" if end is not None and it is end[1] else "the day moves on"
+            pp.effects.append(EffectCue(type="text", at=it.ref, text=clock.stamp(when), style="stamp", dur=None, position="upper",
+                                        confidence=0.8, intent="stamp", why=f"when you shot it, from the clip's own capture time — {why}"))
+
     # ------------------------------------------------------------ polish
     def polish(self, d: Direction, story: StoryPlan) -> PolishPlan:
         pb = K.playbook(d.playbook)
@@ -1358,6 +1545,9 @@ class BasicBrain:
         pp = PolishPlan(direction_id=d.id, look=None if "look" in self.no else k.look)
         if d.playbook == "photo_reel":            # the photos, the song's beat and your words — nothing else
             self._polish_photo_reel(d, story, pp)
+            return pp
+        if d.playbook == "day_in_life" and any(it.beats for it in story.items):   # the day, the song's beat, the time
+            self._polish_day_in_life(d, story, pp)
             return pp
         target = k.target_length or 60
         # ---- music per section

@@ -27,6 +27,7 @@ STYLES = {
     "callout": ("Anton", 0.060, "&H0000E5FF", "&H00000000", 0, True),
     "aesthetic": ("Playfair Display", 0.036, "&H00FFFFFF", "&H40000000", 0, False),
     "photo": ("Montserrat", 0.044, "&H00FFFFFF", "&H60000000", -1, False),      # words on a photo: a soft edge, not a subtitle box
+    "stamp": ("Montserrat", 0.030, "&H00FFFFFF", "&H60000000", -1, False),      # "6:42 am": small, top centre, a soft shadow
     "devanagari": ("Noto Sans Devanagari", 0.046, "&H00FFFFFF", "&H00000000", -1, False),
 }
 
@@ -238,7 +239,7 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
         fs = int(H * size * (1.0 if vertical else 0.9))
         outline = max(2, fs // 14)
         shadow, back = max(1, outline // 2), "&H80000000"
-        if name == "photo":                                # thin edge + soft drop shadow (blurred in the event)
+        if name in ("photo", "stamp"):                     # thin edge + soft drop shadow (blurred in the event)
             outline, shadow, back = max(1, fs // 40), max(2, fs // 16), "&H70000000"
         mv = int(H * bottom) if name not in ("hook", "title", "card") else int(H * top)
         align = 2 if name not in ("hook", "title", "card") else 8
@@ -280,6 +281,12 @@ def write_ass(tl: Timeline, path: Path, *, word_highlight: bool = True) -> Path:
             continue
         st = it.style if it.style in STYLES else "title"
         txt = _esc(it.text.upper() if STYLES[st][5] else it.text)
+        if st == "stamp":                                  # a time stamp: small, top centre (low when a face is up there)
+            low = it.position == "lower"
+            y = int(H * (1 - bottom)) if low else int(H * (top + 0.012))
+            lines.append(f"Dialogue: 2,{_ts(it.rec_in)},{_ts(it.rec_out)},stamp,,0,0,0,,"
+                         + "{\\fad(90,120)\\blur1\\an" + ("2" if low else "8") + f"\\pos({W // 2},{y})" + "}" + txt)
+            continue
         anim = "{\\fad(120,160)\\fscx92\\fscy92\\t(0,140,\\fscx100\\fscy100)}"
         if st == "photo":                                  # words on a photo: balanced lines, a gentle fade, a soft shadow
             sc = it.text_scale or 1.0

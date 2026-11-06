@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from datetime import UTC
 from pathlib import Path
 
 import numpy as np
@@ -18,7 +19,7 @@ from . import audio as A
 from . import visual as V
 
 KINDS = ["travel_vlog", "aesthetic_cooking", "hype_reel", "talking_head", "comedy_skit", "gaming", "hindi_vlog", "podcast_long",
-         "podcast_duo", "photo_dump", "photo_single"]
+         "podcast_duo", "photo_dump", "photo_single", "day_in_life"]
 
 GOA = "+15.5527+073.7517/"
 JAIPUR = "+26.9124+075.7873/"
@@ -445,6 +446,79 @@ def _build_photo_dump(root, truth, *, face, md, quick, sidecars, with_brief):
         "sideways": {"photos/IMG_0002.jpg": [1500, 2000], "photos/IMG_0007.jpg": [1500, 2000]},
         "song_chorus": 14.4,
         "beat": 0.6,
+    }
+
+
+def _build_day_in_life(root, truth, *, face, md, quick, sidecars, with_brief):
+    """One Saturday off a phone, 6:42 am to 11:05 pm in India (+05:30): vertical clips with the phone's local time tag
+    (as an iPhone writes it) and UTC, the sounds of the day on some (chopping, a pan, typing, friends laughing,
+    waves), a near-duplicate of the sunset, a shaky clip, one clip from the evening before, and two songs (a warm one
+    and a hype one). File names don't follow the clock (the lunch clip is VID_0099). Ground truth: the moments in the
+    order they happened, what an editor leaves out, and the times the stamps must show."""
+    from datetime import datetime, timedelta, timezone
+
+    import numpy as np
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    snd = {k: root / f"footage/.{k}.wav" for k in ("chop", "sizzle", "click", "laugh", "waves")}
+    for k, p in snd.items():                        # the sound repeats through the whole clip (typing, chopping…)
+        one = A.sfx(k, seed=7)
+        gap = np.zeros(int(A.SR * (0.18 if k == "click" else 0.6)), dtype=np.float32)
+        y = np.concatenate([np.concatenate([one, gap])] * 40)[: int(A.SR * 7.0)]
+        A.write_wav(p, y)
+
+    def times(day: int, hhmm: str) -> dict:
+        t = datetime(2026, 10, day, int(hhmm[:2]), int(hhmm[3:]), tzinfo=ist)
+        return {"local_time": t.isoformat(), "ct": t.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+    clips = [  # file, scene, seed, dur, move, local time, sound, extra
+        ("VID_0001.mp4", "room", 101, 5, "static", "06:42", None, {}),
+        ("VID_0002.mp4", "cafe", 102, 5, "push_in", "07:05", "chop", {}),
+        ("VID_0003.mp4", "food", 103, 4, "static", "07:31", "sizzle", {}),
+        ("VID_0004.mp4", "city", 104, 6, "pan_right", "08:20", None, {}),
+        ("VID_0005.mp4", "room", 105, 5, "pan_left", "09:45", "click", {}),
+        ("VID_0006.mp4", "market", 106, 5, "pan_left", "11:10", None, {}),
+        ("VID_0099.mp4", "food", 107, 5, "push_in", "13:05", "sizzle", {}),
+        ("VID_0008.mp4", "cafe", 108, 4, "static", "13:20", "laugh", {}),
+        ("VID_0009.mp4", "forest", 109, 5, "tilt_up", "16:30", None, {}),
+        ("VID_0011.mp4", "sunset", 111, 6, "static", "18:15", "waves", {}),
+        ("VID_0012.mp4", "sunset", 111, 5, "static", "18:16", "waves", {"dup_of": "footage/VID_0011.mp4"}),
+        ("VID_0013.mp4", "market", 113, 4, "shaky", "19:30", None, {"flags": ["shaky"]}),
+        ("VID_0014.mp4", "city", 114, 5, "pan_right", "21:40", None, {}),
+        ("VID_0015.mp4", "room", 115, 4, "static", "23:05", None, {}),
+    ]
+    for name, scene, seed, dur, move, hhmm, sound, extra in clips:
+        tt = times(17, hhmm)
+        rel = f"footage/{name}"
+        V.still_clip(V.scenery(scene, seed=seed), root / rel, dur=dur, move=move, creation_time=tt["ct"], local_time=tt["local_time"],
+                     location=GOA, vertical=True, audio=snd[sound] if sound else None)
+        truth["clips"][rel] = {"kind": "broll", "scene": scene, "move": move, "flags": extra.get("flags", []), "place": "Goa", "day": 1,
+                               "dup_of": extra.get("dup_of"), "fps": 30, "local_time": tt["local_time"]}
+    tt = times(17, "17:48")                         # the jump on the beach: the day's action moment (60 fps)
+    out, peak = V.action_clip(V.scenery("beach", w=1440, h=2560, seed=110), root / "footage/VID_0010.mp4", dur=4, size=(720, 1280), creation_time=tt["ct"],
+                              local_time=tt["local_time"], location=GOA)
+    truth["clips"]["footage/VID_0010.mp4"] = {"kind": "broll", "scene": "beach", "move": "action", "fps": 60, "action_peak": peak,
+                                               "flags": [], "place": "Goa", "day": 1, "local_time": tt["local_time"]}
+    tt = times(16, "20:10")                         # the evening before: not part of this day
+    V.still_clip(V.scenery("city", seed=120), root / "footage/VID_0000.mp4", dur=4, move="pan_left", creation_time=tt["ct"],
+                 local_time=tt["local_time"], location=GOA, vertical=True)
+    truth["clips"]["footage/VID_0000.mp4"] = {"kind": "broll", "scene": "city", "flags": [], "day": 0, "local_time": tt["local_time"]}
+    for p in snd.values():
+        p.unlink(missing_ok=True)
+    _music(root, truth, "sunday_morning_96", bpm=96, minor=False, mood="warm", seed=17,
+           sections=[("intro", 2, 0.3), ("verse", 8, 0.55), ("chorus", 8, 0.8), ("outro", 2, 0.35)])
+    _music(root, truth, "hype_trap_140", bpm=140, mood="hype", seed=10,
+           sections=[("intro", 2, 0.4), ("drop", 8, 1.0), ("outro", 2, 0.4)])
+    order = ["VID_0001", "VID_0002", "VID_0003", "VID_0004", "VID_0005", "VID_0006", "VID_0099", "VID_0008", "VID_0009", "VID_0010",
+             "VID_0011", "VID_0014", "VID_0015"]
+    truth["expect"] = {
+        "playbooks": ["day_in_life"],
+        "order": [f"footage/{n}.mp4" for n in order],
+        "left_out": {"footage/VID_0012.mp4": "near-duplicate", "footage/VID_0013.mp4": "shaky", "footage/VID_0000.mp4": "another day"},
+        "first_stamp": "6:42 am",
+        "last_moment": "footage/VID_0015.mp4",
+        "song": "music/sunday_morning_96.wav",
+        "beat": 0.625,
     }
 
 

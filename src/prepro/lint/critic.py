@@ -66,12 +66,23 @@ def rules_critic(tl: Timeline, pa: ProjectAnalysis, d: Direction, findings) -> C
             present.add("loop_back_to_cover")
         if len(v1) == 1:                                 # one photo: nothing to loop back to
             sig.discard("loop_back_to_cover")
+    if d.playbook in ("photo_reel", "day_in_life"):
         music = next((i for i in tl.items if i.track == "A2" and i.asset_id and pa.clips.get(i.asset_id) and pa.clips[i.asset_id].music), None)
         if music is not None:                            # every cut (one photo: every new line) within a frame or two of a beat
             beats = [b - music.src_in + music.rec_in for b in pa.clips[music.asset_id].music.beats]
             cuts = [i.rec_in for i in v1[1:]] or sorted(i.rec_in for i in tl.items if i.kind == "text")[1:]
             if cuts and all(min(abs(c - b) for b in beats) <= 0.07 for c in cuts):
                 present.add("cut_on_the_beat")
+    if d.playbook == "day_in_life":
+        when = [pa.clips[i.asset_id].order_key + (0.0 if i.kind == "image" else i.src_in) for i in v1 if i.asset_id in pa.clips]
+        if len(when) > 1 and all(a <= b + 1e-6 for a, b in zip(when, when[1:], strict=False)):
+            present.add("chronological_order")
+        if any(i.kind == "text" and i.style == "stamp" for i in tl.items):
+            present.add("time_stamps")
+        if any(i.track == "A1" and i.role == "natural" and i.gain_db >= -8 for i in tl.items):
+            present.add("natural_sound_kept")
+        if any(i.kind == "text" and i.style in ("photo", "hook") and i.rec_in < 0.5 for i in tl.items):
+            present.add("text_hook")
     fit = 6 + 4 * (len(sig & present) / max(1, len(sig)))
     # the cringe guard: every check a viewer would notice, named when it fails
     from .ghinn import checks, score

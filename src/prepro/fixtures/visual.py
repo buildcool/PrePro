@@ -270,9 +270,19 @@ def _moves(move: str, dur: float, out_w: int, out_h: int) -> str:
     raise ValueError(move)
 
 
+def _time_tags(creation_time: str | None, local_time: str | None) -> list[str]:
+    """ffmpeg metadata for when a clip was shot: UTC ``creation_time`` (every phone), plus the local time with its offset
+    the way an iPhone writes it (``com.apple.quicktime.creationdate``)."""
+    args = ["-metadata", f"creation_time={creation_time}"] if creation_time else []
+    if local_time:
+        args += ["-metadata", f"com.apple.quicktime.creationdate={local_time}", "-movflags", "use_metadata_tags"]
+    return args
+
+
 def still_clip(img: Image.Image, out: Path, *, dur: float, move: str = "static", size=(1280, 720), fps: int = 30,
                blur: float = 0.0, dark: bool = False, overexposed: bool = False, audio: Path | None = None,
-               creation_time: str | None = None, location: str | None = None, vertical: bool = False) -> Path:
+               creation_time: str | None = None, location: str | None = None, vertical: bool = False,
+               local_time: str | None = None) -> Path:
     """Render a moving-camera clip from a still image (+ optional audio and metadata)."""
     out.parent.mkdir(parents=True, exist_ok=True)
     w, h = (size[1], size[0]) if vertical else size
@@ -294,8 +304,7 @@ def still_clip(img: Image.Image, out: Path, *, dur: float, move: str = "static",
         args += ["-c:a", "aac", "-b:a", "128k", "-shortest"]
     else:
         args += ["-an"]
-    if creation_time:
-        args += ["-metadata", f"creation_time={creation_time}"]
+    args += _time_tags(creation_time, local_time)
     if location:
         args += ["-metadata", f"location={location}"]
     args += ["-t", f"{dur:.3f}", str(out)]
@@ -305,7 +314,7 @@ def still_clip(img: Image.Image, out: Path, *, dur: float, move: str = "static",
 
 
 def action_clip(img: Image.Image, out: Path, *, dur: float = 4.0, fps: int = 60, size=(1280, 720),
-                creation_time: str | None = None, location: str | None = None) -> tuple[Path, float]:
+                creation_time: str | None = None, location: str | None = None, local_time: str | None = None) -> tuple[Path, float]:
     """High-fps clip with a 'jump' motion peak (true slow-mo candidate). Returns (path, peak_time)."""
     out.parent.mkdir(parents=True, exist_ok=True)
     src = out.with_suffix(".src.png")
@@ -317,8 +326,7 @@ def action_clip(img: Image.Image, out: Path, *, dur: float = 4.0, fps: int = 60,
           f"[bg][ball]overlay=x='(W-w)*t/{dur}':y='H-h-40-max(0,(1-pow((t-{peak})/{peak*0.8},2)))*{h*0.55}':shortest=1,format=yuv420p")
     args = ["-loop", "1", "-framerate", str(fps), "-t", f"{dur:.3f}", "-i", str(src), "-filter_complex", ov,
             "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-an"]
-    if creation_time:
-        args += ["-metadata", f"creation_time={creation_time}"]
+    args += _time_tags(creation_time, local_time)
     if location:
         args += ["-metadata", f"location={location}"]
     run_ffmpeg(args + ["-t", f"{dur:.3f}", str(out)], timeout=600)

@@ -54,9 +54,13 @@ def brief_for(mode: str, playbook: Playbook, mood: str | None, *, need_secs: flo
         lo = 90 + 50 * pace
         hi = lo + 45
         energy = "build" if playbook.key in ("travel_film", "hype_reel", "teaser") else "high"
+        if playbook.music.get("bpm"):            # a genre with its own tempo (a day in my life: light, 80–125 BPM)
+            lo, hi = (float(x) for x in playbook.music["bpm"])
+            energy = "medium"
     terms = [f"{prefer[0] if prefer else 'chill'} {'instrumental ' if mode == 'bed' else ''}{'travel' if 'travel' in playbook.key or 'vlog' in playbook.key else ''}".strip()]
     if mode == "front":
-        terms.append(f"{int(lo)}-{int(hi)} bpm {'build drop' if energy == 'build' else 'energetic'} {prefer[0] if prefer else ''}".strip())
+        feel = {"build": "build drop", "high": "energetic"}.get(energy, "")
+        terms.append(" ".join(x for x in (f"{int(lo)}-{int(hi)} bpm", feel, prefer[0] if prefer else "") if x))
     if mode == "bed":
         terms.append("no vocals background music")
     return MusicBrief(mood=prefer[0] if prefer else "neutral", energy=energy, bpm_min=float(lo), bpm_max=float(hi),

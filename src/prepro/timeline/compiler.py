@@ -463,6 +463,18 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                                               else "to keep the reel tight — the least striking photos go first")
             ctx.suggest("cut", f"Left out {a.name} — {why}", conf=0.75, payload={"asset": a.id, "shot": sh.id, "key": f"shot:{sh.id}"})
 
+    if d.playbook == "day_in_life" and any(it.beats for it in story.items):   # every moment left out can come back
+        on_day = {s.id for s in bb.day_moments()}
+        for a in pa.assets:
+            if a.kind != AssetKind.BROLL or a.id not in pa.clips:
+                continue
+            for sh in pa.clips[a.id].shots:
+                if sh.id in used_refs or set(sh.flags) & {"dark", "blurry", "shaky", "pocket"} or (sh.dup_group and sh.dup_rank > 0):
+                    continue                              # those already say why
+                why = (f"the day is kept to about {d.knobs.target_length or 30:.0f} s, with the best moment of each stretch of it"
+                       if sh.id in on_day else "shot on another day (or the clip has no capture time)")
+                ctx.suggest("cut", f"Left out {a.name} — {why}", conf=0.7, payload={"asset": a.id, "shot": sh.id, "key": f"shot:{sh.id}"})
+
     # ---- photo reels: each photo holds whole beats of the song (the story says how many), laid on the song's beat grid
     # here, so dropping or adding a photo in the review app keeps every cut on the beat; your lines go on the photos in
     # order, and a photo holds long enough to read the line on it
@@ -581,6 +593,13 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                 need = 0.75 + len(line.split()) / 3.0 if line else 0.0
                 b = a + _beat_len(reel_beats, t, it.beats, need, fallback=max(b - a, 0.6))
                 n_reel += it.role != "loop"
+            elif it.beats and reel_beats and not asset.info.is_image:
+                # a moment of a day in my life: whole beats of the song from where it starts, inside its own clip (laid
+                # on the grid here, so dropping or bringing back a moment in the review app keeps every cut on the beat)
+                want = _beat_len(reel_beats, t, it.beats, 0.0, fallback=b - a)
+                if a + want > shot.t1:
+                    a = max(shot.t0, shot.t1 - want)
+                b = min(shot.t1, a + want)
             speed_cue = next((c for c in cues.get(shot.id, []) if c.type == "speed"), None)
             if it.role == "flashforward":
                 speed_cue = None             # the payoff later gets the slow-mo, not its preview
@@ -622,10 +641,11 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             else:
                 v = Item(id=ctx.iid("v"), track="V1", kind="video", asset_id=asset.id, src_in=a, src_out=b, rec_in=t, speed=speed,
                          transform=tf if not tf.is_identity else None, role=it.role, section=sec, ref=it.ref)
-                if d.playbook == "aesthetic" and shot.camera_move == "static" and zoom_ok:
+                if d.playbook in ("aesthetic", "day_in_life") and shot.camera_move == "static" and zoom_ok:
                     v.transform = v.transform or Transform()
                     v.transform.keys = [TransformKey(t=0, cx=v.transform.cx, cy=v.transform.cy, zoom=1.0),
-                                        TransformKey(t=v.rec_dur, cx=v.transform.cx, cy=v.transform.cy, zoom=1.06)]
+                                        TransformKey(t=v.rec_dur, cx=v.transform.cx, cy=v.transform.cy,
+                                                     zoom=1.06 if d.playbook == "aesthetic" else 1.04)]
             if trans and ctx.items:
                 dur = TRANS_DUR.get(trans.style or "dissolve", 0.4)
                 v.transition_in, v.transition_dur = trans.style or "dissolve", dur
@@ -648,7 +668,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                         if hi > lo:
                             ctx.speech_spans.append((t + lo - a, t + hi - a))
                 else:
-                    gain = {"aesthetic": 0.0}.get(d.playbook, -14.0 if sec in music_front else -9.0)
+                    # the sounds of the place: up front in an aesthetic cut, kept under the song in a day in my life
+                    gain = {"aesthetic": 0.0, "day_in_life": -5.0}.get(d.playbook, -14.0 if sec in music_front else -9.0)
                     ctx.items.append(Item(id=ctx.iid("a"), track="A1", kind="audio", asset_id=asset.id, src_in=a, src_out=b, rec_in=t,
                                           link=v.id, gain_db=gain, fade_in=0.08, fade_out=0.08, role="natural", section=sec, ref=it.ref))
             ctx.spans.setdefault(it.ref, []).append((t, t + v.rec_dur))
@@ -660,8 +681,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             if it.role == "loop":
                 ctx.suggest("loop", it.note or "loop ending", conf=0.75, t=v.rec_in, items=[v.id], payload={"key": f"loop:{it.ref}", "ref": it.ref})
             if it.role in ("hook", "establishing"):
-                # a photo reel's cover: rejecting it opens on the next best photo instead
-                key = (f"cover:{it.ref}" if it.beats else "hook") if it.role == "hook" else f"item:{it.ref}"
+                # a photo reel's cover: rejecting it opens on the next best photo instead (a day opens on its first moment)
+                key = (f"cover:{it.ref}" if it.beats and d.playbook == "photo_reel" else "hook") if it.role == "hook" else f"item:{it.ref}"
                 ctx.suggest(it.role if it.role == "hook" else "broll", it.note or it.role, conf=0.85, t=v.rec_in, items=[v.id],
                             payload={"key": key, "ref": it.ref})
         else:
@@ -741,6 +762,7 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                     conf=0.8, t=moving[0].rec_in, items=[i.id for i in moving], payload={"key": "photomotion"})
     # ---- text (T1)
     face_at = _face_lookup(ctx)
+    stamps: list[Item] = []
     for c in polish.effects:
         if c.type != "text" or not c.text:
             continue
@@ -756,6 +778,9 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             t0 += 0.25
         elif c.at in ctx.spans:
             t0 = ctx.spans[c.at][0][0]
+            if c.dur is None:                             # for as long as its moment is on screen (a stamp: readable)
+                s0, s1 = ctx.spans[c.at][0]
+                dur = max(s1 - s0 - 0.03, 1.3 if c.style == "stamp" else 0.8)
         elif c.at in ctx.word_t:
             t0 = ctx.word_t[c.at]
         elif c.at.startswith("t:"):                       # an exact time (photo reels: lines land on the beat grid)
@@ -785,8 +810,16 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
             fb = face_at(t0 + 0.2)
             if fb and fb[1] - fb[3] / 2 < 0.54 and fb[1] + fb[3] / 2 > 0.38:
                 pos = "upper" if fb[1] > 0.46 else "lower"
+        elif c.style == "stamp":                          # a time stamp sits up top, unless a face is there
+            fb = face_at(t0 + 0.2)
+            if fb and fb[1] - fb[3] / 2 < 0.24:
+                pos = "lower"
         txt = Item(id=ctx.iid("t"), track="T1", kind="text", text=c.text, style=c.style or "title", rec_in=round(t0, 3), duration=round(dur, 3), role="text",
                    ref=key, position=pos, text_y=text_y, text_scale=text_scale)
+        if c.intent == "stamp" and c.confidence >= applied_conf:
+            ctx.items.append(txt)                         # one decision for all of them, below
+            stamps.append(txt)
+            continue
         if c.confidence < applied_conf:
             ctx.suggest("text", f"{c.why}: “{c.text}”", conf=c.confidence, t=t0, status="optional", payload={"key": key, "acceptable": True})
         else:
@@ -795,6 +828,9 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
                         source="user" if c.intent == "user" else ("brief" if c.confidence >= 1.0 else "rules"), payload={"key": key})
             if "sfx" not in no and c.style in ("hook", "card") and pb.budget("sfx") > 0 and d.playbook not in ("aesthetic",):
                 ctx.items.append(_sfx_item(ctx, "pop", t0, gain=-12.0))
+    if stamps:                                            # turning them down in the review app removes every one
+        ctx.suggest("text", f"Time stamps from when you shot each moment ({stamps[0].text} … {stamps[-1].text}), whenever the day "
+                            "moves on", conf=0.8, t=stamps[0].rec_in, items=[i.id for i in stamps], payload={"key": "stamps"})
 
     # ---- SFX (A3)
     if "sfx" not in no:
