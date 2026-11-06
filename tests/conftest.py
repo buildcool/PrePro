@@ -25,6 +25,21 @@ needs_tts = pytest.mark.skipif(not have("espeak-ng") and not have("espeak"), rea
 needs_ffmpeg = pytest.mark.skipif(not have("ffmpeg"), reason="ffmpeg not installed")
 
 
+def pytest_runtest_logreport(report):
+    """On GitHub Actions, every failure is also an annotation: annotations can be read through the public API without
+    signing in (the logs can't), so a red CI run says what broke."""
+    if os.environ.get("GITHUB_ACTIONS") != "true" or not report.failed:
+        return
+    import sys
+
+    text = str(report.longrepr)
+    tail = text[-1800:]
+    esc = lambda s: s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")   # noqa: E731
+    title = esc(f"{report.nodeid} ({report.when})").replace(":", "%3A").replace(",", "%2C")
+    sys.__stdout__.write(f"\n::error title={title}::{esc(tail)}\n")
+    sys.__stdout__.flush()
+
+
 @pytest.fixture(scope="session")
 def shoot_factory():
     def make(kind: str, *, brief: bool = False, sidecars: bool = True, quick: bool = True) -> Path:
