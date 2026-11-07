@@ -1264,21 +1264,27 @@ class BasicBrain:
         strongest part (its drop/chorus) that leaves enough music after it."""
         tid, m = self._music_plan(Direction(id="x", playbook=playbook, name="x", aspect="9:16"), need)
         if m is None or len(m.beats) < 8:
-            return {"track": tid, "offset": 0.0, "beat": 0.5, "beats": [k * 0.5 for k in range(400)], "label": None, "bpm": 120.0}
+            return {"track": tid, "offset": 0.0, "beat": 0.5, "beats": [k * 0.5 for k in range(400)], "label": None, "bpm": 120.0,
+                    "room": None}
         dur = self.pa.asset(tid).info.duration
         downs = m.downbeats or m.beats[::4]
-        # a day (or your words) plays the song through to its end: no loop seam halfway through the evening
-        room = need * 1.15 if playbook in ("day_in_life", "text_reel") else min(need, 8.0)
+        # the song carries the whole cut: never runs out and restarts from its top mid-reel (a day, or your words, plays
+        # it through to its end); a photo reel would rather start on the strong part with at least 8 s of it than not
+        full = need * 1.15 if playbook in ("day_in_life", "text_reel") else need
         best = None
-        for sec in sorted(m.sections, key=lambda s: -s.energy):
-            cand = next((b for b in downs if b >= sec.t0 - 0.05), None)
-            if cand is not None and cand + room <= dur:
-                best = (cand, sec.label)
+        for room in dict.fromkeys((full, full if playbook in ("day_in_life", "text_reel") else min(need, 8.0))):
+            for sec in sorted(m.sections, key=lambda s: -s.energy):
+                cand = next((b for b in downs if b >= sec.t0 - 0.05), None)
+                if cand is not None and cand + room <= dur:
+                    best = (cand, sec.label)
+                    break
+            if best:
                 break
         start, label = best if best else (downs[0], None)
         beats = [round(b - start, 3) for b in m.beats if b >= start - 1e-3]
         period = float(np.median(np.diff(beats[:64]))) if len(beats) > 4 else 60.0 / max(60.0, m.bpm)
-        return {"track": tid, "offset": round(start, 3), "beat": period, "beats": beats, "label": label, "bpm": m.bpm}
+        return {"track": tid, "offset": round(start, 3), "beat": period, "beats": beats, "label": label, "bpm": m.bpm,
+                "room": round(dur - start, 3)}                     # how much of the song is left from the start of the cut
 
     def _cover_score(self, s: Shot) -> tuple[float, float]:
         """What makes the first frame of a Reel: a striking photo with a person in it that fills the 9:16 frame edge
@@ -1343,10 +1349,14 @@ class BasicBrain:
         cover = max(shots, key=self._cover_score)
         rest = [s for s in shots if s.id != cover.id]
         target = float(d.target_max or (d.knobs.target_length or 30) * 1.15)
+        if grid.get("room"):                    # a short song: the reel ends with it instead of restarting it mid-reel
+            target = min(target, grid["room"] - 0.3)
         # too many photos for the length: the least striking middle ones go (the order stays the order they were taken)
         while rest and (2 * k + len(rest) * k + (k if len(shots) >= 4 else 0)) * p > target and len(rest) > 2:
             rest.remove(min(rest[1:-1] or rest, key=lambda s: s.aesthetic or 0))
         texts = [lines[i] if i < len(lines) else None for i in range(1 + len(rest))]
+        if not lines and "text" not in self.no:
+            texts[0] = self.photo_title()        # the cover holds long enough to read where and when, on a fast song too
         n = beats_for(texts[0], 2 * k, k)
         items.append(StoryItem(ref=cover.id, role="hook", t0=0.0, t1=take(n), section="reel", beats=n,
                                note="cover: your most striking photo first"))
@@ -1461,9 +1471,13 @@ class BasicBrain:
             return self._story_aesthetic(d)
         target = float(d.knobs.target_length or 30.0)
         grid, p, k = self._day_beat(target)
+        cap = float(d.target_max or target * 1.15)
+        if grid.get("room"):                    # the day ends before its song does: no restart halfway through the evening
+            cap = min(cap, grid["room"] - 0.5)
+            target = min(target, cap)
         first, last, middle = pool[0], pool[-1], pool[1:-1]
         n_mid = max(1, int(round(target / p)) - 4 * k) // k        # the first and the last hold two counts each
-        if (4 + len(middle)) * k * p <= float(d.target_max or target * 1.15):
+        if (4 + len(middle)) * k * p <= cap:
             n_mid = len(middle)                                     # it all fits: every moment of the day is in
         if n_mid < len(middle):
             picks: list[Shot] = []

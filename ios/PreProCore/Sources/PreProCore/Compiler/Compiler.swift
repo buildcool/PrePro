@@ -50,7 +50,8 @@ public enum Compiler {
                let track = cue.trackId, let offset = cue.offset, let mi = pa.clips[track]?.music, mi.beats.count > 8 {
                 reelBeats = mi.beats.filter { $0 >= offset - 1e-3 }.map { Py.round($0 - offset, 4) }
             }
-            for c in polish.effects where c.type == "text" && Py.text(c.text) != nil && c.at.hasPrefix("photo:") && c.style == "photo" && c.intent == "brief" {
+            // any words on a photo (your lines, the cover's where and when) hold it until they can be read
+            for c in polish.effects where c.type == "text" && Py.text(c.text) != nil && c.at.hasPrefix("photo:") && c.style == "photo" && c.confidence >= appliedConf {
                 if let k = Int(c.at.dropFirst("photo:".count)) { lineOn[k] = c.text }
             }
         }

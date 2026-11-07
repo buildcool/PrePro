@@ -39,6 +39,7 @@ final class BrainParityTests: XCTestCase {
             let beats: [Double]
             let label: String?
             let bpm: Double
+            let room: Double?
         }
 
         let front: Job
@@ -89,6 +90,7 @@ final class BrainParityTests: XCTestCase {
             XCTAssertEqual(grid.beat, want.grid.beat, accuracy: 1e-9, "\(name): beat period")
             XCTAssertEqual(grid.label, want.grid.label, "\(name): part of the song")
             XCTAssertEqual(grid.bpm, want.grid.bpm, accuracy: 1e-9, "\(name): tempo")
+            XCTAssertEqual(grid.room ?? -1, want.grid.room ?? -1, accuracy: 1e-9, "\(name): song left after the start")
             XCTAssertEqual(grid.beats.count, want.grid.beats.count, "\(name): beats on the grid")
             for (i, (got, exp)) in zip(grid.beats, want.grid.beats).enumerated() {
                 XCTAssertEqual(got, exp, accuracy: 1e-9, "\(name): beat \(i)")

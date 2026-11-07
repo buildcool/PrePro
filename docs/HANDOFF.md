@@ -8,6 +8,19 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.12.2 (2026-11-07; CHANGELOG [0.12.2], QA "v0.12.2"): changing the song re-cuts a beat-cut cut on it.**
+  `revise.apply_ops(..., brief)` (both callers pass the brief): when the base story is beat-cut (`_beat_cut`: playbook in
+  `BEAT_CUT` and items with `beats`) and the ops hold a `swap_track` to a music asset, `_on_song` rebuilds story and
+  polish with `BasicBrain` and a `use_music` rule for the last swapped track (then lint + `apply_fixes`, as a build
+  does), sets the cue's alternatives to the unheard songs then the old ones and prefixes its why with "your pick: ";
+  the other ops replay on top; `reject music:*` before the last swap is skipped, after it still applies. Plain swaps
+  (talking formats) now put the old song last in `alternatives`. `_reel_grid` tries a start whose remaining song
+  carries the whole cut first (photo reels: `need`, then the old `min(need, 8)`; day/words: `need × 1.15`) and returns
+  `room` (song left after the start); `_story_photo_reel` caps its target to `room - 0.3`, `_story_day_in_life` its
+  target and cap to `room - 0.5`. The cover's reading time counts the auto title (`photo_title`) when there are no
+  lines; the compiler's `line_on` takes any applied photo-style words at `photo:i`, not only brief lines. Swift port
+  updated alike (`ReelGrid.room`). Tests: `tests/unit/test_song_swap.py` (goldens, no media) and
+  `test_change_the_song_rebuilds_the_reel_on_its_beat` (e2e, a second synthesized song).
 - **v0.12.1 (2026-11-07; CHANGELOG [0.12.1], QA "v0.12.1"): Gemini via Antigravity, who's signed in.** Google stopped
   Gemini CLI for personal accounts (18 June 2026): `accounts.PLANS["gemini-plan"]` is now kind `antigravity_cli`
   (`providers.AntigravityCLI`: stream-json stdin/stdout, `--json-schema`, `sees_images = False`; installer

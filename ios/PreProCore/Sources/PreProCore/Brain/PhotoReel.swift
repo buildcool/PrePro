@@ -66,7 +66,10 @@ extension RulesBrain {
         }
         let cover = shots.max(by: { coverScore($0) < coverScore($1) })!
         var rest = shots.filter { $0.id != cover.id }
-        let target = d.targetMax != 0 ? d.targetMax : (Py.number(d.knobs.targetLength) ?? 30) * 1.15
+        var target = d.targetMax != 0 ? d.targetMax : (Py.number(d.knobs.targetLength) ?? 30) * 1.15
+        if let room = Py.number(grid.room) {                 // a short song: the reel ends with it instead of restarting it mid-reel
+            target = min(target, room - 0.3)
+        }
         let loop = shots.count >= 4 ? k : 0
         // too many photos for the length: the least striking middle ones go (the order stays the order they were taken)
         while !rest.isEmpty && Double(2 * k + rest.count * k + loop) * p > target && rest.count > 2 {
@@ -74,7 +77,10 @@ extension RulesBrain {
             let weakest = (middle.isEmpty ? rest : middle).min(by: { ($0.aesthetic ?? 0) < ($1.aesthetic ?? 0) })!
             rest.remove(at: rest.firstIndex(where: { $0.id == weakest.id })!)
         }
-        let texts: [String?] = (0...rest.count).map { $0 < lines.count ? lines[$0] : nil }
+        var texts: [String?] = (0...rest.count).map { $0 < lines.count ? lines[$0] : nil }
+        if lines.isEmpty && !no.contains("text") {
+            texts[0] = photoTitle()                          // the cover holds long enough to read where and when, on a fast song too
+        }
         var n = beatsFor(texts[0], base: 2 * k, unit: k)
         items.append(StoryItem(ref: cover.id, role: "hook", t0: 0, t1: take(n), section: "reel",
                                note: "cover: your most striking photo first", beats: n))

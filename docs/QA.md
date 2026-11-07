@@ -498,3 +498,29 @@ The aesthetic cooking shoot (six vertical clips, a calm 76 BPM song and a hype t
    - the plan cards went ChatGPT, Gemini, Claude;
    - with Claude as the current editor, it stayed in the picker, selected, reading "Not working — fix it below" in
      red, and the sidebar dot turned red.
+
+### v0.12.2 (changing the song on a cut on the beat), reviewed as an editor
+Found while porting the photo reel to the iPhone. The review's "change the song" (`swap_track`) changed the music
+cue's track but kept its `offset` (the old song's drop) and the story's beat counts (the old tempo). Checked on the
+goldens (real analyses of the fixture shoots) by swapping each beat-cut cut to its other song:
+1. **Words on video, 76 → 144 BPM:**
+   - starts on the new song's drop (1.7 s);
+   - the clips are re-planned (4, 3, 5, 6, 6, 3 beats) so every line is up long enough to read;
+   - every cut is on the beat.
+2. **Day in my life, 96 → 144 BPM (a 22 s song for a 30 s day):** the first fix still ran the song out at 20.3 s and
+   restarted it from the top mid-evening. The grid now looks first for a start that carries the whole cut, and the day
+   is capped to the song left after the start. Result:
+   - 18.9 s, one pass of the song;
+   - nine moments, 6:42 am to 11:05 pm, all on the beat;
+   - "4 more moments wait in the review" in the story's reason.
+3. **Photo reel with a second song (99 → 144 BPM):**
+   - it starts on the new drop, at 2 beats a photo;
+   - the dropped photo stays out and the loop still closes on the cover;
+   - swapping back gives the build's exact reel.
+
+   The where-and-when title on the cover had only 1.7 s, too short for "Calangute · Oct 2026" (≈2.1 s to read). The
+   story now gives the cover reading time for its title, and the compiler holds any applied words on a photo (not
+   only your brief's lines) until readable, so it also survives review changes: 2.1 s.
+4. Ordering: "no music" before a swap is superseded (the swap brings music back); "no music" after a swap still wins.
+5. None of the four golden cuts changed (their songs carry them); only the grid's new `room` (song left after the
+   start) was added to the goldens, in the desktop and the Swift port alike.

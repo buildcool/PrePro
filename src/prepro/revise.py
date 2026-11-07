@@ -198,11 +198,57 @@ def _reel_rhythm(s: StoryPlan) -> None:
     photos[-1].beats = 2 * k
 
 
-def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction, pa: ProjectAnalysis) -> tuple[StoryPlan, PolishPlan, Direction]:
+def _beat_cut(s: StoryPlan, d: Direction) -> bool:
+    """A photo reel, a day in my life or your words on video: every picture holds whole beats of its song."""
+    from .brain.basic import BEAT_CUT
+
+    return d.playbook in BEAT_CUT and any(it.beats for it in s.items)
+
+
+def _on_song(story: StoryPlan, polish: PolishPlan, d: Direction, pa: ProjectAnalysis, brief, track: str) -> tuple[StoryPlan, PolishPlan]:
+    """A cut on the beat, rebuilt on another song as if your brief had named it: the song's own strongest start (its
+    drop or chorus, with room for the cut), every photo or moment re-planned on its beats for its tempo, your lines on
+    its grid — then the editor's checks, as a build does. Swapping only the track would keep the old song's start
+    point (a new song starting mid-phrase, or running out and looping back mid-reel) and the old tempo's beat counts."""
+    from .brain.basic import BasicBrain
+    from .lint.editlint import apply_fixes, lint_timeline
+    from .schema.brief import CreatorBrief, HardRule
+    from .timeline.compiler import compile_timeline
+
+    b = (brief or CreatorBrief()).model_copy(deep=True)
+    name = next((a.name for a in pa.assets if a.id == track), track)
+    b.rules = [r for r in b.rules if r.kind != "use_music"] + [
+        HardRule(kind="use_music", target=name, anchor="all", arg={"asset": track}, source="your pick in the review", resolved=True)]
+    brain = BasicBrain(pa, b)
+    s2 = brain.story(d)
+    p2 = brain.polish(d, s2)
+    findings = lint_timeline(compile_timeline(pa, d, s2, p2, b), pa, d, b)
+    if any(f.fix for f in findings):
+        p2, s2 = apply_fixes(findings, p2, s2, pa, d)
+    before = list(dict.fromkeys(c.track_id for c in polish.music if c.track_id and c.track_id != track))
+    unheard = [a.id for a in pa.assets if a.kind == AssetKind.MUSIC and a.id != track and a.id not in before]
+    for c in p2.music:
+        if c.track_id == track:
+            c.alternatives = unheard + before          # "another song" walks through the ones you haven't heard, then back
+            c.why = f"your pick: {c.why}"
+    return s2, p2
+
+
+def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction, pa: ProjectAnalysis,
+              brief=None) -> tuple[StoryPlan, PolishPlan, Direction]:
     s, p, dd = story.model_copy(deep=True), polish.model_copy(deep=True), d.model_copy(deep=True)
     last_hook = max((k for k, o in enumerate(ops) if o.op == "hook"), default=None)   # the latest hook choice wins
+    # another song for a cut on the beat: the cut is rebuilt on it first (as if your brief had named it) and your other
+    # choices replay on top; turning the music off before the swap no longer applies — the swap brought music back
+    songs = {a.id for a in pa.assets if a.kind == AssetKind.MUSIC}
+    swaps = [k for k, o in enumerate(ops) if o.op == "swap_track" and o.value in songs]
+    last_swap = swaps[-1] if swaps and _beat_cut(s, d) else None
+    if last_swap is not None:
+        s, p = _on_song(s, p, d, pa, brief, str(ops[last_swap].value))
     for k_op, o in enumerate(ops):
         if o.op == "hook" and k_op != last_hook:
+            continue
+        if last_swap is not None and (o.op == "swap_track" or (o.op == "reject" and (o.key or "").startswith("music:") and k_op < last_swap)):
             continue
         key = o.key or ""
         if o.op == "reject":
@@ -293,10 +339,10 @@ def apply_ops(ops: list[Op], story: StoryPlan, polish: PolishPlan, d: Direction,
         elif o.op == "swap_track" and o.ref and isinstance(o.value, str):
             for c in p.music:
                 if c.section in set(o.ref.split(",")):
-                    if c.track_id and c.track_id not in c.alternatives:
-                        c.alternatives.insert(0, c.track_id)
+                    old = c.track_id
+                    # the song you had goes last: "another song" walks through the ones you haven't heard, then back
+                    c.alternatives = [x for x in c.alternatives if x not in (o.value, old)] + ([old] if old and old != o.value else [])
                     c.track_id = o.value
-                    c.alternatives = [x for x in c.alternatives if x != o.value]
                     if c.mode == "none":
                         c.mode = "bed"
                     c.why = "your pick"
@@ -545,7 +591,7 @@ def recompile(root: str | Path, tl_id: str, rev: Revision | None = None, *, pa: 
     if d is None:
         raise KeyError(f"direction {base.direction_id} not found for {tl_id}")
     brief = proj.load_model("brief.json", CreatorBrief) or CreatorBrief()
-    s2, p2, d2 = apply_ops(rev.ops, story, polish, d, pa)
+    s2, p2, d2 = apply_ops(rev.ops, story, polish, d, pa, brief)
     tl = compile_timeline(pa, d2, s2, p2, brief, project_root=root)
     # show what the creator turned off, so it can be turned back on
     rejected = {o.key for o in rev.ops if o.op == "reject" and o.key}
@@ -601,10 +647,10 @@ def add_comment(root: str | Path, tl_id: str, t: float, text: str, *, brain=None
     if d is None:
         raise KeyError(f"direction {tl.direction_id} not found")
     story = StoryPlan.model_validate_json(ps["story"].read_text(encoding="utf-8"))
-    story, _, d = apply_ops(rev.ops, story, PolishPlan.model_validate_json(ps["polish"].read_text(encoding="utf-8")), d, pa)
     from .schema.brief import CreatorBrief
 
     brief = proj.load_model("brief.json", CreatorBrief) or CreatorBrief()
+    story, _, d = apply_ops(rev.ops, story, PolishPlan.model_validate_json(ps["polish"].read_text(encoding="utf-8")), d, pa, brief)
     cid = f"c{max([int(c.id[1:]) for c in rev.comments if c.id[1:].isdigit()] + [0]) + 1}"
     ops, reply = interpret(text, t, tl, pa, d, story, brief.rules)
     source = "rules"

@@ -137,23 +137,30 @@ public final class RulesBrain {
         // a fresh direction, as on the desktop: the grid follows the song your brief names, else the best fit
         let (tid, music) = try musicPlan(Direction(id: "x", playbook: playbook, name: "x", aspect: "9:16"), need: need)
         guard let tid, let m = music, m.beats.count >= 8 else {
-            return ReelGrid(track: tid, offset: 0, beat: 0.5, beats: (0..<400).map { Double($0) * 0.5 }, label: nil, bpm: 120)
+            return ReelGrid(track: tid, offset: 0, beat: 0.5, beats: (0..<400).map { Double($0) * 0.5 }, label: nil, bpm: 120, room: nil)
         }
         let dur = pa.asset(tid)?.info.duration ?? 0
         let downs = m.downbeats.isEmpty ? stride(from: 0, to: m.beats.count, by: 4).map { m.beats[$0] } : m.downbeats
-        // a day (or your words) plays the song through to its end: no loop seam halfway through the evening
-        let room = playbook == "day_in_life" || playbook == "text_reel" ? need * 1.15 : min(need, 8.0)
+        // the song carries the whole cut: never runs out and restarts from its top mid-reel (a day, or your words, plays
+        // it through to its end); a photo reel would rather start on the strong part with at least 8 s of it than not
+        let playsThrough = playbook == "day_in_life" || playbook == "text_reel"
+        let full = playsThrough ? need * 1.15 : need
+        var rooms = [full]
+        if !playsThrough && min(need, 8.0) != full { rooms.append(min(need, 8.0)) }
         var best: (at: Double, label: String)?
-        for sec in m.sections.stableSorted(by: { $0.energy > $1.energy }) {
-            if let cand = downs.first(where: { $0 >= sec.t0 - 0.05 }), cand + room <= dur {
-                best = (cand, sec.label)
-                break
+        for room in rooms where best == nil {
+            for sec in m.sections.stableSorted(by: { $0.energy > $1.energy }) {
+                if let cand = downs.first(where: { $0 >= sec.t0 - 0.05 }), cand + room <= dur {
+                    best = (cand, sec.label)
+                    break
+                }
             }
         }
         let start = best?.at ?? downs[0]
         let beats = m.beats.filter { $0 >= start - 1e-3 }.map { Py.round($0 - start, 3) }
         let period = beats.count > 4 ? Py.median(Py.diff(Array(beats.prefix(64)))) : 60.0 / max(60.0, m.bpm)
-        return ReelGrid(track: tid, offset: Py.round(start, 3), beat: period, beats: beats, label: best?.label, bpm: m.bpm)
+        return ReelGrid(track: tid, offset: Py.round(start, 3), beat: period, beats: beats, label: best?.label, bpm: m.bpm,
+                        room: Py.round(dur - start, 3))
     }
 }
 
@@ -170,6 +177,7 @@ public struct ReelGrid: Equatable, Sendable {
     public var beats: [Double]                 // beat times from the start of the cut
     public var label: String?                  // the part of the song the cut starts on: drop, chorus …
     public var bpm: Double
+    public var room: Double?                   // how much of the song is left from the start of the cut, s
     public var k = 2                           // beats a photo
     public var lines: [String] = []
     public var slots: [Slot] = []              // one photo: when each of your lines is up, in beats

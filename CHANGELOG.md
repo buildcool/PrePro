@@ -4,6 +4,34 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-11-07
+### Fixed
+- **"Change the song" on a photo reel, a day in my life or your words on video.** It used to keep two things from the
+  old song:
+  - **where the cut started in it** (the old song's drop, 14.4 s in, say), so the new song could start mid-phrase, or
+    run out and restart from its top in the middle of the reel;
+  - **how many beats each picture held,** chosen for the old tempo, so on a much faster song the reel suddenly cut
+    much quicker.
+
+  Now the cut is rebuilt on the new song, as if your brief had named it:
+  - it starts on the new song's own strongest part (its drop or chorus);
+  - every photo or moment is re-planned on its beats for its tempo;
+  - your lines land on its grid.
+
+  Your other review choices stay, and "change the song" again walks back to the one you had.
+- **A cut on the beat never outlasts its song.** A song shorter than the cut used to run out and start again from the
+  top, halfway through the day. Now:
+  - each format first looks for a start in the song that carries the whole cut;
+  - when no start can, a day in my life (or a photo reel) ends with the song; the best moment of each stretch of the
+    day stays, and the rest wait in the review;
+  - your words on video keep every line and start where the most song is left.
+- **The cover's "where and when" is readable on a fast song.** On a 144 BPM song the cover lasted 1.7 s, too short to
+  read "Calangute · Oct 2026". Any words on a photo now hold it until they can be read, after review changes too.
+
+### Changed
+- **"Another song" plays the songs you haven't heard yet first,** then goes back to the one you had. It used to
+  bounce between the last two.
+
 ## [0.12.1] — 2026-11-07
 ### Fixed
 - **Gemini sign-in failed with "This client is no longer supported for Gemini Code Assist for individuals".** Google

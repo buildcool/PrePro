@@ -486,7 +486,8 @@ def compile_timeline(pa: ProjectAnalysis, d: Direction, story: StoryPlan, polish
         if mi is not None and len(mi.beats) > 8:
             reel_beats = [round(b - mcue.offset, 4) for b in mi.beats if b >= mcue.offset - 1e-3]
         for c in polish.effects:
-            if c.type == "text" and c.text and c.at.startswith("photo:") and c.style == "photo" and c.intent == "brief":
+            # any words on a photo (your lines, the cover's where and when) hold it until they can be read
+            if c.type == "text" and c.text and c.at.startswith("photo:") and c.style == "photo" and c.confidence >= applied_conf:
                 line_on[int(c.at.split(":", 1)[1])] = c.text
     n_reel = 0
 

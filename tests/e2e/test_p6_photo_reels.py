@@ -149,6 +149,44 @@ def test_every_reel_decision_can_be_undone_and_stays_on_the_beat(dump, tmp_path)
     assert all(i.transform is not None and not i.transform.keys for i in _v1(tl5))
 
 
+def test_change_the_song_rebuilds_the_reel_on_its_beat(dump, tmp_path):
+    """"change the song" in the review: the reel is rebuilt on the other song — every cut on its beats, from its own
+    strong part, the photos still in the order taken, one pass of the song (no restart mid-reel) — and the old song is
+    the way back."""
+    import shutil
+
+    from prepro import revise as R
+    from prepro.fixtures import audio as A
+
+    src, _ = dump
+    root = tmp_path / "two_songs"
+    shutil.copytree(src, root)
+    y, epic = A.procedural_music(bpm=128, minor=False, mood="epic", seed=21,
+                                 sections=[("intro", 2, 0.3), ("build", 2, 0.6), ("drop", 6, 1.0), ("outro", 2, 0.35)])
+    A.write_wav(root / "music" / "epic_drive_128.wav", y)
+    beats = {"music/epic_drive_128.wav": epic.beats, "music/golden_hour_100.wav": truth(root)["music"]["music/golden_hour_100.wav"]["beats"]}
+    tl = build(root, render=False).timeline
+    pa = analysis(root)
+    song = lambda t: next(i for i in t.items if i.track == "A2")                          # noqa: E731
+    first = pa.asset(song(tl).asset_id).path
+    rev, c = R.add_comment(root, tl.id, 1.0, "change the song")
+    assert c.status == "applied" and "Swapped the song" in c.reply
+    tl2, _, _ = R.recompile(root, tl.id, rev, pa=pa)
+    m2 = song(tl2)
+    other = pa.asset(m2.asset_id).path
+    assert other != first and len([i for i in tl2.items if i.track == "A2"]) == 1
+    assert all(min(abs(m2.src_in + i.rec_in - b) for b in beats[other]) < 0.05 for i in _v1(tl2)[1:])     # on the new beat
+    order = [pa.asset(i.asset_id).path for i in _v1(tl2) if i.role == "photo"]
+    assert order == sorted(order, key=lambda p: truth(root)["expect"]["order"].index(p))
+    why = next(s for s in tl2.suggestions if s.type == "music")
+    assert "your pick" in why.reason and why.alternatives
+    # and back: the reel the build made
+    rev, _ = R.add_comment(root, tl.id, 1.0, "change the song")
+    tl3, _, _ = R.recompile(root, tl.id, rev, pa=pa)
+    assert pa.asset(song(tl3).asset_id).path == first
+    assert [(i.ref, round(i.rec_dur, 3)) for i in _v1(tl3)] == [(i.ref, round(i.rec_dur, 3)) for i in _v1(tl)]
+
+
 def test_photo_motion_renders_smoothly(dump):
     import cv2
 
