@@ -131,8 +131,11 @@ gets tested for real, on the Pro and the base chip and memory.
     - each photo's move, the loop back to the cover;
     - your lines beside the faces with the same line breaks, the music's level;
     - every decision with its reason.
+  - Done: the phone hears a song the way the desktop does, checked against the desktop on test songs:
+    - its tempo and beats (to librosa's exact frames);
+    - its bar lines, energy, sections (intro, build, drop, outro …), key, mood;
+    - a song file read as the analysis expects it.
   - Next:
-    - the Swift beat tracker, so the phone finds your song's beat itself;
     - Photos import;
     - the phone's own photo analysis (faces, aesthetics, sharpness, bursts);
     - live preview, render, save and share.
