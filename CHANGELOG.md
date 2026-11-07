@@ -4,6 +4,36 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-11-07
+### Fixed
+- **Gemini sign-in failed with "This client is no longer supported for Gemini Code Assist for individuals".** Google
+  stopped serving Gemini CLI to personal Google accounts (free, Google AI Pro, Ultra) on 18 June 2026. PrePro's Gemini
+  option now goes through Google's replacement, the **Antigravity CLI** (`agy`):
+  - Install runs Google's own installer, so Node.js is no longer needed.
+  - Sign in once with your Google account; free, AI Pro and Ultra accounts all work.
+  - PrePro then runs `agy` headless: your prompt goes in on stdin with no length limit, and the answer is checked
+    against the expected shape.
+  - It runs in an empty folder and nothing is pre-approved, so it can't touch your files.
+  - Google doesn't document a way to pass pictures to it yet, so the Gemini editor works from shot descriptions and
+    skips the thumbnail pass.
+- **If you had set up Gemini before, PrePro moves you over on its own.** Your saved Gemini choice switches to
+  Antigravity, and the old Gemini CLI error leaves the card. A Gemini CLI that's still installed explains Google's
+  change in plain words instead of showing the raw error.
+
+### Added
+- **"Signed in as …" on each AI plan card,** and next to "Your plan" in the sidebar. PrePro asks each tool's own status
+  command, never a login file:
+  - Claude Code gives the email and the plan (Claude Pro or Max).
+  - Codex only says "signed in with ChatGPT".
+  - Antigravity shows the email when its status command reports one.
+  - When a tool says it isn't signed in, the card says so and Sign in becomes the main button.
+
+### Changed
+- **A failing AI account is never offered at the top.** An account whose last test failed, or that isn't signed in:
+  - leaves the "Who edits" picker, unless it's your current editor, which stays visible, marked "Not working — fix it
+    below";
+  - drops to the end of its section. The order is working, then not tried, then not set up, then failing.
+
 ## [0.12.0] — 2026-11-06
 ### Added — your words on video
 - **POV / text on video.** Write your lines in the brief (a `Text:` block, "pov: …" lines or lines in quotes) and give

@@ -8,6 +8,11 @@ assert "--output-format" in args and args[args.index("--output-format") + 1] == 
 canned = {"ok": True}
 if os.environ.get("FAKE_GEMINI_ECHO"):     # hand the prompt back so tests can check it arrived intact
     canned = {**canned, "prompt": prompt, "files": sorted(os.listdir("."))}
+if os.environ.get("FAKE_GEMINI_ENDED"):   # what Google's servers answer a personal account since 18 June 2026
+    print(json.dumps({"error": {"type": "Error", "message": "Failed to sign in. Message: This client is no longer supported for "
+                                "Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity "
+                                "suite of products: https://antigravity.google"}}))
+    sys.exit(1)
 if os.environ.get("FAKE_GEMINI_FAIL"):
     print(json.dumps({"error": {"type": "QuotaError", "message": "Quota exceeded for your plan"}}))
     sys.exit(1)

@@ -154,8 +154,21 @@ function AISection() {
   };
   const label = (id: string) =>
     id === "basic" ? "Rules engine" : ai.plans.find((p) => p.id === id)?.name ?? ai.keys.find((k) => k.id === id)?.name ?? ai.local.find((l) => l.id === id)?.name ?? id;
-  const sub = (id: string) =>
-    id === "basic" ? "Free, offline — no AI" : ai.plans.find((p) => p.id === id) ? "Your plan" : ai.keys.find((k) => k.id === id) ? "Your API key" : "On this PC";
+  const failing = new Set(ai.failing ?? []);
+  const sub = (id: string) => {
+    if (id === "basic") return "Free, offline — no AI";
+    if (failing.has(id)) return "Not working — fix it below";
+    const plan = ai.plans.find((p) => p.id === id);
+    if (plan) return plan.who ? `Your plan · ${plan.who}` : "Your plan";
+    return ai.keys.find((k) => k.id === id) ? "Your API key" : "On this PC";
+  };
+  // who edits: what works (or hasn't been tried) — a failing account isn't offered here, unless it's the one chosen now
+  const choices = ["basic", ...ai.ready.filter((id) => !failing.has(id) || id === ai.editor)];
+  // each section: what works first, then not tried, then not set up, and what failed last
+  const rank = (connected: boolean, t: TestResult | null, signedIn?: boolean | null) =>
+    (t && !t.ok) || signedIn === false ? 3 : !connected ? 2 : t?.ok ? 0 : 1;
+  const plans = [...ai.plans].sort((a, b) => rank(a.installed, a.test, a.signed_in) - rank(b.installed, b.test, b.signed_in));
+  const keys = [...ai.keys].sort((a, b) => rank(a.set, a.test) - rank(b.set, b.test));
 
   return (
     <>
@@ -167,10 +180,11 @@ function AISection() {
       <h3>Who edits</h3>
       <div className="set-group">
         <div className="editor-pick" role="radiogroup" aria-label="AI editor">
-          {["basic", ...ai.ready].map((id) => (
-            <button key={id} className={`pick${ai.editor === id ? " on" : ""}`} role="radio" aria-checked={ai.editor === id} onClick={() => put({ editor: id })}>
+          {choices.map((id) => (
+            <button key={id} className={`pick${ai.editor === id ? " on" : ""}${failing.has(id) ? " failing" : ""}`} role="radio" aria-checked={ai.editor === id}
+              onClick={() => put({ editor: id })} title={sub(id)}>
               <LogoTile id={id} />
-              <div className="col" style={{ gap: 0 }}>
+              <div className="col" style={{ gap: 0, minWidth: 0 }}>
                 <span className="t">{label(id)}</span>
                 <span className="s">{sub(id)}</span>
               </div>
@@ -184,14 +198,14 @@ function AISection() {
 
       <h3>Use a subscription you already pay for</h3>
       <div className="set-group">
-        {ai.plans.map((p) => (
+        {plans.map((p) => (
           <PlanCard key={p.id} p={p} editor={ai.editor} testing={testing[p.id]} onTest={() => test(p.id)} onUse={() => put({ editor: p.id })} reload={load} />
         ))}
       </div>
 
       <h3>Use your own API key</h3>
       <div className="set-group">
-        {ai.keys.map((k) => (
+        {keys.map((k) => (
           <KeyCard key={k.id} k={k} editor={ai.editor} testing={testing[k.id]} onTest={() => test(k.id)} onUse={() => put({ editor: k.id })} onChange={setAi} />
         ))}
       </div>
@@ -269,8 +283,19 @@ function PlanCard({ p, editor, testing, onTest, onUse, reload }: { p: PlanAccoun
           {editor === p.id && <span className="chip soft"><Icon name="sparkles" size={12} /> AI editor</span>}
         </div>
         <div className="sub">
-          {p.installed ? <>Through {p.via}{p.version ? ` ${p.version}` : ""} — signs in with your {p.name} account</> : <>Needs {p.via} (free) — PrePro uses your plan through it</>}
+          {p.installed ? <>Through {p.via}{p.version ? ` ${p.version}` : ""} — signs in with your {p.account ?? p.name} account</> : <>Needs {p.via} (free) — PrePro uses your plan through it</>}
         </div>
+        {p.installed && p.signed_in && (
+          <div className="row">
+            <span className="chip ok" title={p.email ?? undefined}>
+              <Icon name="user" size={12} /> {p.who ? <>Signed in as <b>{p.who}</b></> : <>Signed in{p.plan_name ? ` with ${p.plan_name}` : ""}</>}
+              {p.who && p.plan_name ? ` · ${p.plan_name}` : ""}
+            </span>
+          </div>
+        )}
+        {p.installed && p.signed_in === false && (
+          <div className="row"><span className="chip warn"><Icon name="user" size={12} /> Not signed in — click Sign in</span></div>
+        )}
         <div className="row">{p.installed ? <TestLine t={p.test} /> : <span className="chip">Not installed</span>}</div>
       </div>
       <div className="acts">
@@ -282,7 +307,7 @@ function PlanCard({ p, editor, testing, onTest, onUse, reload }: { p: PlanAccoun
           )
         ) : (
           <>
-            <button className="btn small" onClick={() => open("signin")}><Icon name="link" size={14} /> Sign in</button>
+            <button className={`btn small${p.signed_in === false ? " primary" : ""}`} onClick={() => open("signin")}><Icon name="link" size={14} /> Sign in</button>
             <button className="btn small" onClick={onTest} disabled={!!testing}>{testing ? "Testing…" : "Test"}</button>
             {editor !== p.id && <button className="btn small primary" onClick={onUse}>Use as AI editor</button>}
           </>

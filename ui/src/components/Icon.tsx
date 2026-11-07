@@ -32,6 +32,7 @@ const P: Record<string, string> = {
   export: "M12 15.5v-12M7 8.5l5-5 5 5M4.5 13v6.5h15V13",
   eye: "M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   lock: "M6.5 10.5h11v10h-11zM8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3",
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5c.8-3.6 3.9-5.5 7.5-5.5s6.7 1.9 7.5 5.5",
 };
 
 export default function Icon({ name, size = 18, className = "ico", title }: { name: keyof typeof P | string; size?: number; className?: string; title?: string }) {

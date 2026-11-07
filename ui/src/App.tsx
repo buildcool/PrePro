@@ -50,7 +50,7 @@ function AIChip({ ai }: { ai: AIOverview | null }) {
       <LogoTile id={id} />
       <span className="txt col grow" style={{ gap: 0 }}>
         <span className="who ellipsis">{name}</span>
-        <span className="what">{id === "basic" ? "No AI connected · connect one" : plan ? "Your plan" : key ? "Your API key" : "On this PC"}</span>
+        <span className="what ellipsis">{id === "basic" ? "No AI connected · connect one" : plan ? (plan.who ? `Your plan · ${plan.who}` : "Your plan") : key ? "Your API key" : "On this PC"}</span>
       </span>
       <span className={`dot ${tone}`} />
     </button>

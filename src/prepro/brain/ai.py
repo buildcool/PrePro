@@ -189,8 +189,8 @@ class AIBrain(BasicBrain):
     def vision_tags(self, project_root: str | Path) -> int:
         """Tag shots from small contact sheets (only at privacy level 'thumbs')."""
         prov = self.providers.get("vision")
-        if prov is None or prov.privacy != "thumbs":
-            return 0
+        if prov is None or prov.privacy != "thumbs" or not getattr(prov, "sees_images", True):
+            return 0                     # no pictures for this connector: the shots keep PrePro's own analysis
         from ..media.proxy import contact_sheet
         from ..project import Project
 

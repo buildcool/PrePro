@@ -473,3 +473,28 @@ The aesthetic cooking shoot (six vertical clips, a calm 76 BPM song and a hype t
    untimed, stayed grouped as retakes of the 6:42 am one, and were dropped. Retakes, "bring it back" and the footage
    list's "taken" time now read the same local clock as everything else; a unit test covers a clip with only its
    local time.
+
+### v0.12.1 (Gemini via Antigravity, who's signed in), reported by the user
+1. **Gemini sign-in failed** in the terminal PrePro opened: "This client is no longer supported for Gemini Code Assist
+   for individuals … migrate to the Antigravity suite". Google stopped Gemini CLI for personal accounts (free, AI Pro,
+   Ultra) on 18 June 2026. Gemini CLI now serves only paid API keys and Code Assist Standard/Enterprise. Google's
+   replacement is the Antigravity CLI. Its headless mode as documented:
+   - `agy --input-format stream-json --output-format stream-json`, with one `{"event":"user",…}` line on stdin;
+   - `--json-schema` for the answer's shape, read from the `result` event's `structured_output`;
+   - an unsigned run fails with "authentication required" instead of hanging.
+   Install: `irm https://antigravity.google/cli/install.ps1 | iex`, which puts `agy.exe` in `%LOCALAPPDATA%\agy\bin`.
+   Google documents no way to pass images, so the connector is text-only (`sees_images = False`) and the vision
+   pass skips it. Checked against a stub that follows the documented format. **Not yet run against a real signed-in
+   `agy`**: that needs a Google sign-in on this PC.
+2. Saved settings migrate (`gemini-plan`: `gemini_cli` → `antigravity_cli`, the old model name dropped because
+   Antigravity rejects unknown ones), and the old CLI's error leaves the card (test results now name their tool).
+3. **"Logged in as Name" (user's request).** From each CLI's own status command, never a token file:
+   - Claude Code's `claude auth status --json` gives the email, the org and the plan. Checked here with the real
+     login: "Signed in as <email> · Claude Pro". This account has no "Name's Organization", so no display name.
+   - `codex login status` only says "Logged in using ChatGPT".
+   - `agy auth status` is undocumented, so PrePro only asks it when `agy --help` lists `auth`, with an 8 s cap.
+4. **Failing providers not on top (user's request).** Checked in the preview with Claude's last test marked failed:
+   - the "Who edits" picker kept only the rules engine;
+   - the plan cards went ChatGPT, Gemini, Claude;
+   - with Claude as the current editor, it stayed in the picker, selected, reading "Not working — fix it below" in
+     red, and the sidebar dot turned red.

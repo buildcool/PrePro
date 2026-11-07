@@ -34,6 +34,7 @@ TRAINING = {
     "claude_code": "Your Claude plan: used for training only if “Help improve Claude” is on (claude.ai → Settings → Privacy). Turn it off to opt out.",
     "codex": "Your ChatGPT plan: used for training by default — turn off “Improve the model for everyone” (it covers Codex too).",
     "gemini_cli": "Your Google account: with a personal account Google may use what is sent to improve its products — see the Gemini CLI privacy notice; Workspace / Code Assist licences differ.",
+    "antigravity_cli": "Your Google account (free, Google AI Pro or Ultra) through Antigravity: Google's Antigravity terms and privacy notice apply, and with a personal account Google may use what is sent to improve its products.",
     "anthropic": "Not used for training (Claude API commercial terms).",
     "openai": "Not used for training by default (OpenAI API).",
     "xai": "xAI API: reportedly not used for training without permission — check xAI's current terms.",
@@ -84,6 +85,7 @@ class Provider:
     sent_dir: Path | None = None
     privacy: str = "thumbs"
     log: list = field(default_factory=list)
+    sees_images = True                 # False: a connector with no documented way to pass pictures (gets text only)
 
     @property
     def kind(self) -> str:
@@ -105,7 +107,7 @@ class Provider:
         if self.privacy == "local" and self.kind not in LOCAL_KINDS:
             raise PrivacyBlocked(f"privacy level 'local' — {self.name} would send data off this PC")
         imgs = list(images or [])
-        if self.privacy != "thumbs":
+        if self.privacy != "thumbs" or not self.sees_images:
             imgs = []
         t0 = time.time()
         rep = self._complete(system, user, schema, imgs, effort)
@@ -341,6 +343,8 @@ class GeminiCLI(Provider):
         err = res.get("error")
         if p.returncode != 0 or err or "response" not in res:
             msg = str((err or {}).get("message") if isinstance(err, dict) else err or p.stderr or out)[-400:]
+            if GEMINI_CLI_ENDED in msg:
+                raise ProviderError(GEMINI_CLI_ENDED_WORDS)
             raise ProviderError(("plan usage limit reached: " if ("quota" in msg.lower() or "limit" in msg.lower()) else "gemini CLI error: ") + msg)
         data = _parse_json(str(res.get("response", "")))
         toks = {"input": 0, "output": 0}
@@ -349,6 +353,80 @@ class GeminiCLI(Provider):
             toks["input"] += int(t.get("prompt", 0) or 0)
             toks["output"] += int(t.get("candidates", 0) or 0)
         return Reply(data=data, usage=Usage(toks["input"], toks["output"], plan_usage=True), raw=out[-2000:], model=self.cfg.model or "gemini-cli")
+
+
+# Google stopped serving Gemini CLI to personal accounts (free, Google AI Pro, Ultra) on 18 June 2026; its sign-in now
+# fails with this message, and the Antigravity CLI is Google's replacement.
+GEMINI_CLI_ENDED = "no longer supported for Gemini Code Assist for individuals"
+GEMINI_CLI_ENDED_WORDS = ("Google stopped Gemini CLI for personal Google accounts on 18 June 2026. PrePro now uses Google's "
+                          "Antigravity CLI for your Google account: Settings → AI editor → Gemini → Install, then Sign in.")
+
+
+@dataclass
+class AntigravityCLI(Provider):
+    """The user's own Antigravity CLI (`agy`), signed in with their Google account (free, Google AI Pro or Ultra):
+    Google's replacement for Gemini CLI. Headless, as Google documents it: one ``{"event": "user", …}`` line on stdin
+    with ``--input-format stream-json --output-format stream-json`` (no command-line length limit, UTF-8 intact), the
+    answer constrained by ``--json-schema`` and read from the ``result`` event's ``structured_output``. It runs in an
+    empty temp folder and nothing is pre-approved, so it can't touch files. Attaching pictures isn't documented, so this
+    connector doesn't get contact sheets (the AI editor works from the shot descriptions). We never read tokens."""
+
+    sees_images = False
+
+    def exe(self) -> str | None:
+        from ..accounts import find_cli
+
+        return self.cfg.extra.get("path") or find_cli("agy")
+
+    def available(self) -> tuple[bool, str]:
+        exe = self.exe()
+        if self.cfg.extra.get("command"):
+            return True, " ".join(map(str, self.cfg.extra["command"]))
+        return (True, exe) if exe else (False, "Antigravity CLI not found (Settings → AI editor → Gemini → Install, then Sign in)")
+
+    def _complete(self, system, user, schema, images, effort):
+        prefix = _cli_prefix(self.cfg, self.exe())
+        if not prefix:
+            raise ProviderError("Antigravity CLI not installed")
+        prompt = (f"{system}\n\n{user}\n\nAnswer with one JSON object and nothing else. It must match this JSON Schema:\n"
+                  f"{json.dumps(schema)}")
+        line = json.dumps({"event": "user", "message": {"content": prompt}}, ensure_ascii=False) + "\n"
+        with tempfile.TemporaryDirectory(prefix="prepro-agy-") as td:
+            schema_file = Path(td) / "answer.schema.json"
+            schema_file.write_text(json.dumps(schema), encoding="utf-8")
+            cmd = [*prefix, "--input-format", "stream-json", "--output-format", "stream-json", "--json-schema", str(schema_file),
+                   "--print-timeout", f"{int(float(self.cfg.extra.get('timeout', 900)))}s"]
+            if self.cfg.model:
+                cmd += ["--model", self.cfg.model]
+            if effort in ("low", "medium", "high"):
+                cmd += ["--effort", effort]
+            p = _run_cli(cmd, line, cwd=td, timeout=float(self.cfg.extra.get("timeout", 900)) + 30)
+        result: dict = {}
+        for raw in p.stdout.splitlines():
+            raw = raw.strip()
+            if not raw.startswith("{"):
+                continue
+            try:
+                ev = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if ev.get("event") == "result":
+                result = ev.get("result") or {}
+            elif not result and ("structured_output" in ev or "response" in ev):     # the plain json envelope
+                result = ev
+        err = result.get("error")
+        if p.returncode != 0 or err or not (result.get("structured_output") or result.get("response")):
+            msg = str((err or {}).get("message") if isinstance(err, dict) else err or p.stderr or p.stdout)[-400:]
+            low = msg.lower()
+            if "authentication required" in low or "not signed in" in low or "sign in" in low:
+                raise ProviderError("not signed in to Antigravity yet: Settings → AI editor → Gemini → Sign in")
+            raise ProviderError(("plan usage limit reached: " if ("quota" in low or "limit" in low) else "Antigravity CLI error: ") + msg)
+        data = result.get("structured_output")
+        if not isinstance(data, dict):
+            data = _parse_json(str(result.get("response", "")))
+        u = result.get("usage") or {}
+        return Reply(data=data, usage=Usage(int(u.get("input_tokens", 0) or 0), int(u.get("output_tokens", 0) or 0), plan_usage=True),
+                     raw=p.stdout[-2000:], model=self.cfg.model or "antigravity")
 
 
 # ---------------------------------------------------------------- API keys
@@ -508,7 +586,8 @@ class StubProvider(Provider):
         return Reply(data=json.loads(json.dumps(data)), usage=Usage(len(user) // 4, 200), model="stub")
 
 
-KINDS = {"claude_code": ClaudeCodeCLI, "codex": CodexCLI, "gemini_cli": GeminiCLI, "anthropic": AnthropicAPI, "openai": OpenAICompatible,
+KINDS = {"claude_code": ClaudeCodeCLI, "codex": CodexCLI, "gemini_cli": GeminiCLI, "antigravity_cli": AntigravityCLI,
+         "anthropic": AnthropicAPI, "openai": OpenAICompatible,
          "xai": OpenAICompatible, "openrouter": OpenAICompatible, "gemini": GeminiAPI, "ollama": OllamaLocal, "stub": StubProvider}
 
 

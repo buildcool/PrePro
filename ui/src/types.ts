@@ -92,6 +92,11 @@ export interface PlanAccount {
   id: string;
   kind: string;
   name: string;
+  account?: string;              // whose account it signs in with ("Google" for Gemini through Antigravity)
+  signed_in?: boolean | null;    // what the CLI's own status command says (null: it can't say)
+  who?: string | null;           // the name (or email) it's signed in as
+  email?: string | null;
+  plan_name?: string | null;     // "Claude Max", "ChatGPT"…
   plan: string;
   via: string;
   exe: string;
@@ -123,7 +128,8 @@ export interface KeyAccount {
 
 export interface AIOverview {
   editor: string;
-  ready: string[];
+  ready: string[];               // working first, untested next, failing last
+  failing?: string[];            // last test failed, or the CLI says it isn't signed in: never offered at the top
   plans: PlanAccount[];
   keys: KeyAccount[];
   local: { id: string; name: string; model: string; test: TestResult | null; training: string }[];

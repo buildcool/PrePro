@@ -1,6 +1,6 @@
 [project]
 name = "prepro"
-version = "0.12.0"
+version = "0.12.1"
 description = "PrePro: AI pre-edit engine for creators — turns a shoot folder into a reasoned first cut with suggestions."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Fake Antigravity CLI (`agy`), headless as Google documents it: one {"event": "user", "message": {...}} line on stdin
+with --input-format stream-json --output-format stream-json, events back on stdout (init, then result), the answer
+checked against --json-schema and returned as `structured_output`."""
+import json, os, sys
+args = sys.argv[1:]
+if args[:1] == ["--help"]:
+    print("Usage: agy [options] [command]\n\nCommands:\n  auth      Manage authentication\n  models    List models")
+    sys.exit(0)
+if args[:2] == ["auth", "status"]:
+    print("Not signed in" if os.environ.get("FAKE_AGY_SIGNED_OUT") else "Signed in as asha.k@example.com (Google AI Pro)")
+    sys.exit(0)
+assert args[args.index("--input-format") + 1] == "stream-json" and args[args.index("--output-format") + 1] == "stream-json", args
+schema = json.load(open(args[args.index("--json-schema") + 1], encoding="utf-8"))
+line = sys.stdin.buffer.read().decode("utf-8").strip()
+msg = json.loads(line)
+assert msg["event"] == "user", msg
+prompt = msg["message"]["content"]
+out = sys.stdout.buffer
+def emit(ev):
+    out.write((json.dumps(ev, ensure_ascii=False) + "\n").encode("utf-8"))
+if os.environ.get("FAKE_AGY_SIGNED_OUT"):
+    sys.stderr.write("Error: authentication required. Run `agy` to sign in.\n")
+    sys.exit(1)
+emit({"event": "init", "init": {"conversation_id": "c1"}})
+emit({"event": "step_update", "step_update": {"conversation_id": "c1", "step_index": 0, "state": "running", "text_delta": "…"}})
+if os.environ.get("FAKE_AGY_QUOTA"):
+    emit({"event": "result", "result": {"status": "ERROR", "error": {"message": "Quota exceeded for your plan"}}})
+    sys.exit(1)
+answer = {"ok": True}
+if os.environ.get("FAKE_AGY_ECHO"):     # hand the prompt and the schema back so tests can check they arrived intact
+    answer = {**answer, "prompt": prompt, "schema": schema, "files": sorted(os.listdir("."))}
+emit({"event": "result", "result": {"conversation_id": "c1", "status": "SUCCESS", "response": json.dumps(answer, ensure_ascii=False),
+                                     "structured_output": answer, "num_turns": 1,
+                                     "usage": {"input_tokens": 900, "output_tokens": 30, "total_tokens": 930}}})

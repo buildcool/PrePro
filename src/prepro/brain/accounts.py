@@ -26,18 +26,22 @@ from pathlib import Path
 from ..config import ConnectorConfig, Settings, config_dir, delete_secret, get_secret, set_secret
 
 PLANS = [
-    {"id": "claude-plan", "kind": "claude_code", "name": "Claude", "plan": "Claude Pro or Max", "via": "Claude Code", "exe": "claude",
+    {"id": "claude-plan", "kind": "claude_code", "name": "Claude", "account": "Claude", "plan": "Claude Pro or Max", "via": "Claude Code",
+     "exe": "claude",
      "install": {"nt": "irm https://claude.ai/install.ps1 | iex", "posix": "curl -fsSL https://claude.ai/install.sh | bash"},
      "signin": "{exe}", "signin_note": "Sign in with your Claude account when it asks, then close the window.",
      "docs": "https://docs.anthropic.com/en/docs/claude-code/setup"},
-    {"id": "chatgpt-plan", "kind": "codex", "name": "ChatGPT", "plan": "ChatGPT Plus or Pro", "via": "Codex CLI", "exe": "codex",
+    {"id": "chatgpt-plan", "kind": "codex", "name": "ChatGPT", "account": "ChatGPT", "plan": "ChatGPT Plus or Pro", "via": "Codex CLI",
+     "exe": "codex",
      "install": {"nt": "npm install -g @openai/codex", "posix": "npm install -g @openai/codex"}, "needs_npm": True,
      "signin": "{exe} login", "signin_note": "Choose “Sign in with ChatGPT” in the browser, then close the window.",
      "docs": "https://github.com/openai/codex"},
-    {"id": "gemini-plan", "kind": "gemini_cli", "name": "Gemini", "plan": "Google AI Pro or a Google account", "via": "Gemini CLI", "exe": "gemini",
-     "install": {"nt": "npm install -g @google/gemini-cli", "posix": "npm install -g @google/gemini-cli"}, "needs_npm": True,
-     "signin": "{exe}", "signin_note": "Pick “Login with Google” when it asks, then close the window.",
-     "docs": "https://github.com/google-gemini/gemini-cli"},
+    # Gemini through Google's Antigravity CLI: Google stopped serving Gemini CLI to personal accounts on 18 June 2026
+    {"id": "gemini-plan", "kind": "antigravity_cli", "name": "Gemini", "account": "Google", "plan": "Google AI Pro, Ultra or a free Google account",
+     "via": "Antigravity CLI", "exe": "agy",
+     "install": {"nt": "irm https://antigravity.google/cli/install.ps1 | iex", "posix": "curl -fsSL https://antigravity.google/cli/install.sh | bash"},
+     "signin": "{exe}", "signin_note": "Answer its first-run questions and sign in with your Google account when it asks, then close the window.",
+     "docs": "https://antigravity.google/docs/getting-started?tab=cli"},
 ]
 KEYS = [
     {"id": "claude-api", "kind": "anthropic", "name": "Anthropic API", "secret": "anthropic_api_key", "model": "claude-opus-5-5",
@@ -83,6 +87,7 @@ def find_cli(name: str) -> str | None:
                 cands.append(Path(os.environ[env]) / "npm" / f"{name}.cmd")
         if os.environ.get("LOCALAPPDATA"):
             cands.append(Path(os.environ["LOCALAPPDATA"]) / "Programs" / name / f"{name}.exe")
+            cands.append(Path(os.environ["LOCALAPPDATA"]) / name / "bin" / f"{name}.exe")     # the Antigravity CLI installer
         pre = _npm_prefix()
         if pre:
             cands.append(Path(pre) / f"{name}.cmd")
@@ -124,6 +129,81 @@ def cli_version(exe: str, *, ask: bool = True) -> str | None:
     return _VERSIONS.get(key)
 
 
+# ---------------------------------------------------------------- who is signed in
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+ACCOUNT_TTL = 120.0                                      # seconds an answer is trusted (a sign-in or a test forgets it)
+_ACCOUNTS: dict[tuple[str, str], tuple[float, dict]] = {}
+
+
+def _ask_account(kind: str, exe: str) -> dict:
+    """Who is signed in, as the CLI itself says through its status command — never from a token file:
+    {"signed_in": bool, "who": "Asha" or "asha@…", "email": …, "plan_name": "Claude Max"}, or {} when it can't say."""
+    from .providers import launch_command
+
+    def run(*args: str, timeout: float = 15) -> str:
+        try:
+            r = subprocess.run([*launch_command(exe), *args], capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout)
+        except Exception:
+            return ""
+        return (r.stdout + b"\n" + r.stderr).decode("utf-8", "replace")
+
+    if kind == "claude_code":                            # `claude auth status --json`: loggedIn, email, orgName, subscriptionType
+        out = run("auth", "status", "--json")
+        try:
+            d = json.loads(out[out.find("{"): out.rfind("}") + 1]) if "{" in out else {}
+        except json.JSONDecodeError:
+            d = {}
+        if not d:
+            return {}
+        if not d.get("loggedIn"):
+            return {"signed_in": False}
+        email = d.get("email") or None
+        org = str(d.get("orgName") or "")
+        name = org[: -len("'s Organization")] if org.endswith("'s Organization") else ""
+        sub = str(d.get("subscriptionType") or "").lower()
+        plan = {"max": "Claude Max", "pro": "Claude Pro", "team": "Claude Team", "enterprise": "Claude Enterprise"}.get(sub)
+        return {"signed_in": True, "who": (name if name and "@" not in name else None) or email, "email": email, "plan_name": plan}
+    if kind == "codex":                                  # `codex login status`: "Logged in using ChatGPT" (no name in it)
+        out = run("login", "status").lower()
+        if "not logged in" in out:
+            return {"signed_in": False}
+        if "logged in" in out:
+            return {"signed_in": True, "plan_name": "ChatGPT" if "chatgpt" in out else ("API key" if "api key" in out else None)}
+        return {}
+    if kind == "antigravity_cli":                        # `agy auth status` isn't in Google's docs yet: only if its help lists it
+        if "auth" not in run("--help", timeout=8).lower():
+            return {}
+        out = run("auth", "status", timeout=8)
+        m = EMAIL.search(out)
+        if m:
+            return {"signed_in": True, "who": m.group(0), "email": m.group(0)}
+        if re.search(r"not (signed|logged) in|authentication required|no account", out, re.I):
+            return {"signed_in": False}
+        return {}
+    return {}
+
+
+def account(kind: str, exe: str | None, *, ask: bool = True) -> dict:
+    """Who is signed in to a plan's CLI (asked at most every couple of minutes); ask=False only reads what's known."""
+    if not exe:
+        return {}
+    key = (kind, exe)
+    hit = _ACCOUNTS.get(key)
+    if hit and (not ask or time.time() - hit[0] < ACCOUNT_TTL):
+        return hit[1]
+    if not ask:
+        return {}
+    info = _ask_account(kind, exe)
+    _ACCOUNTS[key] = (time.time(), info)
+    return info
+
+
+def forget_account(kind: str | None = None) -> None:
+    """After a sign-in, a test or an install: ask again next time."""
+    for k in [k for k in _ACCOUNTS if kind is None or k[0] == kind]:
+        _ACCOUNTS.pop(k, None)
+
+
 # ---------------------------------------------------------------- status
 def _status() -> dict:
     p = config_dir() / STATUS_FILE
@@ -133,10 +213,21 @@ def _status() -> dict:
         return {}
 
 
-def record_test(cid: str, ok: bool, msg: str, model: str = "") -> None:
+def record_test(cid: str, ok: bool, msg: str, model: str = "", *, kind: str = "") -> None:
     s = _status()
-    s[cid] = {"ok": ok, "msg": msg[:300], "model": model, "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    s[cid] = {"ok": ok, "msg": msg[:300], "model": model, "kind": kind, "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     (config_dir() / STATUS_FILE).write_text(json.dumps(s, indent=1), encoding="utf-8")
+    if kind:
+        forget_account(kind)                         # a test is a good moment to look again at who's signed in
+
+
+def _current_test(t: dict | None, kind: str) -> dict | None:
+    """A test result, unless another tool made it: Gemini moved from Gemini CLI to the Antigravity CLI, and the old
+    CLI's sign-in error must not stay on the card (results from before tests named their tool came from Gemini CLI)."""
+    if not t:
+        return None
+    made_by = t.get("kind") or ("gemini_cli" if kind == "antigravity_cli" else kind)
+    return t if made_by == kind else None
 
 
 def _mask(v: str | None) -> str | None:
@@ -153,11 +244,13 @@ def overview(settings: Settings | None = None, *, versions: bool = True) -> dict
     plans = []
     for p in PLANS:
         exe = find_cli(p["exe"])
+        who = account(p["kind"], exe, ask=versions)
         plans.append({**{k: v for k, v in p.items() if k not in ("install", "signin")},
                       "installed": bool(exe), "path": exe, "version": cli_version(exe, ask=versions) if exe else None,
                       "install_cmd": p["install"]["nt" if os.name == "nt" else "posix"], "npm": bool(shutil.which("npm")),
-                      "test": tests.get(p["id"]), "training": TRAINING.get(p["kind"], ""),
-                      "model": (s.connectors.get(p["id"]) or ConnectorConfig(kind=p["kind"])).model})
+                      "test": _current_test(tests.get(p["id"]), p["kind"]), "training": TRAINING.get(p["kind"], ""),
+                      "model": (s.connectors.get(p["id"]) or ConnectorConfig(kind=p["kind"])).model,
+                      "signed_in": who.get("signed_in"), "who": who.get("who"), "email": who.get("email"), "plan_name": who.get("plan_name")})
     keys = []
     for k in KEYS:
         v = get_secret(k["secret"])
@@ -171,7 +264,15 @@ def overview(settings: Settings | None = None, *, versions: bool = True) -> dict
                       "test": tests.get("ollama"), "training": TRAINING["ollama"]})
     ready = [p["id"] for p in plans if p["installed"]] + [k["id"] for k in keys if k["set"]] + [x["id"] for x in local]
     ready += [n for n in s.connectors if n not in ready]
-    return {"editor": s.ai_editor if (s.ai_editor in ready or s.ai_editor == "basic") else "basic", "ready": ready,
+    # what works first, what hasn't been tried next, what failed (its last test, or it says it isn't signed in) last —
+    # a failing account is never offered at the top
+    state: dict[str, int] = {}
+    for item in [*plans, *keys, *local]:
+        t = item.get("test")
+        state[item["id"]] = 2 if ((t and not t.get("ok")) or item.get("signed_in") is False) else (0 if t and t.get("ok") else 1)
+    ready.sort(key=lambda i: state.get(i, 1))
+    failing = [i for i in ready if state.get(i) == 2]
+    return {"editor": s.ai_editor if (s.ai_editor in ready or s.ai_editor == "basic") else "basic", "ready": ready, "failing": failing,
             "plans": plans, "keys": keys, "local": local, "routing": s.routing.model_dump(),
             "privacy": s.privacy, "blur_faces": s.blur_faces_in_thumbs, "monthly_cap_usd": s.monthly_cap_usd}
 
@@ -242,6 +343,7 @@ def terminal_command(cid: str, action: str) -> tuple[str, str]:
     p = next((x for x in PLANS if x["id"] == cid), None)
     if p is None or action not in ("install", "signin"):
         raise ValueError("unknown account or action")
+    forget_account(p["kind"])                            # after this, who's signed in may change
     if action == "install":
         if p.get("needs_npm") and not shutil.which("npm"):
             raise ValueError("this needs Node.js first — install it from https://nodejs.org, then try again")

@@ -2,6 +2,9 @@
 """Fake Codex CLI: writes the canned reply to the -o file like `codex exec --output-schema … -o file`."""
 import json, os, sys
 args = sys.argv[1:]
+if args[:2] == ["login", "status"]:         # `codex login status` names the method, not the person
+    print("Not logged in" if os.environ.get("FAKE_CODEX_SIGNED_OUT") else "Logged in using ChatGPT")
+    sys.exit(1 if os.environ.get("FAKE_CODEX_SIGNED_OUT") else 0)
 prompt = sys.stdin.buffer.read().decode("utf-8")
 out = args[args.index("-o") + 1]
 canned = {"ok": True}

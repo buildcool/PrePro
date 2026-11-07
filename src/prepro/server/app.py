@@ -820,10 +820,10 @@ def create_app(*, token: str | None = None, workers: int = 2) -> FastAPI:
                                          {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
                                          effort="low", pass_name="connection_test")
             except Exception as e:
-                record_test(cid, False, str(e))
+                record_test(cid, False, str(e), kind=cfg.kind)
                 raise
             msg = f"answered in {rep.usage.seconds:.0f} s" + (f" · {rep.model}" if rep.model else "")
-            record_test(cid, True, msg, rep.model)
+            record_test(cid, True, msg, rep.model, kind=cfg.kind)
             return {"ok": True, "message": msg}
 
         return jobs.submit("ai_test", "_ai", work).public()

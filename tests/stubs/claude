@@ -4,6 +4,13 @@ Reads stdin and the system-prompt file as UTF-8 (like the real CLI) and logs wha
 non-ASCII text (₹, “quotes”, Hindi) survives the trip on every OS."""
 import json, os, sys
 args = sys.argv[1:]
+if args[:2] == ["auth", "status"]:          # who is signed in, as `claude auth status --json` reports it
+    if os.environ.get("FAKE_CLAUDE_SIGNED_OUT"):
+        print(json.dumps({"loggedIn": False, "authMethod": "none"}))
+        sys.exit(1)
+    print(json.dumps({"loggedIn": True, "authMethod": "claude.ai", "apiProvider": "firstParty", "email": "asha@example.com",
+                      "orgId": "0000", "orgName": "Asha's Organization", "subscriptionType": "max"}))
+    sys.exit(0)
 prompt = sys.stdin.buffer.read().decode("utf-8")
 mode = os.environ.get("FAKE_CLAUDE_MODE", "ok")
 if mode == "limit":

@@ -114,6 +114,13 @@ class Settings(BaseModel):
                 r = s.routing.model_dump()
                 if all(v == "basic" for v in r.values()):   # saved before "auto" existed and never customised
                     s.routing = BrainRouting()
+                old = s.connectors.get("gemini-plan")
+                if old is not None and old.kind == "gemini_cli":
+                    # Google stopped Gemini CLI for personal accounts (18 June 2026): the Gemini plan goes through the
+                    # Antigravity CLI now. Its model names differ (an unknown one fails), so Antigravity picks its own.
+                    s.connectors["gemini-plan"] = old.model_copy(update={
+                        "kind": "antigravity_cli", "model": None,
+                        "extra": {k: v for k, v in old.extra.items() if k not in ("path", "command")}})
                 return s
             except Exception:
                 pass

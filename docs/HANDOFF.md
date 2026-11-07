@@ -8,6 +8,16 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.12.1 (2026-11-07; CHANGELOG [0.12.1], QA "v0.12.1"): Gemini via Antigravity, who's signed in.** Google stopped
+  Gemini CLI for personal accounts (18 June 2026): `accounts.PLANS["gemini-plan"]` is now kind `antigravity_cli`
+  (`providers.AntigravityCLI`: stream-json stdin/stdout, `--json-schema`, `sees_images = False`; installer
+  `antigravity.google/cli/install.ps1`, exe `agy` in `%LOCALAPPDATA%\agy\bin` — `find_cli` looks there). `GeminiCLI`
+  maps Google's "no longer supported" error to plain words. `Settings.load` migrates a saved `gemini_cli` connector;
+  `record_test(kind=…)` + `_current_test` drop results made by another tool. Who's signed in: `accounts.account()`
+  (status commands only: `claude auth status --json`, `codex login status`, `agy auth status` only if `--help` lists
+  it; cached 120 s, forgotten on test/sign-in). `overview()` sorts `ready` working → untested → failing and returns
+  `failing`; the UI hides failing ones from the "Who edits" picker (except the current editor) and sorts each section
+  working → untested → not set up → failing. Not yet run against a real signed-in `agy`.
 - **PrePro for iPhone (started 2026-11-07): plan `docs/IOS_PLAN.md` (approved), tester guide `docs/IOS_INSTALL.md`.**
   Native SwiftUI app (iOS 26), $0 toolchain: no Mac here. GitHub's macOS runners (`.github/workflows/ios.yml`,
   `runs-on: macos-26`, free for this public repo) generate the project with XcodeGen (`ios/project.yml`), run
