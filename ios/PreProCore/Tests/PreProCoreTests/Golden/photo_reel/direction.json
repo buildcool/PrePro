@@ -1,0 +1,64 @@
+{
+ "id": "d1",
+ "playbook": "photo_reel",
+ "name": "Photo reel · Reel/Short · ~12 s",
+ "aspect": "9:16",
+ "target_min": 10.2,
+ "target_max": 13.8,
+ "fit_score": 0.95,
+ "why": "11 photos and a song — a photo reel cut on the beat",
+ "hooks": [
+  {
+   "id": "h0",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I02.k0"
+   ],
+   "text_hook": "Calangute · Oct 2026",
+   "why": "open on your most striking photo (I02): colour, contrast and a face stop the scroll",
+   "score": 0.945
+  },
+  {
+   "id": "h1",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I09.k0"
+   ],
+   "text_hook": "Calangute · Oct 2026",
+   "why": "or open on this photo (I09): colour, contrast and a face stop the scroll",
+   "score": 0.781
+  },
+  {
+   "id": "h2",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I01.k0"
+   ],
+   "text_hook": "Calangute · Oct 2026",
+   "why": "or open on this photo (I01): colour, contrast stop the scroll",
+   "score": 0.686
+  }
+ ],
+ "outline": [
+  "Hook (visual spectacle): shot I02.k0",
+  "Structure: cover_photo → beat_cut_photos → loop_back"
+ ],
+ "knobs": {
+  "pace": 0.5,
+  "effects": "balanced",
+  "captions": "off",
+  "humour": "off",
+  "music_track": null,
+  "target_length": 12.0,
+  "freedom": "balanced",
+  "look": null,
+  "meme_flavour": "global",
+  "meme_tone": "clean",
+  "tightness": null,
+  "shot_len": null,
+  "layout": "auto",
+  "photo_motion": true
+ },
+ "coverage_gaps": [],
+ "from_brief": false
+}

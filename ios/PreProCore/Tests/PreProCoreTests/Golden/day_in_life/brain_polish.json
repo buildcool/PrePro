@@ -1,0 +1,210 @@
+{
+ "direction_id": "d1",
+ "music": [
+  {
+   "section": "morning",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "96 BPM — your moments change on its beats, from its build; the sounds of your day stay under it",
+   "gain_db": 0.0,
+   "offset": 7.523
+  },
+  {
+   "section": "midday",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "96 BPM — your moments change on its beats, from its build; the sounds of your day stay under it",
+   "gain_db": 0.0,
+   "offset": 7.523
+  },
+  {
+   "section": "afternoon",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "96 BPM — your moments change on its beats, from its build; the sounds of your day stay under it",
+   "gain_db": 0.0,
+   "offset": 7.523
+  },
+  {
+   "section": "evening",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "96 BPM — your moments change on its beats, from its build; the sounds of your day stay under it",
+   "gain_db": 0.0,
+   "offset": 7.523
+  },
+  {
+   "section": "night",
+   "mode": "front",
+   "track_id": "A02",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "96 BPM — your moments change on its beats, from its build; the sounds of your day stay under it",
+   "gain_db": 0.0,
+   "offset": 7.523
+  }
+ ],
+ "effects": [
+  {
+   "type": "text",
+   "at": "start",
+   "asset": null,
+   "value": null,
+   "text": "a day in my life",
+   "style": "photo",
+   "dur": 2.5,
+   "intent": "title",
+   "why": "what this is, on the first frame — it works on mute",
+   "confidence": 0.75,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "C02.k0",
+   "asset": null,
+   "value": null,
+   "text": "6:42 am",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — where your day starts",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C04.k0",
+   "asset": null,
+   "value": null,
+   "text": "7:31 am",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — the day moves on",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C06.k0",
+   "asset": null,
+   "value": null,
+   "text": "9:45 am",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — the day moves on",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C16.k0",
+   "asset": null,
+   "value": null,
+   "text": "1:05 pm",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — the day moves on",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C09.k0",
+   "asset": null,
+   "value": null,
+   "text": "4:30 pm",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — the day moves on",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C11.k0",
+   "asset": null,
+   "value": null,
+   "text": "6:15 pm",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — the day moves on",
+   "confidence": 0.8,
+   "position": "upper"
+  },
+  {
+   "type": "text",
+   "at": "C15.k0",
+   "asset": null,
+   "value": null,
+   "text": "11:05 pm",
+   "style": "stamp",
+   "dur": null,
+   "intent": "stamp",
+   "why": "when you shot it, from the clip's own capture time — where your day ends",
+   "confidence": 0.8,
+   "position": "upper"
+  }
+ ],
+ "broll_gaps": [],
+ "vo_script": [],
+ "look": "natural",
+ "notes": []
+}

@@ -1,0 +1,106 @@
+{
+ "direction_id": "d1",
+ "hook_id": null,
+ "items": [
+  {
+   "ref": "I02.k0",
+   "role": "hook",
+   "t0": 0.0,
+   "t1": 2.391,
+   "section": "reel",
+   "note": "cover: your most striking photo first",
+   "whole": false,
+   "beats": 4
+  },
+  {
+   "ref": "I01.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.208,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I04.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.184,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I05.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.208,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I11.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.207,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I07.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.184,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I08.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 1.208,
+   "section": "reel",
+   "note": "",
+   "whole": false,
+   "beats": 2
+  },
+  {
+   "ref": "I09.k0",
+   "role": "photo",
+   "t0": 0.0,
+   "t1": 2.391,
+   "section": "reel",
+   "note": "the last photo holds a little longer",
+   "whole": false,
+   "beats": 4
+  },
+  {
+   "ref": "I02.k0",
+   "role": "loop",
+   "t0": 0.0,
+   "t1": 1.208,
+   "section": "reel",
+   "note": "loop ending: back to the cover so the Reel replays seamlessly",
+   "whole": false,
+   "beats": 2
+  }
+ ],
+ "sections": [
+  {
+   "name": "reel",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  }
+ ],
+ "chapters": [],
+ "why": "cut on the beat of the song (99 BPM, from its drop): every photo lasts 2 beat(s)"
+}

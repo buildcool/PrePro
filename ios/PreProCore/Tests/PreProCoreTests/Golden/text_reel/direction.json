@@ -1,0 +1,45 @@
+{
+ "id": "d1",
+ "playbook": "text_reel",
+ "name": "Your words on video · Reel/Short · ~13 s",
+ "aspect": "9:16",
+ "target_min": 10.7,
+ "target_max": 14.5,
+ "fit_score": 0.97,
+ "why": "your 4 lines on your clips, each on the beat of the song for as long as it takes to read",
+ "hooks": [
+  {
+   "id": "h0",
+   "kind": "visual_spectacle",
+   "refs": [
+    "C05.k0"
+   ],
+   "text_hook": "pov: you finally learned to cook",
+   "why": "your first line on your most striking clip, from the first frame",
+   "score": 0.95
+  }
+ ],
+ "outline": [
+  "Hook (visual spectacle): shot C05.k0",
+  "Main: 0 talking beats, 5 shots",
+  "Structure: hook_line → line_by_line → last_line_holds"
+ ],
+ "knobs": {
+  "pace": 0.5,
+  "effects": "balanced",
+  "captions": "off",
+  "humour": "off",
+  "music_track": null,
+  "target_length": 12.6,
+  "freedom": "balanced",
+  "look": "natural",
+  "meme_flavour": "global",
+  "meme_tone": "clean",
+  "tightness": null,
+  "shot_len": null,
+  "layout": "auto",
+  "photo_motion": true
+ },
+ "coverage_gaps": [],
+ "from_brief": false
+}

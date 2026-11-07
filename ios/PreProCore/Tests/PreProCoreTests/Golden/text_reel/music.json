@@ -1,0 +1,111 @@
+{
+ "front": {
+  "brief": {
+   "mood": "happy",
+   "energy": "medium",
+   "bpm_min": 75.0,
+   "bpm_max": 130.0,
+   "genre": "",
+   "vocals_ok": true,
+   "structure_needs": [
+    "at least 13s or loopable"
+   ],
+   "search_terms": [
+    "happy",
+    "75-130 bpm happy"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A02",
+    "score": 0.45,
+    "why": "76 BPM fits"
+   },
+   {
+    "asset_id": "A01",
+    "score": 0.124,
+    "why": "available"
+   }
+  ]
+ },
+ "bed": {
+  "brief": {
+   "mood": "happy",
+   "energy": "low",
+   "bpm_min": 70.0,
+   "bpm_max": 112.0,
+   "genre": "",
+   "vocals_ok": false,
+   "structure_needs": [
+    "at least 13s or loopable"
+   ],
+   "search_terms": [
+    "happy instrumental",
+    "no vocals background music"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A02",
+    "score": 0.6,
+    "why": "76 BPM fits, low energy"
+   },
+   {
+    "asset_id": "A01",
+    "score": -0.1,
+    "why": "available"
+   }
+  ]
+ },
+ "light": {
+  "brief": {
+   "mood": "happy",
+   "energy": "low",
+   "bpm_min": 60.0,
+   "bpm_max": 100.0,
+   "genre": "",
+   "vocals_ok": false,
+   "structure_needs": [
+    "at least 13s or loopable"
+   ],
+   "search_terms": [
+    "happy"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A02",
+    "score": 0.6,
+    "why": "76 BPM fits, low energy"
+   },
+   {
+    "asset_id": "A01",
+    "score": -0.1,
+    "why": "available"
+   }
+  ]
+ },
+ "grid": {
+  "need": 12.6,
+  "playbook": "text_reel",
+  "track": "A02",
+  "offset": 22.129,
+  "beat": 0.7890000000000006,
+  "beats": [
+   0.0,
+   0.789,
+   1.579,
+   2.368,
+   3.158,
+   3.947,
+   4.736,
+   5.526,
+   6.315,
+   7.105,
+   7.894,
+   8.684
+  ],
+  "label": "chorus",
+  "bpm": 76.0
+ }
+}

@@ -1,0 +1,46 @@
+{
+ "id": "d1",
+ "playbook": "day_in_life",
+ "name": "Day in my life · Reel/Short · ~28 s",
+ "aspect": "9:16",
+ "target_min": 24.0,
+ "target_max": 32.4,
+ "fit_score": 0.97,
+ "why": "15 clips from one day, 6:42 am to 11:05 pm — your day in the order it happened, cut on the beat, with small time stamps",
+ "hooks": [
+  {
+   "id": "h0",
+   "kind": "first_moment",
+   "refs": [
+    "C02.k0"
+   ],
+   "text_hook": "a day in my life",
+   "why": "open on the first moment of your day (6:42 am), with what this is on screen",
+   "score": 0.9
+  }
+ ],
+ "outline": [
+  "Hook (first moment): shot C02.k0",
+  "Day 1 · Calangute: 0 talking beats, 1 shots",
+  "Day 2 · Calangute: 0 talking beats, 13 shots",
+  "Structure: first_moment → morning → midday → afternoon → evening → night"
+ ],
+ "knobs": {
+  "pace": 0.55,
+  "effects": "balanced",
+  "captions": "clean",
+  "humour": "off",
+  "music_track": null,
+  "target_length": 28.2,
+  "freedom": "balanced",
+  "look": "natural",
+  "meme_flavour": "global",
+  "meme_tone": "clean",
+  "tightness": null,
+  "shot_len": null,
+  "layout": "auto",
+  "photo_motion": true
+ },
+ "coverage_gaps": [],
+ "from_brief": false
+}

@@ -1,0 +1,43 @@
+{
+ "direction_id": "d1",
+ "music": [
+  {
+   "section": "reel",
+   "mode": "front",
+   "track_id": "A01",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "99 BPM — the photos change on its beats; it starts at 14.4s, the drop",
+   "gain_db": 0.0,
+   "offset": 14.443
+  }
+ ],
+ "effects": [
+  {
+   "type": "text",
+   "at": "photo:0",
+   "asset": null,
+   "value": null,
+   "text": "Calangute · Oct 2026",
+   "style": "photo",
+   "dur": null,
+   "intent": null,
+   "why": "where and when, from your photos — on the cover only",
+   "confidence": 0.8,
+   "position": "upper"
+  }
+ ],
+ "broll_gaps": [],
+ "vo_script": [],
+ "look": null,
+ "notes": []
+}

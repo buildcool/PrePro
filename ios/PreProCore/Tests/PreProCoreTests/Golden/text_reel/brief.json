@@ -1,0 +1,66 @@
+{
+ "raw_text": "Text:\npov: you finally learned to cook\nand it's actually good\nsunday mornings hit different now\nsave this for your next slow weekend",
+ "sources": [
+  "ui"
+ ],
+ "rules": [
+  {
+   "kind": "text_line",
+   "target": "pov: you finally learned to cook",
+   "anchor": "",
+   "value": 0.0,
+   "arg": {},
+   "source": "pov: you finally learned to cook",
+   "resolved": true
+  },
+  {
+   "kind": "text_line",
+   "target": "and it's actually good",
+   "anchor": "",
+   "value": 1.0,
+   "arg": {},
+   "source": "and it's actually good",
+   "resolved": true
+  },
+  {
+   "kind": "text_line",
+   "target": "sunday mornings hit different now",
+   "anchor": "",
+   "value": 2.0,
+   "arg": {},
+   "source": "sunday mornings hit different now",
+   "resolved": true
+  },
+  {
+   "kind": "text_line",
+   "target": "save this for your next slow weekend",
+   "anchor": "",
+   "value": 3.0,
+   "arg": {},
+   "source": "save this for your next slow weekend",
+   "resolved": true
+  }
+ ],
+ "prefs": {
+  "playbook": null,
+  "aspect": null,
+  "target_length": null,
+  "goal": null,
+  "audience": null,
+  "mood": null,
+  "pace": null,
+  "effects": null,
+  "captions": null,
+  "caption_lang": null,
+  "humour": null,
+  "meme_flavour": null,
+  "look": null,
+  "music_mood": null,
+  "references": [],
+  "outline": [],
+  "freedom": "balanced",
+  "deliverables": []
+ },
+ "questions": [],
+ "parsed_by": "rules"
+}

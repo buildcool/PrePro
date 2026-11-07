@@ -1,0 +1,27 @@
+{
+ "playbook": "photo_reel",
+ "duration": 13.05,
+ "width": 1080,
+ "height": 1920,
+ "tracks": {
+  "V1": 1,
+  "T1": 3,
+  "A2": 1
+ },
+ "v1_rec_in": [
+  0.0
+ ],
+ "texts": [
+  "POV: you finally took the trip you kept postponing",
+  "3 days, 1 backpack, zero plans",
+  "and it was everything"
+ ],
+ "suggestion_keys": [
+  "cover:I01.k0",
+  "fx:text:t:0.000|POV: you finally took th",
+  "fx:text:t:3.925|3 days, 1 backpack, zero",
+  "fx:text:t:7.826|and it was everything",
+  "music:reel",
+  "photomotion"
+ ]
+}

@@ -1,0 +1,44 @@
+{
+ "id": "d1",
+ "playbook": "photo_reel",
+ "name": "Photo reel · Reel/Short · ~14 s",
+ "aspect": "9:16",
+ "target_min": 11.5,
+ "target_max": 15.5,
+ "fit_score": 0.95,
+ "why": "one photo and a song — your words on the photo, timed to the music",
+ "hooks": [
+  {
+   "id": "h0",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I01.k0"
+   ],
+   "text_hook": "POV: you finally took the trip you kept postponing",
+   "why": "open on your most striking photo (I01): colour, contrast and a face stop the scroll",
+   "score": 0.873
+  }
+ ],
+ "outline": [
+  "Hook (visual spectacle): shot I01.k0",
+  "Structure: cover_photo → beat_cut_photos → loop_back"
+ ],
+ "knobs": {
+  "pace": 0.5,
+  "effects": "balanced",
+  "captions": "off",
+  "humour": "off",
+  "music_track": null,
+  "target_length": 13.5,
+  "freedom": "balanced",
+  "look": null,
+  "meme_flavour": "global",
+  "meme_tone": "clean",
+  "tightness": null,
+  "shot_len": null,
+  "layout": "auto",
+  "photo_motion": true
+ },
+ "coverage_gaps": [],
+ "from_brief": false
+}

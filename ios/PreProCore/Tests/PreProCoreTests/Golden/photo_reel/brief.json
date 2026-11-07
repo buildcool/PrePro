@@ -1,0 +1,27 @@
+{
+ "raw_text": "",
+ "sources": [],
+ "rules": [],
+ "prefs": {
+  "playbook": null,
+  "aspect": null,
+  "target_length": null,
+  "goal": null,
+  "audience": null,
+  "mood": null,
+  "pace": null,
+  "effects": null,
+  "captions": null,
+  "caption_lang": null,
+  "humour": null,
+  "meme_flavour": null,
+  "look": null,
+  "music_mood": null,
+  "references": [],
+  "outline": [],
+  "freedom": "balanced",
+  "deliverables": []
+ },
+ "questions": [],
+ "parsed_by": "none"
+}

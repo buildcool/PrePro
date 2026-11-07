@@ -1,0 +1,394 @@
+{
+ "id": "d1-photo_reel",
+ "name": "Photo reel · Reel/Short · ~14 s",
+ "direction_id": "d1",
+ "playbook": "photo_reel",
+ "fps": 30.0,
+ "width": 1080,
+ "height": 1920,
+ "items": [
+  {
+   "id": "m5",
+   "ref": null,
+   "track": "A2",
+   "kind": "audio",
+   "asset_id": "A01",
+   "src_in": 15.673,
+   "src_out": 28.723,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [
+    [
+     0.0,
+     -6.0
+    ],
+    [
+     13.05,
+     -6.0
+    ]
+   ],
+   "fade_in": 0.05,
+   "fade_out": 1.5,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": null,
+   "role": "music",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  },
+  {
+   "id": "t2",
+   "ref": "fx:text:t:0.000|POV: you finally took th",
+   "track": "T1",
+   "kind": "text",
+   "asset_id": null,
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": "POV: you finally took the trip you kept postponing",
+   "style": "photo",
+   "position": "lower",
+   "text_y": 0.6775,
+   "text_scale": 0.92,
+   "duration": 3.875,
+   "role": "text",
+   "section": null,
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  },
+  {
+   "id": "v1",
+   "ref": "I01.k0",
+   "track": "V1",
+   "kind": "image",
+   "asset_id": "I01",
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 0.0,
+   "speed": 1.0,
+   "link": null,
+   "transform": {
+    "cx": 0.4965,
+    "cy": 0.4209,
+    "zoom": 1.0,
+    "keys": [
+     {
+      "t": 0.0,
+      "cx": 0.4965,
+      "cy": 0.4209,
+      "zoom": 1.0
+     },
+     {
+      "t": 13.05,
+      "cx": 0.4965,
+      "cy": 0.4209,
+      "zoom": 1.07
+     }
+    ],
+    "fit": false
+   },
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": null,
+   "style": null,
+   "position": null,
+   "text_y": null,
+   "text_scale": null,
+   "duration": 13.05,
+   "role": "hook",
+   "section": "reel",
+   "look": null,
+   "suggestion_ids": [],
+   "note": "kenburns"
+  },
+  {
+   "id": "t3",
+   "ref": "fx:text:t:3.925|3 days, 1 backpack, zero",
+   "track": "T1",
+   "kind": "text",
+   "asset_id": null,
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 3.925,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": "3 days, 1 backpack, zero plans",
+   "style": "photo",
+   "position": "lower",
+   "text_y": 0.6834,
+   "text_scale": null,
+   "duration": 3.851,
+   "role": "text",
+   "section": null,
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  },
+  {
+   "id": "t4",
+   "ref": "fx:text:t:7.826|and it was everything",
+   "track": "T1",
+   "kind": "text",
+   "asset_id": null,
+   "src_in": 0.0,
+   "src_out": 0.0,
+   "rec_in": 7.826,
+   "speed": 1.0,
+   "link": null,
+   "transform": null,
+   "place": null,
+   "gain_db": 0.0,
+   "envelope": [],
+   "fade_in": 0.0,
+   "fade_out": 0.0,
+   "transition_in": "cut",
+   "transition_dur": 0.0,
+   "text": "and it was everything",
+   "style": "photo",
+   "position": "lower",
+   "text_y": 0.6913,
+   "text_scale": null,
+   "duration": 5.174,
+   "role": "text",
+   "section": null,
+   "look": null,
+   "suggestion_ids": [],
+   "note": ""
+  }
+ ],
+ "captions": [],
+ "markers": [
+  {
+   "t": 0.0,
+   "name": "hook",
+   "note": "one photo held while your lines land on the music's beat",
+   "color": "green",
+   "suggestion_id": "sg1"
+  },
+  {
+   "t": 0.0,
+   "name": "motion",
+   "note": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+   "color": "green",
+   "suggestion_id": "sg2"
+  },
+  {
+   "t": 0.0,
+   "name": "text",
+   "note": "your line 1, from the first frame: it is the hook: “POV: you finally took the trip you kept postponing”",
+   "color": "green",
+   "suggestion_id": "sg3"
+  },
+  {
+   "t": 3.925,
+   "name": "text",
+   "note": "your line 2, on the beat: “3 days, 1 backpack, zero plans”",
+   "color": "green",
+   "suggestion_id": "sg4"
+  },
+  {
+   "t": 7.826,
+   "name": "text",
+   "note": "your line 3, on the beat: “and it was everything”",
+   "color": "green",
+   "suggestion_id": "sg5"
+  },
+  {
+   "t": 0.0,
+   "name": "music",
+   "note": "warm_acoustic_92.wav up front (92 BPM — the photos change on its beats; it starts at 15.7s, the chorus); starts at 15.7s, where the cut's be",
+   "color": "green",
+   "suggestion_id": "sg6"
+  }
+ ],
+ "suggestions": [
+  {
+   "id": "sg1",
+   "type": "hook",
+   "status": "applied",
+   "confidence": 0.85,
+   "reason": "one photo held while your lines land on the music's beat",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [
+    "v1"
+   ],
+   "payload": {
+    "key": "cover:I01.k0",
+    "ref": "I01.k0"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg2",
+   "type": "motion",
+   "status": "applied",
+   "confidence": 0.8,
+   "reason": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [
+    "v1"
+   ],
+   "payload": {
+    "key": "photomotion"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg3",
+   "type": "text",
+   "status": "applied",
+   "confidence": 1.0,
+   "reason": "your line 1, from the first frame: it is the hook: “POV: you finally took the trip you kept postponing”",
+   "source": "brief",
+   "t": 0.0,
+   "item_ids": [
+    "t2"
+   ],
+   "payload": {
+    "key": "fx:text:t:0.000|POV: you finally took th"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg4",
+   "type": "text",
+   "status": "applied",
+   "confidence": 1.0,
+   "reason": "your line 2, on the beat: “3 days, 1 backpack, zero plans”",
+   "source": "brief",
+   "t": 3.925,
+   "item_ids": [
+    "t3"
+   ],
+   "payload": {
+    "key": "fx:text:t:3.925|3 days, 1 backpack, zero"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg5",
+   "type": "text",
+   "status": "applied",
+   "confidence": 1.0,
+   "reason": "your line 3, on the beat: “and it was everything”",
+   "source": "brief",
+   "t": 7.826,
+   "item_ids": [
+    "t4"
+   ],
+   "payload": {
+    "key": "fx:text:t:7.826|and it was everything"
+   },
+   "alternatives": [],
+   "lint": []
+  },
+  {
+   "id": "sg6",
+   "type": "music",
+   "status": "applied",
+   "confidence": 0.8,
+   "reason": "warm_acoustic_92.wav up front (92 BPM — the photos change on its beats; it starts at 15.7s, the chorus); starts at 15.7s, where the cut's beat grid begins",
+   "source": "rules",
+   "t": 0.0,
+   "item_ids": [],
+   "payload": {
+    "track": "A01",
+    "offset": 15.673,
+    "key": "music:reel",
+    "sections": [
+     "reel"
+    ]
+   },
+   "alternatives": [],
+   "lint": []
+  }
+ ],
+ "music_spans": [
+  {
+   "t0": 0.0,
+   "t1": 13.05,
+   "mode": "front",
+   "section": "reel"
+  }
+ ],
+ "look": null,
+ "meta": {
+  "target": 13.5,
+  "hook": {
+   "id": "h0",
+   "kind": "visual_spectacle",
+   "refs": [
+    "I01.k0"
+   ],
+   "text_hook": "POV: you finally took the trip you kept postponing",
+   "why": "open on your most striking photo (I01): colour, contrast and a face stop the scroll",
+   "score": 0.873
+  },
+  "story_why": "one photo, your words and the song: your first line from the first frame, each next line on the beat",
+  "vo_script": [],
+  "broll_gaps": [],
+  "music": [
+   {
+    "section": "reel",
+    "mode": "front",
+    "track_id": "A01",
+    "alternatives": [],
+    "brief": {
+     "mood": "neutral",
+     "energy": "medium",
+     "bpm_min": 80,
+     "bpm_max": 120,
+     "genre": "",
+     "vocals_ok": false,
+     "structure_needs": [],
+     "search_terms": []
+    },
+    "why": "92 BPM — the photos change on its beats; it starts at 15.7s, the chorus",
+    "gain_db": 0.0,
+    "offset": 15.673
+   }
+  ],
+  "word_t": {}
+ }
+}

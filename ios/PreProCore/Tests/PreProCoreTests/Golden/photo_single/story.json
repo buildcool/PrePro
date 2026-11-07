@@ -1,0 +1,26 @@
+{
+ "direction_id": "d1",
+ "hook_id": null,
+ "items": [
+  {
+   "ref": "I01.k0",
+   "role": "hook",
+   "t0": 0.0,
+   "t1": 13.05,
+   "section": "reel",
+   "note": "one photo held while your lines land on the music's beat",
+   "whole": false,
+   "beats": 20
+  }
+ ],
+ "sections": [
+  {
+   "name": "reel",
+   "music_mode": "front",
+   "mood": null,
+   "card": null
+  }
+ ],
+ "chapters": [],
+ "why": "one photo, your words and the song: your first line from the first frame, each next line on the beat"
+}

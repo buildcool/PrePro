@@ -1,0 +1,132 @@
+{
+ "front": {
+  "brief": {
+   "mood": "upbeat",
+   "energy": "high",
+   "bpm_min": 115.0,
+   "bpm_max": 160.0,
+   "genre": "",
+   "vocals_ok": true,
+   "structure_needs": [
+    "at least 14s or loopable"
+   ],
+   "search_terms": [
+    "upbeat",
+    "115-160 bpm energetic upbeat"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A01",
+    "score": -0.028,
+    "why": "available"
+   }
+  ]
+ },
+ "bed": {
+  "brief": {
+   "mood": "upbeat",
+   "energy": "low",
+   "bpm_min": 70.0,
+   "bpm_max": 112.0,
+   "genre": "",
+   "vocals_ok": false,
+   "structure_needs": [
+    "at least 14s or loopable"
+   ],
+   "search_terms": [
+    "upbeat instrumental",
+    "no vocals background music"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A01",
+    "score": 0.5,
+    "why": "92 BPM fits, low energy"
+   }
+  ]
+ },
+ "light": {
+  "brief": {
+   "mood": "upbeat",
+   "energy": "low",
+   "bpm_min": 60.0,
+   "bpm_max": 100.0,
+   "genre": "",
+   "vocals_ok": false,
+   "structure_needs": [
+    "at least 14s or loopable"
+   ],
+   "search_terms": [
+    "upbeat"
+   ]
+  },
+  "ranked": [
+   {
+    "asset_id": "A01",
+    "score": 0.5,
+    "why": "92 BPM fits, low energy"
+   }
+  ]
+ },
+ "grid": {
+  "need": 13.5,
+  "playbook": "photo_reel",
+  "track": "A01",
+  "offset": 15.673,
+  "beat": 0.6500000000000004,
+  "beats": [
+   0.0,
+   0.651,
+   1.324,
+   1.974,
+   2.624,
+   3.274,
+   3.925,
+   4.575,
+   5.225,
+   5.875,
+   6.525,
+   7.175,
+   7.826,
+   8.476,
+   9.149,
+   9.799,
+   10.449,
+   11.1,
+   11.75,
+   12.4,
+   13.05,
+   13.7,
+   14.35,
+   15.001,
+   15.651,
+   16.324,
+   16.974,
+   17.624,
+   18.275,
+   18.925,
+   19.575,
+   20.225,
+   20.875,
+   21.525,
+   22.176,
+   22.826,
+   23.499,
+   24.149,
+   24.799,
+   25.45,
+   26.1,
+   26.75,
+   27.4,
+   28.05,
+   28.7,
+   29.35,
+   30.001,
+   30.651
+  ],
+  "label": "chorus",
+  "bpm": 92.29
+ }
+}

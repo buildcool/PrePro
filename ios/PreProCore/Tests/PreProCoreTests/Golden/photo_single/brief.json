@@ -1,0 +1,68 @@
+{
+ "raw_text": "Text:\nPOV: you finally took the trip you kept postponing\n3 days, 1 backpack, zero plans\nand it was everything\n\nUse the warm acoustic song.",
+ "sources": [
+  "brief.md"
+ ],
+ "rules": [
+  {
+   "kind": "text_line",
+   "target": "POV: you finally took the trip you kept postponing",
+   "anchor": "",
+   "value": 0.0,
+   "arg": {},
+   "source": "POV: you finally took the trip you kept postponing",
+   "resolved": true
+  },
+  {
+   "kind": "text_line",
+   "target": "3 days, 1 backpack, zero plans",
+   "anchor": "",
+   "value": 1.0,
+   "arg": {},
+   "source": "3 days, 1 backpack, zero plans",
+   "resolved": true
+  },
+  {
+   "kind": "text_line",
+   "target": "and it was everything",
+   "anchor": "",
+   "value": 2.0,
+   "arg": {},
+   "source": "and it was everything",
+   "resolved": true
+  },
+  {
+   "kind": "use_music",
+   "target": "warm acoustic",
+   "anchor": "all",
+   "value": null,
+   "arg": {
+    "asset": "A01"
+   },
+   "source": "Use the warm acoustic song.",
+   "resolved": true
+  }
+ ],
+ "prefs": {
+  "playbook": null,
+  "aspect": null,
+  "target_length": null,
+  "goal": null,
+  "audience": null,
+  "mood": null,
+  "pace": null,
+  "effects": null,
+  "captions": null,
+  "caption_lang": null,
+  "humour": null,
+  "meme_flavour": null,
+  "look": null,
+  "music_mood": null,
+  "references": [],
+  "outline": [],
+  "freedom": "balanced",
+  "deliverables": []
+ },
+ "questions": [],
+ "parsed_by": "rules"
+}

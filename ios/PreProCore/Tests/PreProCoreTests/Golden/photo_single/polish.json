@@ -1,0 +1,69 @@
+{
+ "direction_id": "d1",
+ "music": [
+  {
+   "section": "reel",
+   "mode": "front",
+   "track_id": "A01",
+   "alternatives": [],
+   "brief": {
+    "mood": "neutral",
+    "energy": "medium",
+    "bpm_min": 80.0,
+    "bpm_max": 120.0,
+    "genre": "",
+    "vocals_ok": false,
+    "structure_needs": [],
+    "search_terms": []
+   },
+   "why": "92 BPM — the photos change on its beats; it starts at 15.7s, the chorus",
+   "gain_db": 0.0,
+   "offset": 15.673
+  }
+ ],
+ "effects": [
+  {
+   "type": "text",
+   "at": "t:0.000",
+   "asset": null,
+   "value": null,
+   "text": "POV: you finally took the trip you kept postponing",
+   "style": "photo",
+   "dur": 3.875,
+   "intent": "brief",
+   "why": "your line 1, from the first frame: it is the hook",
+   "confidence": 1.0,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "t:3.925",
+   "asset": null,
+   "value": null,
+   "text": "3 days, 1 backpack, zero plans",
+   "style": "photo",
+   "dur": 3.851,
+   "intent": "brief",
+   "why": "your line 2, on the beat",
+   "confidence": 1.0,
+   "position": "center"
+  },
+  {
+   "type": "text",
+   "at": "t:7.826",
+   "asset": null,
+   "value": null,
+   "text": "and it was everything",
+   "style": "photo",
+   "dur": 5.174,
+   "intent": "brief",
+   "why": "your line 3, on the beat",
+   "confidence": 1.0,
+   "position": "center"
+  }
+ ],
+ "broll_gaps": [],
+ "vo_script": [],
+ "look": null,
+ "notes": []
+}
