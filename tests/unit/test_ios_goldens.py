@@ -21,9 +21,12 @@ from prepro.assist.music import brief_for, rank_tracks
 from prepro.brain.basic import BasicBrain
 from prepro.schema.analysis import ProjectAnalysis
 from prepro.schema.brief import CreatorBrief
-from prepro.schema.plan import Direction
+from prepro.schema.plan import Direction, PolishPlan, StoryPlan
+from prepro.timeline import captions as C
+from prepro.timeline.compiler import compile_timeline
 
 GOLDEN = Path(__file__).resolve().parents[2] / "ios" / "PreProCore" / "Tests" / "PreProCoreTests" / "Golden"
+METRICS = GOLDEN.parents[2] / "Sources" / "PreProCore" / "Resources" / "text_metrics.json"
 CASES = sorted(p.name for p in GOLDEN.iterdir() if (p / "analysis.json").exists()) if GOLDEN.is_dir() else []
 STALE = "the desktop now decides differently: re-run `python scripts/export_parity.py` (then port the change to ios/)"
 
@@ -67,3 +70,45 @@ def test_music_and_beat_grid_are_current(name):
         assert ranked == want[mode]["ranked"], f"{name} {mode} ranking: {STALE}"
     grid = BasicBrain(pa, brief)._reel_grid(need, want["grid"]["playbook"])
     assert {"need": need, "playbook": want["grid"]["playbook"], **grid} == want["grid"], f"{name} beat grid: {STALE}"
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_timeline_is_current(name):
+    pa, brief, d = _inputs(name)
+    pa.root = ""                                              # the goldens carry no shoot folder: nothing is read from disk
+    story = StoryPlan.model_validate_json((GOLDEN / name / "story.json").read_text(encoding="utf-8"))
+    polish = PolishPlan.model_validate_json((GOLDEN / name / "polish.json").read_text(encoding="utf-8"))
+    tl = compile_timeline(pa, d, story, polish, brief)
+    assert tl.model_dump(mode="json") == _read(name, "timeline.json"), f"{name} timeline: {STALE}"
+
+
+def test_text_metrics_are_current():
+    """The phone measures words with the advance table in text_metrics.json: it must be what the desktop measures."""
+    from PIL import ImageFont
+
+    from prepro.config import assets_dir
+
+    m = json.loads(METRICS.read_text(encoding="utf-8"))
+    assert m["safe"] == {k: list(v) for k, v in C.SAFE.items()}, STALE
+    assert m["glue"] == sorted(C.GLUE), STALE
+    assert m["libass_width"] == C.LIBASS_WIDTH, STALE
+    assert m["styles"] == {k: {"font": v[0], "size": v[1], "primary": v[2], "outline": v[3], "bold": v[4], "upper": v[5]}
+                           for k, v in C.STYLES.items()}, STALE
+    assert set(m["fonts"]) == {s[0] for s in C.STYLES.values()}, STALE
+    for name, f in m["fonts"].items():
+        files = sorted((assets_dir() / "fonts").glob(name.replace(" ", "") + "*.ttf"))
+        assert files and files[0].name == f["file"], f"{name}: {STALE}"
+        font = ImageFont.truetype(str(files[0]), 100, layout_engine=ImageFont.Layout.BASIC)
+        asc, desc = font.getmetrics()
+        assert (asc + desc, font.getlength("\U0010fffd")) == (f["line_h"], f["notdef"]), f"{name}: {STALE}"
+        for cp, w in f["advances"].items():
+            assert font.getlength(chr(int(cp))) == w, f"{name} U+{int(cp):04X}: {STALE}"
+        # what the phone computes — the plain sum of the advances — is what Pillow measures for a whole line
+        for t in ("POV: you finally took the trip you kept postponing", "Goa → Jaipur · Oct 2026", "AV To Wa", "नमस्ते 😀"):
+            assert font.getlength(t) == sum(f["advances"].get(str(ord(ch)), f["notdef"]) for ch in t), (name, t)
+
+
+def test_text_blocks_are_current():
+    for c in json.loads((GOLDEN / "text_blocks.json").read_text(encoding="utf-8")):
+        lines, h = C.text_block(c["text"], c["style"], c["width"], c["height"], c["scale"])
+        assert (lines, h) == (c["lines"], c["block"]), f"{c['text']}: {STALE}"

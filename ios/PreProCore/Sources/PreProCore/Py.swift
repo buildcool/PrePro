@@ -30,6 +30,23 @@ enum Py {
         return n % 2 == 1 ? s[n / 2] : (s[n / 2 - 1] + s[n / 2]) / 2
     }
 
+    /// numpy.arange(start, stop, step) for floats: ceil((stop - start) / step) values, start + i * delta where delta is
+    /// (start + step) - start — numpy's own fill, so the last value lands where the desktop's does.
+    static func arange(_ start: Double, _ stop: Double, _ step: Double) -> [Double] {
+        let n = Int(((stop - start) / step).rounded(.up))
+        guard n > 0 else { return [] }
+        let second = start + step
+        let delta = second - start
+        return (0..<n).map { $0 == 0 ? start : ($0 == 1 ? second : start + Double($0) * delta) }
+    }
+
+    /// s[:n] — the first n characters as Python counts them (code points, not grapheme clusters).
+    static func prefix(_ s: String, _ n: Int) -> String {
+        var out = String.UnicodeScalarView()
+        out.append(contentsOf: s.unicodeScalars.prefix(n))
+        return String(out)
+    }
+
     /// numpy.mean (numpy sums pairwise, which can differ only in the last bits)
     static func mean(_ xs: [Double]) -> Double { xs.isEmpty ? .nan : xs.reduce(0, +) / Double(xs.count) }
 

@@ -10,7 +10,8 @@ let package = Package(
     dependencies: [.package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0")],
     targets: [
         // Resources/knowledge is copied from src/prepro/knowledge before every build (see .github/workflows/ios.yml)
-        .target(name: "PreProCore", dependencies: ["Yams"], resources: [.copy("Resources/knowledge")]),
+        // Resources/text_metrics.json: the bundled fonts' widths, written by scripts/export_parity.py (committed)
+        .target(name: "PreProCore", dependencies: ["Yams"], resources: [.copy("Resources/knowledge"), .copy("Resources/text_metrics.json")]),
         .testTarget(name: "PreProCoreTests", dependencies: ["PreProCore"], resources: [.copy("Golden")]),
     ],
     swiftLanguageModes: [.v5]

@@ -20,6 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "ios" / "PreProCore" / "Tests" / "PreProCoreTests" / "Golden"
+METRICS = ROOT / "ios" / "PreProCore" / "Sources" / "PreProCore" / "Resources" / "text_metrics.json"
 CASES = {  # golden name → (fixture kind, extra brief text)
     "photo_reel": ("photo_dump", None),
     "photo_single": ("photo_single", None),
@@ -27,6 +28,58 @@ CASES = {  # golden name → (fixture kind, extra brief text)
     "text_reel": ("aesthetic_cooking", "Text:\npov: you finally learned to cook\nand it's actually good\n"
                                        "sunday mornings hit different now\nsave this for your next slow weekend\n"),
 }
+# the desktop's line breaks and block heights the phone must reproduce: (text, style, width, height, scale)
+TEXT_CASES = [
+    *[("POV: you finally took the trip you kept postponing", "photo", 1080, 1920, s) for s in (1.0, 0.92, 0.84, 0.76)],
+    ("3 days, 1 backpack, zero plans", "photo", 1080, 1920, 1.0),
+    ("and it was everything", "photo", 1080, 1920, 1.0),
+    ("Calangute · Oct 2026", "photo", 1080, 1920, 1.0),
+    ("Goa → Jaipur → Udaipur · Dec 2026", "photo", 1080, 1920, 1.0),
+    ("pov: you finally learned to cook and it's actually good", "photo", 1080, 1920, 1.0),
+    ("save this for your next slow weekend", "photo", 1080, 1920, 0.84),
+    ("“the best things happen when you stop planning them” — me, probably", "photo", 1080, 1920, 1.0),
+    ("6:42 am", "stamp", 1080, 1920, 1.0),
+    ("the one thing nobody tells you about travelling alone in the mountains", "hook", 1080, 1920, 1.0),
+    ("SUBSCRIBE FOR THE NEXT ONE", "cta", 1080, 1920, 1.0),
+    ("a quiet morning with coffee, rain on the window and absolutely nowhere to be", "aesthetic", 1080, 1920, 1.0),
+    ("a very long line with lots of little words to see how the balancing works in a wide frame", "clean", 1920, 1080, 1.0),
+    ("नमस्ते दुनिया, यह मेरा पहला वीडियो है और मैं बहुत खुश हूँ", "devanagari", 1080, 1920, 1.0),
+    ("emoji at the end 😀🎉 still counts", "photo", 1080, 1920, 1.0),
+]
+
+
+def write_text_metrics() -> None:
+    """The bundled fonts' advance widths as the desktop measures them (Pillow, basic layout, the font's default
+    instance, size 100: a plain sum of per-character advances, checked in tests/unit/test_ios_goldens.py), plus the
+    caption styles, safe areas, glue words and libass factors — so the phone breaks your lines where the desktop does
+    and finds the same room beside a face. Characters a font lacks measure as its .notdef glyph, as on the desktop."""
+    from PIL import ImageFont
+
+    from prepro.config import assets_dir
+    from prepro.timeline import captions as C
+
+    ranges = [(0x20, 0x250), (0x2000, 0x2070), (0x20A0, 0x20D0), (0x2190, 0x2200), (0x900, 0x980)]
+    fonts = {}
+    for name in sorted({s[0] for s in C.STYLES.values()}):
+        files = sorted((assets_dir() / "fonts").glob(name.replace(" ", "") + "*.ttf"))
+        if not files:
+            continue
+        f = ImageFont.truetype(str(files[0]), 100, layout_engine=ImageFont.Layout.BASIC)
+        asc, desc = f.getmetrics()
+        notdef = f.getlength("\U0010fffd")                   # a private-use code point no font here has
+        adv = {str(cp): f.getlength(chr(cp)) for lo, hi in ranges for cp in range(lo, hi)}
+        fonts[name] = {"file": files[0].name, "line_h": asc + desc, "notdef": notdef,
+                       "advances": {k: v for k, v in adv.items() if v != notdef}}
+    data = {"safe": C.SAFE, "glue": sorted(C.GLUE), "libass_width": C.LIBASS_WIDTH, "fonts": fonts,
+            "styles": {k: {"font": v[0], "size": v[1], "primary": v[2], "outline": v[3], "bold": v[4], "upper": v[5]} for k, v in C.STYLES.items()}}
+    METRICS.parent.mkdir(parents=True, exist_ok=True)
+    METRICS.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+    blocks = []
+    for text, style, w, h, scale in TEXT_CASES:
+        lines, height = C.text_block(text, style, w, h, scale)
+        blocks.append({"text": text, "style": style, "width": w, "height": h, "scale": scale, "lines": lines, "block": height})
+    (OUT / "text_blocks.json").write_text(json.dumps(blocks, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(f"text metrics: {len(fonts)} fonts -> {METRICS.name}; {len(blocks)} text blocks")
 
 
 def main() -> int:
@@ -43,6 +96,7 @@ def main() -> int:
     settings = Settings.load()
     settings.ai_editor = "basic"                     # the rules engine: the same goldens on every machine
 
+    write_text_metrics()
     base = Path(args.shoots) / "parity"
     for name, (kind, brief) in CASES.items():
         root = base / kind

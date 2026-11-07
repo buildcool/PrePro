@@ -74,6 +74,28 @@ public enum Music {
                           searchTerms: terms)
     }
 
+    /// Where the song's drop starts, if it has one.
+    public static func dropTime(_ m: MusicInfo) -> Double? { m.sections.first { $0.label == "drop" }?.t0 }
+
+    /// Where to start a track so it fits the edit: the drop on a chosen moment, else backtimed to end on the outro,
+    /// else the first downbeat.
+    public static func bestOffset(_ m: MusicInfo, trackDuration: Double, need: Double, alignDropAt: Double? = nil) -> (offset: Double, why: String) {
+        if let at = alignDropAt, let d = dropTime(m), d - at >= 0, d - at + need <= trackDuration + 0.5 {
+            return (d - at, "drop lands at \(Py.fixed(at, 1))s")
+        }
+        if trackDuration > need + 2 && m.sections.contains(where: { $0.label == "outro" }) {
+            var off = trackDuration - need
+            if !m.downbeats.isEmpty {
+                let dist = m.downbeats.map { abs($0 - off) }
+                let j = dist.indices.min(by: { dist[$0] < dist[$1] }) ?? 0
+                off = m.downbeats[j] + need <= trackDuration + 0.5 ? m.downbeats[j] : off
+            }
+            return (max(0.0, off), "backtimed to end on the track's outro")
+        }
+        let first = (m.downbeats.first ?? .infinity) < 4 ? m.downbeats[0] : 0.0
+        return (first, "starts on the first downbeat")
+    }
+
     /// The shoot's songs, best fit first (equal scores keep the shoot's order).
     public static func rankTracks(_ pa: ProjectAnalysis, brief: MusicBrief, mode: String, avoid: [String] = [],
                                   exclude: Set<String> = []) -> [TrackScore] {
