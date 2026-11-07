@@ -48,6 +48,52 @@ TEXT_CASES = [
 ]
 
 
+# test songs for the iPhone's music analysis: the fixture synth's style with portable noise (scripts/portable_song.py),
+# made at the analysis rate — chosen to cross the analysis's paths (major/minor, a bright drop, the doubling of a slow
+# tempo, a song that is all drop)
+SONGS = {
+    "happy_100": dict(bpm=100, minor=False, seed=16, sections=[("intro", 2, 0.3), ("verse", 4, 0.6), ("chorus", 8, 0.9), ("outro", 2, 0.35)]),
+    "warm_92": dict(bpm=92, minor=False, key="D", seed=3, sections=[("intro", 2, 0.25), ("verse", 4, 0.5), ("chorus", 6, 0.8), ("outro", 2, 0.3)]),
+    "trap_140": dict(bpm=140, seed=10, sections=[("drop", 8, 1.0), ("outro", 2, 0.3)]),
+    "ballad_64": dict(bpm=64, key="E", seed=4, sections=[("intro", 2, 0.3), ("verse", 4, 0.5), ("chorus", 4, 0.7), ("outro", 2, 0.3)]),
+}
+
+
+def song_golden(name: str) -> dict:
+    """What the desktop hears in a test song: librosa's onset envelope, tempo and beat frames (the phone's tracker must
+    land on the same frames), the desktop's whole music analysis, and probes of the samples (the phone's synth must
+    make the same song)."""
+    import librosa
+    import numpy as np
+    from portable_song import song
+
+    from prepro.analyze.sound import music_info
+
+    params = SONGS[name]
+    y, truth = song(**params, sr=22050)
+    onset = librosa.onset.onset_strength(y=y, sr=22050)
+    tempo, frames = librosa.beat.beat_track(onset_envelope=onset, sr=22050, units="frames", tightness=120)
+    probe = sorted({int(i) for i in np.linspace(0, len(y) - 1, 97)})
+    return {
+        "params": {**params, "sections": [list(s) for s in params["sections"]], "sr": 22050},
+        "truth": {"beats": [round(b, 4) for b in truth["beats"]], "downbeats": [round(b, 4) for b in truth["downbeats"]],
+                  "sections": [list(s) for s in truth["sections"]]},
+        "samples": len(y), "probe": {str(i): float(y[i]) for i in probe}, "energy": float(np.sum(y.astype(np.float64) ** 2)),
+        "onset": [float(v) for v in onset], "tempo": float(np.atleast_1d(tempo)[0]), "beat_frames": [int(f) for f in frames],
+        "music": music_info(y, 22050).model_dump(mode="json"),
+    }
+
+
+def write_song_goldens() -> None:
+    out = OUT / "songs"
+    out.mkdir(parents=True, exist_ok=True)
+    for name in SONGS:
+        g = song_golden(name)
+        (out / f"{name}.json").write_text(json.dumps(g), encoding="utf-8")
+        print(f"song {name}: {g['music']['bpm']} BPM, {len(g['beat_frames'])} beats, sections "
+              f"{[s['label'] for s in g['music']['sections']]}, {g['music']['key']} {g['music']['mode']}")
+
+
 def write_text_metrics() -> None:
     """The bundled fonts' advance widths as the desktop measures them (Pillow, basic layout, the font's default
     instance, size 100: a plain sum of per-character advances, checked in tests/unit/test_ios_goldens.py), plus the
@@ -97,6 +143,7 @@ def main() -> int:
     settings.ai_editor = "basic"                     # the rules engine: the same goldens on every machine
 
     write_text_metrics()
+    write_song_goldens()
     base = Path(args.shoots) / "parity"
     for name, (kind, brief) in CASES.items():
         root = base / kind

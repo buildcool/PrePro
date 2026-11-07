@@ -112,3 +112,29 @@ def test_text_blocks_are_current():
     for c in json.loads((GOLDEN / "text_blocks.json").read_text(encoding="utf-8")):
         lines, h = C.text_block(c["text"], c["style"], c["width"], c["height"], c["scale"])
         assert (lines, h) == (c["lines"], c["block"]), f"{c['text']}: {STALE}"
+
+
+SONGS = sorted(p.stem for p in (GOLDEN / "songs").glob("*.json")) if (GOLDEN / "songs").is_dir() else []
+
+
+@pytest.mark.parametrize("name", SONGS)
+def test_song_analysis_is_current(name):
+    """The desktop still hears the test songs the way the goldens say (within float noise: numpy's sin/exp can differ by
+    a few ULPs between CPUs): the same tempo bin and beat frames, the same music analysis."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    from export_parity import song_golden
+
+    got, want = song_golden(name), _read("songs", f"{name}.json")
+    assert got["params"] == want["params"] and got["samples"] == want["samples"]
+    assert max(abs(got["probe"][k] - v) for k, v in want["probe"].items()) < 1e-6, f"{name} synth: {STALE}"
+    assert max(abs(a - b) for a, b in zip(got["onset"], want["onset"], strict=True)) < 1e-3, f"{name} onset: {STALE}"
+    assert (got["tempo"], got["beat_frames"]) == (want["tempo"], want["beat_frames"]), f"{name} beats: {STALE}"
+    g, w = got["music"], want["music"]
+    assert (g["bpm"], g["key"], g["mode"], g["mood_tags"]) == (w["bpm"], w["key"], w["mode"], w["mood_tags"]), f"{name}: {STALE}"
+    for k in ("beats", "downbeats"):
+        assert len(g[k]) == len(w[k]) and max((abs(a - b) for a, b in zip(g[k], w[k], strict=True)), default=0) < 0.024, f"{name} {k}: {STALE}"
+    assert [s["label"] for s in g["sections"]] == [s["label"] for s in w["sections"]], f"{name} sections: {STALE}"
+    assert max(abs(a["t0"] - b["t0"]) for a, b in zip(g["sections"], w["sections"], strict=True)) < 0.05
+    assert max(abs(a - b) for a, b in zip(g["energy_curve"], w["energy_curve"], strict=True)) < 0.01
