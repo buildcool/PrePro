@@ -35,6 +35,9 @@ jobs:
             grep -E "error:|failed|XCTAssert" "$RUNNER_TEMP/core.log" | head -30 | while IFS= read -r l; do echo "::error title=PreProCore::${l:0:900}"; done
             exit 1
           }
+          # how many tests ran, publicly (a green step alone doesn't say a new test file was picked up)
+          echo "::notice title=PreProCore tests::$(grep -E "Executed [0-9]+ tests?" "$RUNNER_TEMP/core.log" | tail -1 | sed -E 's/.*(Executed [0-9]+ tests?, with [0-9]+ failures?).*/\1/')"
+          grep -oE "Test Suite '[A-Za-z]+Tests' passed" "$RUNNER_TEMP/core.log" | sed -E "s/Test Suite '([A-Za-z]+)' passed/\1/" | sort -u | tr '\n' ' ' | sed 's/^/::notice title=PreProCore suites::/'; echo
       - name: Generate the Xcode project
         run: |
           brew install xcodegen

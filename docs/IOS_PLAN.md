@@ -122,6 +122,15 @@ gets tested for real, on the Pro and the base chip and memory.
 | M6 | **PC companion, one scan to connect** (details below): the phone offers the PC for the heavy lifting when a cut looks messy or the job is big; the PC uses your Claude/ChatGPT/Gemini plans and does its exports; results come back to the phone | 2–3 |
 | M7 | **Publishing** (when you decide to pay $99/yr): TestFlight, App Store listing and privacy labels | 1 |
 
+**Where it stands**
+- **M0: done** (2026-11-07). The starter app is built on GitHub's Mac and is on `ios-nightly` for the testers.
+- **M1: in progress.**
+  - Done: the photo reel's editing brain runs in PreProCore and makes the same decisions as the desktop on the
+    fixture shoots, checked on every build: which photos and in what order, the cover, the song, where in the song
+    the cut starts, every photo's beats, your lines and the reasons.
+  - Next: the timeline (layout on the beat, photo motion, words placed off faces, the music), the Swift beat
+    tracker, Photos import, live preview, render, save and share.
+
 ## M6 in detail: "for the full heavy lifting, connect your PC"
 **When the phone suggests it.** Never as a nag: one calm card on the review screen with the reason in plain words,
 plus "Connect my PC" and "Not now" buttons. It appears when:

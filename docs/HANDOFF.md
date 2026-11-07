@@ -27,6 +27,19 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   `src/prepro/knowledge/*.yaml` (copied in by CI, gitignored); golden decisions from `scripts/export_parity.py`.
   Milestones M0–M7 in the plan; M0 = core skeleton + clock port + starter app (build number, Apple Intelligence status,
   clip-time check, test report). CI failures show as public annotations (logs need a sign-in).
+  **M1 so far (2026-11-07): the photo reel brain.** `Schema/Analysis.swift` + `Brief.swift` (every field of
+  schema/analysis.py, media.py, brief.py), `Music.swift` (assist/music.py: `brief(for:)`, `rankTracks`, `hasVocals`,
+  `soundtrackMode`), `Brain/RulesBrain.swift` (BasicBrain: rules sets, `photos`, `textLines`, `photoTitle`,
+  `musicPlan`, `reelGrid` → `ReelGrid`) and `Brain/PhotoReel.swift` (`_story_photo_reel` / `_polish_photo_reel`),
+  `Py.swift` (Python's `round` via `%.nf`, `str.split`, code-point order, numpy median, stable sort — so every beat and
+  reason matches to the digit). Goldens per case: `analysis/brief/direction.json` (inputs), `brain_story/
+  brain_polish.json` (the brain before the editor's checks; identical to story/polish for all four today),
+  `music.json` (front/bed/light briefs and rankings, the beat grid). `BrainParityTests.swift` checks them on the Mac;
+  `tests/unit/test_ios_goldens.py` re-runs the desktop brain on the same inputs so a desktop change can't silently
+  leave the phone behind (re-export, then port). The export always uses the rules engine. Next in M1: the compiler's
+  photo-reel path (`_beat_len` on the grid at 4 decimals, `photo_motion`, `_beside_face` + captions `text_block`,
+  `_lay_music`, `_seamless_loop`, the "Left out …" and `photomotion` / `cover:` suggestions), then the Swift beat
+  tracker, Photos import, AVFoundation preview/render, save/share.
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).
