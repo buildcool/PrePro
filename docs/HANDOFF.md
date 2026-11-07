@@ -66,13 +66,23 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   Pillow's measure is a plain sum of advances, so line breaks match exactly). Goldens: `text_blocks.json` (18 lines,
   all styles, scales, Devanagari, emoji). `CompilerParityTests.swift` compares both photo reel timelines field by
   field; the desktop guard now also recompiles all four golden timelines (pa.root = "", nothing read from disk) and
-  re-measures every advance. **Next in M1: the Swift beat tracker** (analyze/sound.py `music_info`: librosa
-  onset_strength → beat_track tightness 120 → 70–180 BPM folding → downbeat phase from <150 Hz energy + chroma change →
-  2 Hz energy curve (5th/98th percentiles) → `_sections` (agglomerative over MFCC+chroma+RMS, snapped to downbeats,
-  labels) → key (chroma + Krumhansl) → brightness (centroid / 4000) → `mood_tags`). Test it against ground truth by
-  porting fixtures/audio.py `procedural_music` to Swift (the songs' exact beats/bars/sections are known), and against
-  the goldens' librosa beats within 20 ms. Then Photos import (EXIF time + offset, GPS), Vision analysis (faces,
-  aesthetics, sharpness, duplicates by feature print), AVFoundation preview/render, save/share.
+  re-measures every advance.
+  **Then the music analysis (2026-11-07):** `Sound/DSP.swift` (librosa's front end with Accelerate at its precision:
+  scipy's Hann formula to the bit, double FFT stored as float32, Slaney mel filters bit-identical, float32 dB, numpy's
+  pairwise float32 sum/std, chroma filters, MFCC as ortho DCT-II, RMS, percentile, median), `Sound/BeatTracker.swift`
+  (onset_strength, tempo, librosa's numba DP tracker step for step, the 70–180 folding), `Sound/MusicAnalysis.swift`
+  (bar lines, energy curve, sections with a neighbours-only Ward merge = scikit-learn's on a chain, key, brightness,
+  mood tags → `MusicInfo`). Test songs: `scripts/portable_song.py` ↔ `Fixtures/SongSynth.swift` (the fixture synth with
+  SplitMix64 + Box–Muller noise, made at 22.05 kHz; its root is the labelled key — the fixture synth's `45 + NOTE[key]`
+  puts its "A" songs in F#). `Golden/songs/*.json`: librosa's onset envelope, tempo bin, beat frames and the desktop's
+  `music_info` for four songs; `BeatParityTests` (beats to librosa's exact frames from its envelope; end to end within a
+  frame; the whole analysis) and the desktop guard `test_song_analysis_is_current`. Known simplifications on the phone:
+  chroma tuning 0 (the desktop estimates it; no change on the test songs) and the key from a 4096-point STFT chroma, not
+  constant-Q (same mode; Am–F–C–G: desktop F major, phone C major). Seen on the way, for both apps: librosa hears the
+  all-drop 140 BPM trap test song at 112 BPM (tempo prior pulls a wrong peak; margin 0.014) — a reel on it would be cut
+  off the beat; worth a check of the top tempo candidates against beat alignment. Next in M1: Photos import (EXIF time
+  + offset, GPS), Vision analysis (faces, aesthetics, sharpness, duplicates by feature print), decoding a song to
+  22.05 kHz mono with AVFoundation, preview/render, save/share.
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).

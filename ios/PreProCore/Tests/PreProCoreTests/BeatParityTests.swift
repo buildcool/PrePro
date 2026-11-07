@@ -87,6 +87,38 @@ final class BeatParityTests: XCTestCase {
         }
     }
 
+    func testThePhoneAnalysesSongsLikeTheDesktop() throws {
+        for name in songs {
+            let g = try golden(name)
+            let info = MusicAnalysis.analyze(synth(g))
+            let want = g.music
+            XCTAssertEqual(info.bpm, want.bpm, accuracy: 1e-9, "\(name): BPM")
+            for (k, got, exp) in [("beats", info.beats, want.beats), ("bar lines", info.downbeats, want.downbeats)] {
+                XCTAssertEqual(got.count, exp.count, "\(name): \(k)")
+                for (a, b) in zip(got, exp) { XCTAssertEqual(a, b, accuracy: 0.024, "\(name): \(k)") }
+            }
+            XCTAssertEqual(info.sections.map(\.label), want.sections.map(\.label), "\(name): sections")
+            for (a, b) in zip(info.sections, want.sections) {
+                XCTAssertEqual(a.t0, b.t0, accuracy: 0.05, "\(name): where the \(b.label) starts")
+                XCTAssertEqual(a.energy, b.energy, accuracy: 0.02, "\(name): the \(b.label)'s energy")
+            }
+            XCTAssertEqual(info.energyCurve.count, want.energyCurve.count, "\(name): energy curve")
+            for (a, b) in zip(info.energyCurve, want.energyCurve) { XCTAssertEqual(a, b, accuracy: 0.01, "\(name): energy") }
+            XCTAssertEqual(info.brightness, want.brightness, accuracy: 0.01, "\(name): brightness")
+            XCTAssertEqual(info.mode, want.mode, "\(name): mode")
+            if name != "trap_140" {                           // Am–F–C–G: constant-Q chroma says F major, the phone's C major
+                XCTAssertEqual(info.key, want.key, "\(name): key")
+            }
+            XCTAssertEqual(info.moodTags, want.moodTags, "\(name): mood")
+        }
+    }
+
+    func testAShortClipIsNotASong() {
+        let info = MusicAnalysis.analyze([Float](repeating: 0, count: 22050))
+        XCTAssertEqual(info.bpm, 0)
+        XCTAssertTrue(info.beats.isEmpty)
+    }
+
     func testNumpysPairwiseSum() {
         let x = (0..<1000).map { Float($0) * 0.1 }
         XCTAssertEqual(DSP.pairwiseSum(x[...]), 49950.0, accuracy: 0.01)

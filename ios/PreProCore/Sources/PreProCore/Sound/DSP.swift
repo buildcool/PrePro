@@ -55,9 +55,15 @@ enum DSP {
         }
     }
 
-    /// Frames of |STFT|²: centred (n_fft/2 zeros each side), a periodic Hann window, the FFT in double precision and
-    /// the result in float32 — librosa's _spectrogram(power=2). frames × (n_fft/2 + 1), row-major by frame.
+    /// Frames of |STFT|² (librosa's _spectrogram(power=2)): the magnitude, squared in float32.
     static func powerSpectrogram(_ y: [Float], nFFT: Int = 2048, hop: Int = 512) -> (frames: Int, bins: Int, power: [Float]) {
+        let s = magnitudeSpectrogram(y, nFFT: nFFT, hop: hop)
+        return (s.frames, s.bins, s.power.map { $0 * $0 })
+    }
+
+    /// Frames of |STFT|: centred (n_fft/2 zeros each side), a periodic Hann window, the FFT in double precision and
+    /// the magnitude in float32 (|complex64|, as numpy takes it). frames × (n_fft/2 + 1), row-major by frame.
+    static func magnitudeSpectrogram(_ y: [Float], nFFT: Int = 2048, hop: Int = 512) -> (frames: Int, bins: Int, power: [Float]) {
         let pad = nFFT / 2
         var padded = [Double](repeating: 0, count: y.count + 2 * pad)
         for (i, v) in y.enumerated() { padded[pad + i] = Double(v) }
@@ -71,10 +77,7 @@ enum DSP {
             let start = t * hop
             for i in 0..<nFFT { frame[i] = window[i] * padded[start + i] }
             let (re, im) = fft.forward(frame)
-            for k in 0..<bins {
-                let m = hypotf(Float(re[k]), Float(im[k]))        // |complex64|, as numpy takes it
-                power[t * bins + k] = m * m
-            }
+            for k in 0..<bins { power[t * bins + k] = hypotf(Float(re[k]), Float(im[k])) }
         }
         return (frames, bins, power)
     }
@@ -131,6 +134,108 @@ enum DSP {
             for i in db.indices where db[i] < floor { db[i] = floor }
         }
         return db
+    }
+
+    // MARK: chroma, MFCC, RMS
+
+    /// librosa.filters.chroma (tuning 0, centred on octave 5 with an octave width of 2, columns L2-normalised, C first),
+    /// float32: 12 × (n_fft/2 + 1), row-major.
+    static func chromaFilters(sr: Double, nFFT: Int, ctroct: Double = 5.0, octwidth: Double = 2) -> [Float] {
+        let nC = 12, bins = nFFT / 2 + 1
+        let step = sr / Double(nFFT)
+        var frq = [Double](repeating: 0, count: nFFT)
+        for i in 1..<nFFT { frq[i] = Double(nC) * log2((Double(i) * step) / (440.0 / 16)) }
+        frq[0] = frq[1] - 1.5 * Double(nC)
+        var width = [Double](repeating: 1, count: nFFT)
+        for i in 0..<(nFFT - 1) { width[i] = max(frq[i + 1] - frq[i], 1.0) }
+        let half = (Double(nC) / 2).rounded(.toNearestOrEven)
+        var w = [Double](repeating: 0, count: nC * nFFT)
+        for c in 0..<nC {
+            for f in 0..<nFFT {
+                let x = frq[f] - Double(c) + half + 10 * Double(nC)
+                var r = fmod(x, Double(nC))                         // np.remainder: the sign of the divisor
+                if r != 0 && r < 0 { r += Double(nC) }
+                let d = r - half
+                let z = 2 * d / width[f]
+                w[c * nFFT + f] = exp(-0.5 * z * z)
+            }
+        }
+        for f in 0..<nFFT {                                         // each frequency: unit L2 over the 12 classes
+            var ss = 0.0
+            for c in 0..<nC { ss += w[c * nFFT + f] * w[c * nFFT + f] }
+            let len = ss.squareRoot()
+            let g = (frq[f] / Double(nC) - ctroct) / octwidth
+            let oct = exp(-0.5 * g * g)
+            for c in 0..<nC { w[c * nFFT + f] = (len < Double.leastNormalMagnitude ? w[c * nFFT + f] : w[c * nFFT + f] / len) * oct }
+        }
+        var out = [Float](repeating: 0, count: nC * bins)
+        for c in 0..<nC {
+            let src = (c + 3) % nC                                  // np.roll(-3): A-based classes to C first
+            for f in 0..<bins { out[c * bins + f] = Float(w[src * nFFT + f]) }
+        }
+        return out
+    }
+
+    /// Chroma (12 × frames, row-major): the filters applied to a power spectrogram, each frame scaled to its peak.
+    static func chroma(_ spec: (frames: Int, bins: Int, power: [Float]), sr: Double, nFFT: Int) -> [Float] {
+        let raw = melSpectrogram(spec, filters: chromaFilters(sr: sr, nFFT: nFFT), nMels: 12)
+        var out = raw
+        for t in 0..<spec.frames {
+            var peak: Float = 0
+            for c in 0..<12 { peak = max(peak, abs(raw[c * spec.frames + t])) }
+            if peak >= Float.leastNormalMagnitude {
+                for c in 0..<12 { out[c * spec.frames + t] = raw[c * spec.frames + t] / peak }
+            }
+        }
+        return out
+    }
+
+    /// librosa.feature.mfcc: the orthonormal DCT-II of the log-mel spectrogram, the first `n` coefficients (n × frames).
+    static func mfcc(_ y: [Float], sr: Double, n: Int = 13, nFFT: Int = 2048, hop: Int = 2048) -> (frames: Int, coeffs: [Float]) {
+        let spec = powerSpectrogram(y, nFFT: nFFT, hop: hop)
+        let db = powerToDb(melSpectrogram(spec, filters: melFilters(sr: sr, nFFT: nFFT, nMels: 128, fmax: sr / 2), nMels: 128))
+        let m = 128, T = spec.frames
+        var out = [Float](repeating: 0, count: n * T)
+        for k in 0..<n {
+            let scale = k == 0 ? (1.0 / Double(m)).squareRoot() : (2.0 / Double(m)).squareRoot()
+            for t in 0..<T {
+                var s = 0.0
+                for i in 0..<m { s += Double(db[i * T + t]) * cos(Double.pi * Double(k) * (2 * Double(i) + 1) / (2 * Double(m))) }
+                out[k * T + t] = Float(s * scale)
+            }
+        }
+        return (T, out)
+    }
+
+    /// librosa.feature.rms: frames of `frame` samples every `hop`, centred with zeros (float32).
+    static func rms(_ y: [Float], frame: Int = 2048, hop: Int = 2048) -> [Float] {
+        let pad = frame / 2
+        var padded = [Float](repeating: 0, count: y.count + 2 * pad)
+        for (i, v) in y.enumerated() { padded[pad + i] = v }
+        let frames = 1 + (padded.count - frame) / hop
+        return (0..<frames).map { t in
+            let sq = padded[(t * hop)..<(t * hop + frame)].map { $0 * $0 }
+            return (pairwiseSum(sq[...]) / Float(frame)).squareRoot()
+        }
+    }
+
+    /// np.percentile(x, q) for float32 (linear interpolation, numpy's two-sided lerp).
+    static func percentile(_ x: [Float], _ q: Double) -> Float {
+        let s = x.sorted()
+        guard !s.isEmpty else { return .nan }
+        let v = q / 100 * Double(s.count - 1)
+        let lo = Int(v.rounded(.down)), hi = min(lo + 1, s.count - 1)
+        let g = v - Double(lo)
+        let diff = s[hi] - s[lo]
+        return g >= 0.5 ? s[hi] - diff * Float(1 - g) : s[lo] + diff * Float(g)
+    }
+
+    /// np.median for float32 (the mean of the two middle values when the count is even).
+    static func median(_ x: [Float]) -> Float {
+        let s = x.sorted()
+        guard !s.isEmpty else { return .nan }
+        let h = s.count / 2
+        return s.count % 2 == 1 ? s[h] : (s[h - 1] + s[h]) / 2
     }
 
     // MARK: numpy's float32 reductions
