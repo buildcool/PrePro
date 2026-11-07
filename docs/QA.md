@@ -524,3 +524,19 @@ goldens (real analyses of the fixture shoots) by swapping each beat-cut cut to i
 4. Ordering: "no music" before a swap is superseded (the swap brings music back); "no music" after a swap still wins.
 5. None of the four golden cuts changed (their songs carry them); only the grid's new `room` (song left after the
    start) was added to the goldens, in the desktop and the Swift port alike.
+
+### v0.12.3 (the Windows installer for v0.12.2), checked after the release run failed
+1. The v0.12.2 release run failed in "Bundle ffmpeg (Windows)". Checked by hand at the time:
+   - gyan.dev answered `503 Service Unavailable` for `ffmpeg-release-essentials.zip.sha256`;
+   - the zip still redirected to the same `ffmpeg-9.0.2-essentials_build.zip` (Last-Modified 19 Sep 2026).
+
+   The GitHub release v0.12.2 went out with the Linux builds and the wheel only, and
+   `releases/latest/download/latest.yml` answered 404, so Windows update checks found no update file.
+2. The Windows step now falls back to BtbN's build, as the Linux step does. Dry-run of the fallback in pwsh 7.6:
+   - it picks `ffmpeg-n9.0-latest-win64-gpl-9.0.zip`;
+   - `checksums.sha256` arrives as bytes (now read as text);
+   - the hash line parses to 64 hex digits.
+
+   The zip's central directory (an exact byte-range read of its last 128 KB) lists
+   `ffmpeg-n9.0-latest-win64-gpl-9.0/bin/ffmpeg.exe`, `bin/ffprobe.exe` and `LICENSE.txt`, which is what the step copies.
+3. v0.12.3 carries v0.12.2's changes to Windows; its release notes repeat them.

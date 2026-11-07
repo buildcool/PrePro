@@ -71,20 +71,56 @@ jobs:
           jvs || { echo "::warning::johnvansickle.com failed; using BtbN's build"; rm -rf ff ff.tar.xz*; mkdir -p ff; btbn; }
           cp ff/ffmpeg ff/ffprobe dist/prepro-engine/bin/
           dist/prepro-engine/bin/ffmpeg -hide_banner -version | head -1
-      - name: Bundle ffmpeg (Windows, gyan.dev essentials, checksum-verified)
+      - name: Bundle ffmpeg (Windows, checksum-verified)
         if: runner.os == 'Windows'
         shell: pwsh
+        # v0.12.2 shipped without its Windows installer because gyan.dev's checksum file answered 503 for a while. Retry
+        # it, and fall back to BtbN's static GPL build on GitHub (checked against its published sha256), as on Linux.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $u = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-          Invoke-WebRequest $u -OutFile ff.zip -MaximumRetryCount 5 -RetryIntervalSec 15
-          $want = (Invoke-WebRequest "$u.sha256" -MaximumRetryCount 5 -RetryIntervalSec 15).Content.Trim().Split(" ")[0].ToUpper()
-          $got = (Get-FileHash ff.zip -Algorithm SHA256).Hash.ToUpper()
-          if ($want -ne $got) { throw "ffmpeg checksum mismatch: $got vs $want" }
-          Expand-Archive ff.zip -DestinationPath ff
-          New-Item -ItemType Directory -Force dist/prepro-engine/bin | Out-Null
-          $d = Get-ChildItem ff -Directory | Select-Object -First 1
-          Copy-Item "$($d.FullName)/bin/ffmpeg.exe", "$($d.FullName)/bin/ffprobe.exe" dist/prepro-engine/bin/
-          Copy-Item "$($d.FullName)/LICENSE" dist/prepro-engine/bin/FFMPEG-LICENSE.txt
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force ff, dist/prepro-engine/bin | Out-Null
+          function AsText($r) { if ($r.Content -is [byte[]]) { [System.Text.Encoding]::ASCII.GetString($r.Content) } else { [string]$r.Content } }
+          function Fetch($url, $out) { Invoke-WebRequest $url -OutFile $out -MaximumRetryCount 5 -RetryIntervalSec 15 -ConnectionTimeoutSeconds 60 }
+          function Gyan {
+            $u = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+            Fetch $u ff.zip
+            $want = (AsText (Invoke-WebRequest "$u.sha256" -MaximumRetryCount 5 -RetryIntervalSec 15)).Trim().Split(" ")[0].ToUpper()
+            $got = (Get-FileHash ff.zip -Algorithm SHA256).Hash.ToUpper()
+            if ($want -ne $got) { throw "gyan.dev checksum mismatch: $got vs $want" }
+            Expand-Archive ff.zip -DestinationPath ff
+            $d = Get-ChildItem ff -Directory | Select-Object -First 1
+            Copy-Item "$($d.FullName)/bin/ffmpeg.exe", "$($d.FullName)/bin/ffprobe.exe" dist/prepro-engine/bin/
+            Copy-Item "$($d.FullName)/LICENSE" dist/prepro-engine/bin/FFMPEG-LICENSE.txt
+          }
+          function Btbn {
+            $api = Invoke-RestMethod "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest" `
+                     -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -MaximumRetryCount 5 -RetryIntervalSec 15
+            $name = $api.assets.name | Where-Object { $_ -match '^ffmpeg-n[0-9.]+-latest-win64-gpl-[0-9.]+\.zip$' } |
+                    Sort-Object { [version]($_ -replace '^ffmpeg-n([0-9.]+)-.*$', '$1') } | Select-Object -Last 1
+            if (-not $name) { throw "no BtbN win64 release build listed" }
+            $rel = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
+            Fetch "$rel/$name" ff.zip
+            $sums = AsText (Invoke-WebRequest "$rel/checksums.sha256" -MaximumRetryCount 5 -RetryIntervalSec 15)
+            $line = ($sums -split "\r?\n") | Where-Object { $_.Trim().EndsWith(" $name") } | Select-Object -First 1
+            if (-not $line) { throw "$name is not in BtbN's checksums" }
+            $want = ($line.Trim() -split '\s+')[0].ToUpper()
+            $got = (Get-FileHash ff.zip -Algorithm SHA256).Hash.ToUpper()
+            if ($want -ne $got) { throw "BtbN checksum mismatch: $got vs $want" }
+            Expand-Archive ff.zip -DestinationPath ff
+            $d = Get-ChildItem ff -Directory | Select-Object -First 1
+            Copy-Item "$($d.FullName)/bin/ffmpeg.exe", "$($d.FullName)/bin/ffprobe.exe" dist/prepro-engine/bin/
+            Copy-Item "$($d.FullName)/LICENSE.txt" dist/prepro-engine/bin/FFMPEG-LICENSE.txt
+            "FFmpeg static build $name from github.com/BtbN/FFmpeg-Builds" | Set-Content dist/prepro-engine/bin/FFMPEG-README.txt
+          }
+          try { Gyan } catch {
+            Write-Host "::warning::gyan.dev failed ($($_.Exception.Message)); using BtbN's build"
+            Remove-Item ff, ff.zip -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force ff | Out-Null
+            Btbn
+          }
+          & dist/prepro-engine/bin/ffmpeg.exe -hide_banner -version | Select-Object -First 1
       - name: Smoke-test the frozen engine
         shell: bash
         run: |

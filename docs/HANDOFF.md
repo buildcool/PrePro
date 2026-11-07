@@ -8,6 +8,12 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
 ## Current state
 - **Vision (the user's, 2026-11-06): an autonomous pre-editor** — one action from a shoot folder to ~90 % of the edit,
   export-ready; choices are refinements, never gates. See `docs/VISION.md`; judge features by it.
+- **v0.12.3 (2026-11-07) = v0.12.2 + the Windows installer.** v0.12.2's release run failed on Windows only: gyan.dev
+  answered 503 for `ffmpeg-release-essentials.zip.sha256`, so the GitHub release v0.12.2 has the Linux builds and the
+  wheel but no `.exe` / `latest.yml` (left as is). `desktop.yml`'s Windows ffmpeg step now tries gyan.dev, then falls
+  back to BtbN's `ffmpeg-n<ver>-latest-win64-gpl-<ver>.zip` checked against its `checksums.sha256` (like the Linux
+  step). Note: the `.sha256` reads come back as bytes, hence `AsText`. Logic dry-run here in pwsh 7.6; the zip's layout
+  checked from its central directory.
 - **v0.12.2 (2026-11-07; CHANGELOG [0.12.2], QA "v0.12.2"): changing the song re-cuts a beat-cut cut on it.**
   `revise.apply_ops(..., brief)` (both callers pass the brief): when the base story is beat-cut (`_beat_cut`: playbook in
   `BEAT_CUT` and items with `beats`) and the ops hold a `swap_track` to a music asset, `_on_song` rebuilds story and

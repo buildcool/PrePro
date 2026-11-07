@@ -4,6 +4,14 @@ All notable changes to PrePro are recorded here. Versions follow the release lad
 
 ## [Unreleased]
 
+## [0.12.3] — 2026-11-07
+### Fixed
+- **v0.12.2's changes reach Windows.** v0.12.2 published only its Linux builds. While its Windows installer was
+  building, gyan.dev (where the Windows build gets ffmpeg) answered "503 Service Unavailable" for the ffmpeg checksum,
+  and the build rightly refused an ffmpeg it couldn't verify. That left Windows update checks finding no update file.
+  The Windows build now falls back to a second source, as the Linux build already did: BtbN's static build on GitHub,
+  checked against its published checksum.
+
 ## [0.12.2] — 2026-11-07
 ### Fixed
 - **"Change the song" on a photo reel, a day in my life or your words on video.** It used to keep two things from the
