@@ -125,11 +125,17 @@ gets tested for real, on the Pro and the base chip and memory.
 **Where it stands**
 - **M0: done** (2026-11-07). The starter app is built on GitHub's Mac and is on `ios-nightly` for the testers.
 - **M1: in progress.**
-  - Done: the photo reel's editing brain runs in PreProCore and makes the same decisions as the desktop on the
-    fixture shoots, checked on every build: which photos and in what order, the cover, the song, where in the song
-    the cut starts, every photo's beats, your lines and the reasons.
-  - Next: the timeline (layout on the beat, photo motion, words placed off faces, the music), the Swift beat
-    tracker, Photos import, live preview, render, save and share.
+  - Done: the photo reel's editing brain and its timeline run in PreProCore and make the same decisions as the
+    desktop on the fixture shoots, checked on every build:
+    - which photos and in what order, the cover, the song, where in the song the cut starts, every photo's beats;
+    - each photo's move, the loop back to the cover;
+    - your lines beside the faces with the same line breaks, the music's level;
+    - every decision with its reason.
+  - Next:
+    - the Swift beat tracker, so the phone finds your song's beat itself;
+    - Photos import;
+    - the phone's own photo analysis (faces, aesthetics, sharpness, bursts);
+    - live preview, render, save and share.
 
 ## M6 in detail: "for the full heavy lifting, connect your PC"
 **When the phone suggests it.** Never as a nag: one calm card on the review screen with the reason in plain words,

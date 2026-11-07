@@ -36,10 +36,24 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   brain_polish.json` (the brain before the editor's checks; identical to story/polish for all four today),
   `music.json` (front/bed/light briefs and rankings, the beat grid). `BrainParityTests.swift` checks them on the Mac;
   `tests/unit/test_ios_goldens.py` re-runs the desktop brain on the same inputs so a desktop change can't silently
-  leave the phone behind (re-export, then port). The export always uses the rules engine. Next in M1: the compiler's
-  photo-reel path (`_beat_len` on the grid at 4 decimals, `photo_motion`, `_beside_face` + captions `text_block`,
-  `_lay_music`, `_seamless_loop`, the "Left out …" and `photomotion` / `cover:` suggestions), then the Swift beat
-  tracker, Photos import, AVFoundation preview/render, save/share.
+  leave the phone behind (re-export, then port). The export always uses the rules engine.
+  **Then the photo reel timeline:** `Compiler/Compiler.swift` (compiler.py's photo-reel path only — it throws
+  `BrainError.notOnPhoneYet` for talking or video clips): left-out suggestions, `beatLength` (`_beat_len`, grid
+  re-derived at 4 decimals), `photoMotion`, `seamlessLoop`, `faceLookup`, `besideFace`, text anchors (start/end/
+  section/span/t:/clip:/photo:), stamps, `layMusic` (spans, groups, `Music.bestOffset`, the 50 ms envelope via
+  `Py.arange` = numpy's fill, loop items, music suggestion). `TextLayout.swift` = captions.py `text_block` /
+  `balance_lines` with `Resources/text_metrics.json` (committed; written by export_parity: every bundled font's
+  per-code-point advance at size 100, Pillow basic layout, only those ≠ .notdef, plus STYLES/SAFE/GLUE/LIBASS_WIDTH —
+  Pillow's measure is a plain sum of advances, so line breaks match exactly). Goldens: `text_blocks.json` (18 lines,
+  all styles, scales, Devanagari, emoji). `CompilerParityTests.swift` compares both photo reel timelines field by
+  field; the desktop guard now also recompiles all four golden timelines (pa.root = "", nothing read from disk) and
+  re-measures every advance. **Next in M1: the Swift beat tracker** (analyze/sound.py `music_info`: librosa
+  onset_strength → beat_track tightness 120 → 70–180 BPM folding → downbeat phase from <150 Hz energy + chroma change →
+  2 Hz energy curve (5th/98th percentiles) → `_sections` (agglomerative over MFCC+chroma+RMS, snapped to downbeats,
+  labels) → key (chroma + Krumhansl) → brightness (centroid / 4000) → `mood_tags`). Test it against ground truth by
+  porting fixtures/audio.py `procedural_music` to Swift (the songs' exact beats/bars/sections are known), and against
+  the goldens' librosa beats within 20 ms. Then Photos import (EXIF time + offset, GPS), Vision analysis (faces,
+  aesthetics, sharpness, duplicates by feature print), AVFoundation preview/render, save/share.
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).
