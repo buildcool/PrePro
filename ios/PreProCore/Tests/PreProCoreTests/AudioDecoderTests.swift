@@ -20,8 +20,21 @@ final class AudioDecoderTests: XCTestCase {
                 samples.withUnsafeBufferPointer { buffer.floatChannelData![c].update(from: $0.baseAddress!, count: n) }
             }
             try file.write(from: buffer)
+            file.close()                                       // finish the file before anyone reads it
         }
         return url
+    }
+
+    func testResamplingKeepsTheWholeSignal() throws {
+        // a 440 Hz tone, 3 s at 44.1 kHz: at 22.05 kHz it keeps its length, its loudness and its pitch to the end
+        let x = (0..<132_300).map { Float(0.5 * sin(2 * Double.pi * 440 * Double($0) / 44100)) }
+        let y = try AudioDecoder.resample(x, from: 44100, to: 22050)
+        XCTAssertEqual(y.count, 66_150)
+        let tail = Array(y[60_000..<66_000])                    // the last part, where a dropped input would show as silence
+        let rms = (tail.map { Double($0) * Double($0) }.reduce(0, +) / Double(tail.count)).squareRoot()
+        XCTAssertEqual(rms, 0.5 / 2.0.squareRoot(), accuracy: 0.01)
+        let crossings = zip(y.dropFirst(1000), y.dropFirst(1001)).filter { $0 < 0 && $1 >= 0 }.count
+        XCTAssertEqual(Double(crossings), 440 * (66_150 - 1001) / 22050.0, accuracy: 3)
     }
 
     func happy() -> (sections: [SongSynth.Section], seed: UInt64) {

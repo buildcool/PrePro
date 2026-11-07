@@ -42,32 +42,37 @@ public enum AudioDecoder {
         return try resample(mono, from: format.sampleRate, to: target)
     }
 
-    /// Mono float samples from one rate to another (AVAudioConverter at its best quality).
+    /// Mono float samples from one rate to another (AVAudioConverter at its best quality). The input goes in pieces of at
+    /// most what the converter asks for, so none of it is left behind when an output buffer fills.
     public static func resample(_ x: [Float], from rate: Double, to target: Double) throws -> [Float] {
+        let piece = 8192
         guard !x.isEmpty,
               let inFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false),
               let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: target, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: inFormat, to: outFormat),
-              let input = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: AVAudioFrameCount(x.count)) else {
+              let input = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: AVAudioFrameCount(piece)) else {
             return []
         }
         converter.sampleRateConverterQuality = AVAudioQuality.max.rawValue
         converter.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Mastering
-        input.frameLength = AVAudioFrameCount(x.count)
-        x.withUnsafeBufferPointer { input.floatChannelData![0].update(from: $0.baseAddress!, count: x.count) }
-        let expected = Int((Double(x.count) * target / rate).rounded())
+        let expected = Int((Double(x.count) * target / rate).rounded(.up))
         var out = [Float]()
         out.reserveCapacity(expected + 1024)
-        var fed = false
-        while true {
+        var position = 0
+        var rounds = 0
+        while rounds < 1_000_000 {
+            rounds += 1
             guard let chunk = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: 65536) else { break }
             var error: NSError?
-            let status = converter.convert(to: chunk, error: &error) { _, inputStatus in
-                if fed {
+            let status = converter.convert(to: chunk, error: &error) { asked, inputStatus in
+                if position >= x.count {
                     inputStatus.pointee = .endOfStream
                     return nil
                 }
-                fed = true
+                let n = min(Int(asked), piece, x.count - position)
+                input.frameLength = AVAudioFrameCount(n)
+                x.withUnsafeBufferPointer { input.floatChannelData![0].update(from: $0.baseAddress! + position, count: n) }
+                position += n
                 inputStatus.pointee = .haveData
                 return input
             }
@@ -76,7 +81,7 @@ public enum AudioDecoder {
             if got > 0, let data = chunk.floatChannelData {
                 out.append(contentsOf: UnsafeBufferPointer(start: data[0], count: got))
             }
-            if status == .endOfStream || status == .error || (got == 0 && fed) { break }
+            if status == .endOfStream || status == .error { break }
         }
         // the same length librosa's resampler gives: ceil(n · target / rate)
         let want = Int((Double(x.count) * target / rate).rounded(.up))
