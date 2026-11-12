@@ -50,6 +50,18 @@ SideStore and tap **Refresh All**. A free Apple ID can have at most 3 apps insta
    - The summary line shows the day, how many clips, and the first and last time.
 3. **Send test report.**
 
+### What to test next (M1: a photo reel)
+1. Put a song on the phone first (an .mp3 or .m4a in the Files app: AirDrop or save one from mail). Songs from Apple
+   Music can't be read.
+2. **Make a photo reel:** tap **Choose photos** and pick 10–25 photos of one day or one trip, with a few near-identical
+   shots, one blurry and one dark one if you have them. Tap **Choose a song** and pick the song. Tap **Make the reel**.
+   - It should finish within about a minute and show a cover with a title like "Goa · Oct 2026".
+   - The photos below the cover should be in the order you took them, after the cover.
+   - Under **What PrePro decided**: the near-identical shot, the blurry and the dark photo should be left out, each
+     with its reason. Note any photo it left out that you'd have kept, or kept that you'd have cut.
+3. **Send test report.** It now also lists the reel's decisions in words (its title too); still no photos, videos or
+   file names.
+
 ## If something goes wrong
 - **"Untrusted Developer" / it won't open:** trust the profile (step 1.5).
 - **"Developer Mode required":** turn it on (step 1.5).

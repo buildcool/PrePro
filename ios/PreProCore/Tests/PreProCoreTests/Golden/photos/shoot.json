@@ -1,0 +1,2861 @@
+{
+ "photos": [
+  {
+   "name": "photos/IMG_0001.jpg",
+   "picture": {
+    "w": 2000,
+    "h": 1500,
+    "seed": 81,
+    "palette": "beach",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T08:02:10+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0002.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 82,
+    "palette": "beach",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": [
+     [
+      460,
+      400,
+      300
+     ]
+    ]
+   },
+   "orientation": 6,
+   "creation_time": "2026-10-10T08:05:31+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": [
+    [
+     0.46,
+     0.4,
+     0.3,
+     0.39
+    ]
+   ]
+  },
+  {
+   "name": "photos/IMG_0003.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 82,
+    "palette": "beach",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 14,
+    "dy": 10,
+    "blur": 1,
+    "dim": null,
+    "faces": [
+     [
+      460,
+      400,
+      300
+     ]
+    ]
+   },
+   "orientation": 6,
+   "creation_time": "2026-10-10T08:05:32+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": [
+    [
+     0.47,
+     0.41,
+     0.3,
+     0.39
+    ]
+   ]
+  },
+  {
+   "name": "photos/IMG_0004.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 84,
+    "palette": "cafe",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T09:31:00+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0005.jpg",
+   "picture": {
+    "w": 2000,
+    "h": 1500,
+    "seed": 85,
+    "palette": "food",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T10:12:45+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0006.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 86,
+    "palette": "market",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 8,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T11:03:20+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0007.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 87,
+    "palette": "forest",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 8,
+   "creation_time": "2026-10-10T13:22:05+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0008.jpg",
+   "picture": {
+    "w": 2400,
+    "h": 1350,
+    "seed": 88,
+    "palette": "sunset",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T17:46:40+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0009.jpg",
+   "picture": {
+    "w": 1500,
+    "h": 2000,
+    "seed": 89,
+    "palette": "sunset",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": [
+     [
+      550,
+      400,
+      300
+     ]
+    ]
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T18:10:12+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": [
+    [
+     0.55,
+     0.4,
+     0.3,
+     0.39
+    ]
+   ]
+  },
+  {
+   "name": "photos/IMG_0010.jpg",
+   "picture": {
+    "w": 2000,
+    "h": 1500,
+    "seed": 90,
+    "palette": "city",
+    "shapes": 7,
+    "noise": 24,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": [
+     3,
+     10
+    ],
+    "faces": []
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T21:34:50+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": []
+  },
+  {
+   "name": "photos/IMG_0011.jpg",
+   "picture": {
+    "w": 2000,
+    "h": 1500,
+    "seed": 92,
+    "palette": "cafe",
+    "shapes": 7,
+    "noise": 8,
+    "dx": 0,
+    "dy": 0,
+    "blur": 0,
+    "dim": null,
+    "faces": [
+     [
+      200,
+      420,
+      140
+     ],
+     [
+      500,
+      420,
+      140
+     ],
+     [
+      800,
+      420,
+      140
+     ]
+    ]
+   },
+   "orientation": 1,
+   "creation_time": "2026-10-10T12:31:15+05:30",
+   "location": {
+    "lat": 15.5527,
+    "lon": 73.7517
+   },
+   "faces": [
+    [
+     0.2,
+     0.42,
+     0.14,
+     0.24
+    ],
+    [
+     0.5,
+     0.42,
+     0.14,
+     0.24
+    ],
+    [
+     0.8,
+     0.42,
+     0.14,
+     0.24
+    ]
+   ]
+  }
+ ],
+ "analysis": {
+  "version": 13,
+  "root": "",
+  "assets": [
+   {
+    "id": "A01",
+    "path": "music/golden_hour_100.wav",
+    "hash": "c2c1ffc1bdac9e06",
+    "kind": "music",
+    "kind_reason": "in a music folder",
+    "info": {
+     "path": "music/golden_hour_100.wav",
+     "size": 3830444,
+     "format_name": "wav",
+     "duration": 39.9,
+     "has_video": false,
+     "has_audio": true,
+     "is_image": false,
+     "width": null,
+     "height": null,
+     "fps": null,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": "pcm_s16le",
+     "pix_fmt": null,
+     "sample_rate": 48000,
+     "channels": 1,
+     "bitrate": 768008,
+     "creation_time": null,
+     "location": null,
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I01",
+    "path": "photos/IMG_0001.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0001.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T08:02:10+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I02",
+    "path": "photos/IMG_0002.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0002.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 90,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T08:05:31+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I03",
+    "path": "photos/IMG_0003.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0003.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 90,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T08:05:32+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I04",
+    "path": "photos/IMG_0004.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0004.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 1500,
+     "height": 2000,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T09:31:00+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I05",
+    "path": "photos/IMG_0005.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0005.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T10:12:45+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I06",
+    "path": "photos/IMG_0006.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0006.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 1500,
+     "height": 2000,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T11:03:20+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I07",
+    "path": "photos/IMG_0007.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0007.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 270,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T13:22:05+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I08",
+    "path": "photos/IMG_0008.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0008.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2400,
+     "height": 1350,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T17:46:40+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I09",
+    "path": "photos/IMG_0009.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0009.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 1500,
+     "height": 2000,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T18:10:12+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I10",
+    "path": "photos/IMG_0010.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0010.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T21:34:50+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   },
+   {
+    "id": "I11",
+    "path": "photos/IMG_0011.jpg",
+    "hash": "",
+    "kind": "image",
+    "kind_reason": "photo",
+    "info": {
+     "path": "photos/IMG_0011.jpg",
+     "size": 0,
+     "format_name": "image2",
+     "duration": 0.04,
+     "has_video": true,
+     "has_audio": false,
+     "is_image": true,
+     "width": 2000,
+     "height": 1500,
+     "fps": 25.0,
+     "vfr": false,
+     "rotation": 0,
+     "vcodec": null,
+     "acodec": null,
+     "pix_fmt": null,
+     "sample_rate": null,
+     "channels": null,
+     "bitrate": null,
+     "creation_time": "2026-10-10T12:31:15+05:30",
+     "location": {
+      "lat": 15.5527,
+      "lon": 73.7517,
+      "alt": null
+     },
+     "tags": {}
+    },
+    "tags": [],
+    "notes": [],
+    "user_tags": []
+   }
+  ],
+  "clips": {
+   "A01": {
+    "asset_id": "A01",
+    "speech": [],
+    "silences": [
+     {
+      "t0": 0.0,
+      "t1": 39.9
+     }
+    ],
+    "transcript": null,
+    "shots": [],
+    "audio": {
+     "lufs": -23.94,
+     "peak_db": -5.14,
+     "noise_floor_db": -31.3,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": {
+     "bpm": 99.38,
+     "beats": [
+      4.83,
+      5.433,
+      6.037,
+      6.618,
+      7.221,
+      7.825,
+      8.429,
+      9.033,
+      9.636,
+      10.24,
+      10.844,
+      11.424,
+      12.028,
+      12.632,
+      13.235,
+      13.839,
+      14.443,
+      15.023,
+      15.627,
+      16.231,
+      16.834,
+      17.438,
+      18.042,
+      18.622,
+      19.226,
+      19.83,
+      20.434,
+      21.037,
+      21.641,
+      22.221,
+      22.825,
+      23.429,
+      24.033,
+      24.636,
+      25.24,
+      25.821,
+      26.424,
+      27.028,
+      27.632,
+      28.235,
+      28.839,
+      29.443,
+      30.023,
+      30.627,
+      31.231,
+      31.835,
+      32.438,
+      33.019,
+      33.622,
+      34.226,
+      34.83,
+      35.434
+     ],
+     "downbeats": [
+      4.83,
+      7.221,
+      9.636,
+      12.028,
+      14.443,
+      16.834,
+      19.226,
+      21.641,
+      24.033,
+      26.424,
+      28.839,
+      31.231,
+      33.622
+     ],
+     "sections": [
+      {
+       "t0": 0.0,
+       "t1": 4.83,
+       "label": "intro",
+       "energy": 0.224
+      },
+      {
+       "t0": 4.83,
+       "t1": 14.443,
+       "label": "build",
+       "energy": 0.382
+      },
+      {
+       "t0": 14.443,
+       "t1": 33.622,
+       "label": "drop",
+       "energy": 0.777
+      },
+      {
+       "t0": 33.622,
+       "t1": 39.9,
+       "label": "outro",
+       "energy": 0.174
+      }
+     ],
+     "energy_curve": [
+      0.403,
+      0.176,
+      0.314,
+      0.073,
+      0.286,
+      0.182,
+      0.13,
+      0.374,
+      0.078,
+      0.659,
+      0.234,
+      0.054,
+      0.676,
+      0.23,
+      0.638,
+      0.263,
+      0.507,
+      0.122,
+      0.243,
+      0.647,
+      0.28,
+      0.587,
+      0.198,
+      0.003,
+      0.779,
+      0.241,
+      0.702,
+      0.189,
+      0.777,
+      0.324,
+      0.969,
+      0.925,
+      0.952,
+      0.828,
+      0.798,
+      0.257,
+      0.857,
+      0.889,
+      0.842,
+      0.867,
+      0.719,
+      0.263,
+      0.876,
+      1.0,
+      0.996,
+      0.942,
+      0.883,
+      0.239,
+      0.978,
+      0.964,
+      0.917,
+      0.93,
+      0.722,
+      0.324,
+      0.901,
+      0.85,
+      0.877,
+      0.802,
+      0.796,
+      0.263,
+      0.855,
+      0.867,
+      0.985,
+      0.984,
+      0.863,
+      0.229,
+      1.0,
+      0.473,
+      0.151,
+      0.39,
+      0.037,
+      0.0,
+      0.456,
+      0.161,
+      0.35,
+      0.075,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "key": "F#",
+     "mode": "major",
+     "vocals": null,
+     "mood_tags": [
+      "build-drop",
+      "happy",
+      "upbeat"
+     ],
+     "brightness": 0.415
+    },
+    "place": null,
+    "place_cluster": null,
+    "day_index": null,
+    "order_key": 0.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I01": {
+    "asset_id": "I01",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I01.k0",
+      "asset_id": "I01",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 167.99,
+      "brightness": 0.701,
+      "contrast": 0.137,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.531,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.6996410489082336,
+       0.7118151783943176,
+       0.689947247505188
+      ],
+      "phash": "97700bf857f105d4",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791599530.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I02": {
+    "asset_id": "I02",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I02.k0",
+      "asset_id": "I02",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 312.4,
+      "brightness": 0.695,
+      "contrast": 0.144,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [
+       {
+        "t": 0.0,
+        "x": 0.46,
+        "y": 0.4,
+        "w": 0.3,
+        "h": 0.39,
+        "conf": 0.99
+       }
+      ],
+      "face_ratio": 1.0,
+      "dup_group": "burst0",
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.774,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.6489750146865845,
+       0.7138424515724182,
+       0.7205873727798462
+      ],
+      "phash": "a906166c679378cf",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [
+       [
+        0.0,
+        0.46,
+        0.4
+       ]
+      ],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791599731.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I03": {
+    "asset_id": "I03",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I03.k0",
+      "asset_id": "I03",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 153.84,
+      "brightness": 0.696,
+      "contrast": 0.144,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [
+       {
+        "t": 0.0,
+        "x": 0.47,
+        "y": 0.41,
+        "w": 0.3,
+        "h": 0.39,
+        "conf": 0.99
+       }
+      ],
+      "face_ratio": 1.0,
+      "dup_group": "burst0",
+      "dup_rank": 1,
+      "quality": 1.0,
+      "aesthetic": 0.693,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.6525154709815979,
+       0.7154448628425598,
+       0.7197670936584473
+      ],
+      "phash": "ad06166467933ce7",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [
+       [
+        0.0,
+        0.47,
+        0.41
+       ]
+      ],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791599732.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I04": {
+    "asset_id": "I04",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I04.k0",
+      "asset_id": "I04",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 52.55,
+      "brightness": 0.474,
+      "contrast": 0.133,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.397,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.5561946034431458,
+       0.4762974679470062,
+       0.389662504196167
+      ],
+      "phash": "93b654a5a5bc305b",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791604860.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I05": {
+    "asset_id": "I05",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I05.k0",
+      "asset_id": "I05",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 413.43,
+      "brightness": 0.639,
+      "contrast": 0.266,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.771,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.712503969669342,
+       0.6035722494125366,
+       0.6019467711448669
+      ],
+      "phash": "b8eec726325819d9",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791607365.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I06": {
+    "asset_id": "I06",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I06.k0",
+      "asset_id": "I06",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 2.82,
+      "brightness": 0.569,
+      "contrast": 0.17,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 0.6,
+      "aesthetic": 0.446,
+      "flags": [
+       "blurry"
+      ],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.5358299016952515,
+       0.5704775452613831,
+       0.6001156568527222
+      ],
+      "phash": "9acb4e56b53524c6",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791610400.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I07": {
+    "asset_id": "I07",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I07.k0",
+      "asset_id": "I07",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 85.73,
+      "brightness": 0.424,
+      "contrast": 0.179,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.471,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.36271536350250244,
+       0.5459281206130981,
+       0.3623860776424408
+      ],
+      "phash": "f0b41e5ee571188e",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791618725.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I08": {
+    "asset_id": "I08",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I08.k0",
+      "asset_id": "I08",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 206.35,
+      "brightness": 0.407,
+      "contrast": 0.182,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.623,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.4896029531955719,
+       0.41699156165122986,
+       0.31259530782699585
+      ],
+      "phash": "c0c24cb7db5c24eb",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791634600.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I09": {
+    "asset_id": "I09",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I09.k0",
+      "asset_id": "I09",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 282.71,
+      "brightness": 0.411,
+      "contrast": 0.195,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [
+       {
+        "t": 0.0,
+        "x": 0.55,
+        "y": 0.4,
+        "w": 0.3,
+        "h": 0.39,
+        "conf": 0.99
+       }
+      ],
+      "face_ratio": 1.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.799,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.5004473328590393,
+       0.3443273603916168,
+       0.38877302408218384
+      ],
+      "phash": "909661635fd0ada7",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [
+       [
+        0.0,
+        0.55,
+        0.4
+       ]
+      ],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791636012.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I10": {
+    "asset_id": "I10",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I10.k0",
+      "asset_id": "I10",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 20.44,
+      "brightness": 0.122,
+      "contrast": 0.046,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [],
+      "face_ratio": 0.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 0.6,
+      "aesthetic": 0.118,
+      "flags": [
+       "dark"
+      ],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.10723653435707092,
+       0.11767525225877762,
+       0.14160077273845673
+      ],
+      "phash": "a05a57f4590bb4b5",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791648290.0,
+    "facecam": null,
+    "errors": []
+   },
+   "I11": {
+    "asset_id": "I11",
+    "speech": [],
+    "silences": [],
+    "transcript": null,
+    "shots": [
+     {
+      "id": "I11.k0",
+      "asset_id": "I11",
+      "t0": 0.0,
+      "t1": 0.04,
+      "keyframes": [
+       0.0
+      ],
+      "sharpness": 880.39,
+      "brightness": 0.507,
+      "contrast": 0.136,
+      "saturation": 0.0,
+      "shake": 0.0,
+      "motion": 0.0,
+      "camera_move": "static",
+      "whip_in": false,
+      "whip_out": false,
+      "faces": [
+       {
+        "t": 0.0,
+        "x": 0.2,
+        "y": 0.42,
+        "w": 0.14,
+        "h": 0.24,
+        "conf": 0.99
+       },
+       {
+        "t": 0.0,
+        "x": 0.5,
+        "y": 0.42,
+        "w": 0.14,
+        "h": 0.24,
+        "conf": 0.99
+       },
+       {
+        "t": 0.0,
+        "x": 0.8,
+        "y": 0.42,
+        "w": 0.14,
+        "h": 0.24,
+        "conf": 0.99
+       }
+      ],
+      "face_ratio": 1.0,
+      "dup_group": null,
+      "dup_rank": 0,
+      "quality": 1.0,
+      "aesthetic": 0.76,
+      "flags": [],
+      "tags": [],
+      "desc": null,
+      "shot_type": "still",
+      "mood": null,
+      "best": [],
+      "color": [
+       0.5935114026069641,
+       0.4540763795375824,
+       0.4747466444969177
+      ],
+      "phash": "9c9c034b97f4382f",
+      "action_peaks": [],
+      "static_ratio": 0.0,
+      "hud": 0.0,
+      "track": [
+       [
+        0.0,
+        0.2,
+        0.42
+       ]
+      ],
+      "seats": [],
+      "mouth": []
+     }
+    ],
+    "audio": {
+     "lufs": null,
+     "peak_db": null,
+     "noise_floor_db": null,
+     "snr_db": null,
+     "clipping_ratio": 0.0,
+     "hum_hz": null,
+     "wind": 0.0,
+     "echo": 0.0,
+     "speech_ratio": 0.0,
+     "issues": []
+    },
+    "music": null,
+    "place": "Calangute",
+    "place_cluster": 0,
+    "day_index": 1,
+    "order_key": 1791615675.0,
+    "facecam": null,
+    "errors": []
+   }
+  },
+  "genres": [
+   {
+    "playbook": "photo_reel",
+    "score": 0.95,
+    "why": "11 photos and a song — a photo reel cut on the beat"
+   }
+  ],
+  "speech_language": null,
+  "stats": {
+   "utc_offset_min": 330.0,
+   "places": 1.0,
+   "days": 1.0,
+   "context_version": 6.0,
+   "assets": 12.0,
+   "analysis_seconds": 0.0,
+   "footage_seconds": 0.0
+  },
+  "warnings": []
+ },
+ "brief": {
+  "raw_text": "",
+  "sources": [],
+  "rules": [],
+  "prefs": {
+   "playbook": null,
+   "aspect": null,
+   "target_length": null,
+   "goal": null,
+   "audience": null,
+   "mood": null,
+   "pace": null,
+   "effects": null,
+   "captions": null,
+   "caption_lang": null,
+   "humour": null,
+   "meme_flavour": null,
+   "look": null,
+   "music_mood": null,
+   "references": [],
+   "outline": [],
+   "freedom": "balanced",
+   "deliverables": []
+  },
+  "questions": [],
+  "parsed_by": "none"
+ },
+ "direction": {
+  "id": "d1",
+  "playbook": "photo_reel",
+  "name": "Photo reel · Reel/Short · ~12 s",
+  "aspect": "9:16",
+  "target_min": 10.2,
+  "target_max": 13.8,
+  "fit_score": 0.95,
+  "why": "11 photos and a song — a photo reel cut on the beat",
+  "hooks": [
+   {
+    "id": "h0",
+    "kind": "visual_spectacle",
+    "refs": [
+     "I09.k0"
+    ],
+    "text_hook": "Calangute · Oct 2026",
+    "why": "open on your most striking photo (I09): colour, contrast and a face stop the scroll",
+    "score": 0.92
+   },
+   {
+    "id": "h1",
+    "kind": "visual_spectacle",
+    "refs": [
+     "I02.k0"
+    ],
+    "text_hook": "Calangute · Oct 2026",
+    "why": "or open on this photo (I02): colour, contrast and a face stop the scroll",
+    "score": 0.819
+   },
+   {
+    "id": "h2",
+    "kind": "visual_spectacle",
+    "refs": [
+     "I05.k0"
+    ],
+    "text_hook": "Calangute · Oct 2026",
+    "why": "or open on this photo (I05): colour, contrast stop the scroll",
+    "score": 0.727
+   }
+  ],
+  "outline": [
+   "Hook (visual spectacle): shot I09.k0",
+   "Structure: cover_photo → beat_cut_photos → loop_back"
+  ],
+  "knobs": {
+   "pace": 0.5,
+   "effects": "balanced",
+   "captions": "off",
+   "humour": "off",
+   "music_track": null,
+   "target_length": 12.0,
+   "freedom": "balanced",
+   "look": null,
+   "meme_flavour": "global",
+   "meme_tone": "clean",
+   "tightness": null,
+   "shot_len": null,
+   "layout": "auto",
+   "photo_motion": true
+  },
+  "coverage_gaps": [],
+  "from_brief": false
+ },
+ "story": {
+  "direction_id": "d1",
+  "hook_id": null,
+  "items": [
+   {
+    "ref": "I09.k0",
+    "role": "hook",
+    "t0": 0.0,
+    "t1": 2.391,
+    "section": "reel",
+    "note": "cover: your most striking photo first",
+    "whole": false,
+    "beats": 4
+   },
+   {
+    "ref": "I01.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.208,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I02.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.184,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I04.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.208,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I05.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.207,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I11.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.184,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I07.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 1.208,
+    "section": "reel",
+    "note": "",
+    "whole": false,
+    "beats": 2
+   },
+   {
+    "ref": "I08.k0",
+    "role": "photo",
+    "t0": 0.0,
+    "t1": 2.391,
+    "section": "reel",
+    "note": "the last photo holds a little longer",
+    "whole": false,
+    "beats": 4
+   },
+   {
+    "ref": "I09.k0",
+    "role": "loop",
+    "t0": 0.0,
+    "t1": 1.208,
+    "section": "reel",
+    "note": "loop ending: back to the cover so the Reel replays seamlessly",
+    "whole": false,
+    "beats": 2
+   }
+  ],
+  "sections": [
+   {
+    "name": "reel",
+    "music_mode": "front",
+    "mood": null,
+    "card": null
+   }
+  ],
+  "chapters": [],
+  "why": "cut on the beat of the song (99 BPM, from its drop): every photo lasts 2 beat(s)"
+ },
+ "polish": {
+  "direction_id": "d1",
+  "music": [
+   {
+    "section": "reel",
+    "mode": "front",
+    "track_id": "A01",
+    "alternatives": [],
+    "brief": {
+     "mood": "neutral",
+     "energy": "medium",
+     "bpm_min": 80.0,
+     "bpm_max": 120.0,
+     "genre": "",
+     "vocals_ok": false,
+     "structure_needs": [],
+     "search_terms": []
+    },
+    "why": "99 BPM — the photos change on its beats; it starts at 14.4s, the drop",
+    "gain_db": 0.0,
+    "offset": 14.443
+   }
+  ],
+  "effects": [
+   {
+    "type": "text",
+    "at": "photo:0",
+    "asset": null,
+    "value": null,
+    "text": "Calangute · Oct 2026",
+    "style": "photo",
+    "dur": null,
+    "intent": null,
+    "why": "where and when, from your photos — on the cover only",
+    "confidence": 0.8,
+    "position": "upper"
+   }
+  ],
+  "broll_gaps": [],
+  "vo_script": [],
+  "look": null,
+  "notes": []
+ },
+ "timeline": {
+  "id": "d1-photo_reel",
+  "name": "Photo reel · Reel/Short · ~12 s",
+  "direction_id": "d1",
+  "playbook": "photo_reel",
+  "fps": 30.0,
+  "width": 1080,
+  "height": 1920,
+  "items": [
+   {
+    "id": "m11",
+    "ref": null,
+    "track": "A2",
+    "kind": "audio",
+    "asset_id": "A01",
+    "src_in": 14.443,
+    "src_out": 27.632,
+    "rec_in": 0.0,
+    "speed": 1.0,
+    "link": null,
+    "transform": null,
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [
+     [
+      0.0,
+      -6.0
+     ]
+    ],
+    "fade_in": 0.05,
+    "fade_out": 1.5,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": null,
+    "role": "music",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": ""
+   },
+   {
+    "id": "t10",
+    "ref": "fx:text:photo:0|Calangute · Oct 2026",
+    "track": "T1",
+    "kind": "text",
+    "asset_id": null,
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 0.0,
+    "speed": 1.0,
+    "link": null,
+    "transform": null,
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": "Calangute · Oct 2026",
+    "style": "photo",
+    "position": "lower",
+    "text_y": 0.7079,
+    "text_scale": null,
+    "duration": 2.341,
+    "role": "text",
+    "section": null,
+    "look": null,
+    "suggestion_ids": [],
+    "note": ""
+   },
+   {
+    "id": "v1",
+    "ref": "I09.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I09",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 0.0,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.55,
+     "cy": 0.4,
+     "zoom": 1.07,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.55,
+       "cy": 0.4,
+       "zoom": 1.07
+      },
+      {
+       "t": 2.391,
+       "cx": 0.55,
+       "cy": 0.4,
+       "zoom": 1.0
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 2.391,
+    "role": "hook",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v2",
+    "ref": "I01.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I01",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 2.391,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.4694,
+     "cy": 0.5,
+     "zoom": 1.0,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.4694,
+       "cy": 0.5,
+       "zoom": 1.0
+      },
+      {
+       "t": 1.208,
+       "cx": 0.5,
+       "cy": 0.5,
+       "zoom": 1.0
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.208,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v3",
+    "ref": "I02.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I02",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 3.599,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.46,
+     "cy": 0.4,
+     "zoom": 1.0,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.46,
+       "cy": 0.4,
+       "zoom": 1.0
+      },
+      {
+       "t": 1.184,
+       "cx": 0.46,
+       "cy": 0.4,
+       "zoom": 1.07
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.184,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v4",
+    "ref": "I04.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I04",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 4.783,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.5,
+     "cy": 0.45,
+     "zoom": 1.07,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.5,
+       "cy": 0.45,
+       "zoom": 1.07
+      },
+      {
+       "t": 1.208,
+       "cx": 0.5,
+       "cy": 0.45,
+       "zoom": 1.0
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.208,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v5",
+    "ref": "I05.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I05",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 5.9910000000000005,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.5306,
+     "cy": 0.5,
+     "zoom": 1.0,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.5306,
+       "cy": 0.5,
+       "zoom": 1.0
+      },
+      {
+       "t": 1.207,
+       "cx": 0.5,
+       "cy": 0.5,
+       "zoom": 1.0
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.207,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v6",
+    "ref": "I11.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I11",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 7.198,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.5,
+     "cy": 0.5,
+     "zoom": 1.04,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.5,
+       "cy": 0.5,
+       "zoom": 1.04
+      },
+      {
+       "t": 1.184,
+       "cx": 0.5,
+       "cy": 0.5,
+       "zoom": 1.0
+      }
+     ],
+     "fit": true
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.184,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v7",
+    "ref": "I07.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I07",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 8.382,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.5,
+     "cy": 0.45,
+     "zoom": 1.0,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.5,
+       "cy": 0.45,
+       "zoom": 1.0
+      },
+      {
+       "t": 1.208,
+       "cx": 0.5,
+       "cy": 0.45,
+       "zoom": 1.07
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.208,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v8",
+    "ref": "I08.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I08",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 9.59,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.4546,
+     "cy": 0.5,
+     "zoom": 1.0,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.4546,
+       "cy": 0.5,
+       "zoom": 1.0
+      },
+      {
+       "t": 2.391,
+       "cx": 0.5,
+       "cy": 0.5,
+       "zoom": 1.0
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 2.391,
+    "role": "photo",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   },
+   {
+    "id": "v9",
+    "ref": "I09.k0",
+    "track": "V1",
+    "kind": "image",
+    "asset_id": "I09",
+    "src_in": 0.0,
+    "src_out": 0.0,
+    "rec_in": 11.981,
+    "speed": 1.0,
+    "link": null,
+    "transform": {
+     "cx": 0.55,
+     "cy": 0.4,
+     "zoom": 1.1054,
+     "keys": [
+      {
+       "t": 0.0,
+       "cx": 0.55,
+       "cy": 0.4,
+       "zoom": 1.1054
+      },
+      {
+       "t": 1.208,
+       "cx": 0.55,
+       "cy": 0.4,
+       "zoom": 1.07
+      }
+     ],
+     "fit": false
+    },
+    "place": null,
+    "gain_db": 0.0,
+    "envelope": [],
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+    "transition_in": "cut",
+    "transition_dur": 0.0,
+    "text": null,
+    "style": null,
+    "position": null,
+    "text_y": null,
+    "text_scale": null,
+    "duration": 1.208,
+    "role": "loop",
+    "section": "reel",
+    "look": null,
+    "suggestion_ids": [],
+    "note": "kenburns"
+   }
+  ],
+  "captions": [],
+  "markers": [
+   {
+    "t": 0.0,
+    "name": "hook",
+    "note": "cover: your most striking photo first",
+    "color": "green",
+    "suggestion_id": "sg4"
+   },
+   {
+    "t": 11.981,
+    "name": "loop",
+    "note": "loop ending: back to the cover so the Reel replays seamlessly",
+    "color": "green",
+    "suggestion_id": "sg5"
+   },
+   {
+    "t": 0.0,
+    "name": "motion",
+    "note": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+    "color": "green",
+    "suggestion_id": "sg6"
+   },
+   {
+    "t": 0.0,
+    "name": "text",
+    "note": "where and when, from your photos — on the cover only: “Calangute · Oct 2026”",
+    "color": "green",
+    "suggestion_id": "sg7"
+   },
+   {
+    "t": 0.0,
+    "name": "music",
+    "note": "golden_hour_100.wav up front (99 BPM — the photos change on its beats; it starts at 14.4s, the drop); starts at 14.4s, where the cut's beat ",
+    "color": "green",
+    "suggestion_id": "sg8"
+   }
+  ],
+  "suggestions": [
+   {
+    "id": "sg1",
+    "type": "cut",
+    "status": "applied",
+    "confidence": 0.75,
+    "reason": "Left out IMG_0003.jpg — a burst shot — the sharpest of the burst is in",
+    "source": "rules",
+    "t": null,
+    "item_ids": [],
+    "payload": {
+     "asset": "I03",
+     "shot": "I03.k0",
+     "key": "shot:I03.k0"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg2",
+    "type": "cut",
+    "status": "applied",
+    "confidence": 0.75,
+    "reason": "Left out IMG_0006.jpg — blurry",
+    "source": "rules",
+    "t": null,
+    "item_ids": [],
+    "payload": {
+     "asset": "I06",
+     "shot": "I06.k0",
+     "key": "shot:I06.k0"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg3",
+    "type": "cut",
+    "status": "applied",
+    "confidence": 0.75,
+    "reason": "Left out IMG_0010.jpg — dark",
+    "source": "rules",
+    "t": null,
+    "item_ids": [],
+    "payload": {
+     "asset": "I10",
+     "shot": "I10.k0",
+     "key": "shot:I10.k0"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg4",
+    "type": "hook",
+    "status": "applied",
+    "confidence": 0.85,
+    "reason": "cover: your most striking photo first",
+    "source": "rules",
+    "t": 0.0,
+    "item_ids": [
+     "v1"
+    ],
+    "payload": {
+     "key": "cover:I09.k0",
+     "ref": "I09.k0"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg5",
+    "type": "loop",
+    "status": "applied",
+    "confidence": 0.75,
+    "reason": "loop ending: back to the cover so the Reel replays seamlessly",
+    "source": "rules",
+    "t": 11.981,
+    "item_ids": [
+     "v9"
+    ],
+    "payload": {
+     "key": "loop:I09.k0",
+     "ref": "I09.k0"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg6",
+    "type": "motion",
+    "status": "applied",
+    "confidence": 0.8,
+    "reason": "Photos move like a camera: a slow push-in, pull-out or drift on each, never a frozen still",
+    "source": "rules",
+    "t": 0.0,
+    "item_ids": [
+     "v1",
+     "v2",
+     "v3",
+     "v4",
+     "v5",
+     "v6",
+     "v7",
+     "v8",
+     "v9"
+    ],
+    "payload": {
+     "key": "photomotion"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg7",
+    "type": "text",
+    "status": "applied",
+    "confidence": 0.8,
+    "reason": "where and when, from your photos — on the cover only: “Calangute · Oct 2026”",
+    "source": "rules",
+    "t": 0.0,
+    "item_ids": [
+     "t10"
+    ],
+    "payload": {
+     "key": "fx:text:photo:0|Calangute · Oct 2026"
+    },
+    "alternatives": [],
+    "lint": []
+   },
+   {
+    "id": "sg8",
+    "type": "music",
+    "status": "applied",
+    "confidence": 0.8,
+    "reason": "golden_hour_100.wav up front (99 BPM — the photos change on its beats; it starts at 14.4s, the drop); starts at 14.4s, where the cut's beat grid begins",
+    "source": "rules",
+    "t": 0.0,
+    "item_ids": [],
+    "payload": {
+     "track": "A01",
+     "offset": 14.443,
+     "key": "music:reel",
+     "sections": [
+      "reel"
+     ]
+    },
+    "alternatives": [],
+    "lint": []
+   }
+  ],
+  "music_spans": [
+   {
+    "t0": 0.0,
+    "t1": 13.189,
+    "mode": "front",
+    "section": "reel"
+   }
+  ],
+  "look": null,
+  "meta": {
+   "target": 12.0,
+   "hook": {
+    "id": "h0",
+    "kind": "visual_spectacle",
+    "refs": [
+     "I09.k0"
+    ],
+    "text_hook": "Calangute · Oct 2026",
+    "why": "open on your most striking photo (I09): colour, contrast and a face stop the scroll",
+    "score": 0.92
+   },
+   "story_why": "cut on the beat of the song (99 BPM, from its drop): every photo lasts 2 beat(s)",
+   "vo_script": [],
+   "broll_gaps": [],
+   "music": [
+    {
+     "section": "reel",
+     "mode": "front",
+     "track_id": "A01",
+     "alternatives": [],
+     "brief": {
+      "mood": "neutral",
+      "energy": "medium",
+      "bpm_min": 80,
+      "bpm_max": 120,
+      "genre": "",
+      "vocals_ok": false,
+      "structure_needs": [],
+      "search_terms": []
+     },
+     "why": "99 BPM — the photos change on its beats; it starts at 14.4s, the drop",
+     "gain_db": 0.0,
+     "offset": 14.443
+    }
+   ],
+   "word_t": {}
+  }
+ }
+}

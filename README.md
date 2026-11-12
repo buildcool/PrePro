@@ -98,4 +98,5 @@ your account settings — the app shows a training badge per connector (see `doc
 
 ## Licence
 
-Proprietary — © buildcool. All rights reserved. Bundled fonts are SIL OFL 1.1 (see `assets/fonts`).
+Proprietary — © buildcool. All rights reserved. Bundled fonts are SIL OFL 1.1 (see `assets/fonts`). Place names
+for photos come from [GeoNames](https://www.geonames.org) (CC BY 4.0), looked up offline on your own device.

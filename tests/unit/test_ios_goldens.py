@@ -114,6 +114,63 @@ def test_text_blocks_are_current():
         assert (lines, h) == (c["lines"], c["block"]), f"{c['text']}: {STALE}"
 
 
+def _parity():
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import export_parity
+
+    return export_parity
+
+
+PHOTOS = GOLDEN / "photos"
+
+
+@pytest.mark.skipif(not (PHOTOS / "measures.json").exists(), reason="no photo goldens")
+def test_photo_measures_are_current():
+    """The desktop still measures the test photos as the phone's goldens say: Pillow's thumbnail to the bit, the burst
+    hash, the flags, and the numbers (within the last rounded digit: numpy squares a float32 with the C library's powf)."""
+    ep = _parity()
+    want = {c["name"]: c for c in json.loads((PHOTOS / "measures.json").read_text(encoding="utf-8"))}
+    assert [c[0] for c in ep.PHOTO_CASES] == list(want), STALE
+    for case in ep.PHOTO_CASES:
+        got, w = ep.photo_case(*case), want[case[0]]
+        assert {k: got[k] for k in ("picture", "orientation", "faces", "stored", "probe", "thumb", "thumb_fnv")} == \
+            {k: w[k] for k in ("picture", "orientation", "faces", "stored", "probe", "thumb", "thumb_fnv")}, f"{case[0]}: {STALE}"
+        g, m = got["measures"], w["measures"]
+        assert (g["phash"], g["flags"], g["quality"]) == (m["phash"], m["flags"], m["quality"]), f"{case[0]}: {STALE}"
+        for k, tol in (("brightness", 0.0011), ("contrast", 0.0011), ("sharpness", 0.011), ("aesthetic", 0.0011)):
+            assert abs(g[k] - m[k]) <= tol, f"{case[0]} {k}: {STALE}"
+
+
+@pytest.mark.skipif(not (PHOTOS / "shoot.json").exists(), reason="no photo goldens")
+def test_photo_shoot_is_current():
+    """The test day of photos is still analysed and cut the way the phone's golden says: bursts, flags, days, places,
+    the genre, then the direction, story, polish and timeline."""
+    ep = _parity()
+    got, want = ep.shoot_golden(), json.loads((PHOTOS / "shoot.json").read_text(encoding="utf-8"))
+    assert got["photos"] == want["photos"], STALE
+    ga, wa = got["analysis"], want["analysis"]
+    assert [a["id"] for a in ga["assets"]] == [a["id"] for a in wa["assets"]], STALE
+    for aid, c in wa["clips"].items():
+        g = ga["clips"][aid]
+        assert {k: g[k] for k in ("place", "place_cluster", "day_index", "order_key")} == \
+            {k: c[k] for k in ("place", "place_cluster", "day_index", "order_key")}, f"{aid}: {STALE}"
+        for s, t in zip(g["shots"], c["shots"], strict=True):
+            assert {k: s[k] for k in ("phash", "flags", "dup_group", "dup_rank", "faces", "track")} == \
+                {k: t[k] for k in ("phash", "flags", "dup_group", "dup_rank", "faces", "track")}, f"{aid}: {STALE}"
+            assert abs(s["aesthetic"] - t["aesthetic"]) <= 0.0011 and abs(s["sharpness"] - t["sharpness"]) <= 0.011, f"{aid}: {STALE}"
+    assert ga["stats"] == wa["stats"] and ga["genres"] == wa["genres"], STALE
+    for k in ("brief", "direction", "story", "polish", "timeline"):
+        assert got[k] == want[k], f"shoot {k}: {STALE}"
+
+
+@pytest.mark.skipif(not (PHOTOS / "places.json").exists(), reason="no photo goldens")
+def test_place_names_are_current():
+    pytest.importorskip("reverse_geocoder")
+    assert _parity().places_golden() == json.loads((PHOTOS / "places.json").read_text(encoding="utf-8")), STALE
+
+
 SONGS = sorted(p.stem for p in (GOLDEN / "songs").glob("*.json")) if (GOLDEN / "songs").is_dir() else []
 
 

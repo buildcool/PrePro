@@ -6,6 +6,7 @@ import SwiftUI
 struct HomeView: View {
     @State private var ai = AppleAI.current()
     @State private var rows: [ClipRow] = []
+    @State private var reel = ReelMaker()
     @State private var playbooks = (try? Knowledge.playbooks().count) ?? 0
 
     var body: some View {
@@ -32,12 +33,14 @@ struct HomeView: View {
                         }
                     }
 
+                    card { PhotoReelCard(maker: reel) }
+
                     card { ClipTimesCheck(rows: $rows) }
 
                     card {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Send test report").font(.headline)
-                            Text("The build, this phone, Apple Intelligence and the times above. No photos or videos are included.")
+                            Text("The build, this phone, Apple Intelligence, the times above and the reel's decisions in words (its cover title too). No photos, videos or file names are included.")
                                 .font(.subheadline).foregroundStyle(.secondary)
                             ShareLink(item: report) {
                                 Label("Send test report", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
@@ -49,6 +52,8 @@ struct HomeView: View {
                     }
 
                     Text("Footage never leaves this phone. PrePro's editing rules: \(playbooks) genres loaded.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text("Place names: GeoNames (CC BY 4.0), looked up on this phone.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 .padding(16)
@@ -79,6 +84,7 @@ struct HomeView: View {
             lines.append("Clip times (\(rows.count)):")
             lines += rows.map { "  \($0.stamp)  \($0.detail)" }
         }
+        lines += reel.report
         lines.append("Sent \(Date().formatted(date: .abbreviated, time: .shortened))")
         return lines.joined(separator: "\n")
     }

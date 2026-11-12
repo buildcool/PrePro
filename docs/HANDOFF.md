@@ -92,8 +92,39 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   wasn't pinned down; the decoder now reads until the file has no more). Seen on the way: on the 44.1 kHz file the
   desktop hears 48 beats where the 22.05 kHz song has 56, because librosa's tracker stops before the quiet outro; a
   reel's grid carries on at the song's tempo past the last beat heard (`_beat_at`), so its cuts stay on the beat.
-  Next in M1: Photos import (EXIF time + offset, GPS), Vision analysis (faces, aesthetics, sharpness, duplicates by
-  feature print), preview/render, save/share.
+  **Then the photos (2026-11-13):** the desktop's photo math moved into `analyze/pipeline.py photo_measures(im, boxes)`
+  (no behaviour change: fresh analyses of the fixture shoots are identical), and the phone does the same to the bit.
+  `Photos/Pillow.swift`: Pillow's `Image.thumbnail((480, 480))` (Reduce.c box reduction with its fixed-point
+  multiplier and the last row/column/corner, then Resample.c bicubic in 22-bit fixed point with the float32 box) and
+  `exif_transpose` for all eight orientations. `Photos/PhotoMeasures.swift`: OpenCV's grey (15-bit: 9798/19235/3735)
+  and Laplacian (BORDER_REFLECT_101), numpy's pairwise float64/float32 sums (np.var of a slice: mean exact, squares
+  summed as a fresh contiguous array; the mean colour added row by row in float32), imagehash's phash (Pillow's grey,
+  Lanczos to 32×32, the DCT's 8×8 against the median). numpy's float32 `** 2` uses the C library's powf, which can be
+  one bit off x·x on a tie: the only allowed difference (the striking score's last digit). `Photos/Faces.swift`: Vision
+  face rectangles reported like res10 (centre, y down, conf ≥ 0.6, ≥ 3 %). `Photos/PhotoFile.swift`: ImageIO EXIF
+  (DateTimeOriginal + OffsetTimeOriginal, else this phone's zone like `astimezone()`; GPS signed; orientation), pixels
+  decoded as stored without colour conversion, `fast_hash`. `Photos/Places.swift`: reverse_geocoder's lookup — the
+  nearest of GeoNames' cities1000 in plain degrees (rg 1.5.1 builds its k-d tree on raw lat/lon, not ECEF) — from
+  `Resources/places.bin`, packed on the Mac before every build by `scripts/export_places.py` (all coordinates are whole
+  1/100000 degrees, so exact; 233 cities share a coordinate with another and rg always answers with the same one,
+  which is the one kept). `Photos/PhotoShoot.swift`: `input(url)` (file → upright thumbnail → faces) and
+  `analysis(photos:music:)` = assign ids (song first, photos in name order), `_image_shot`'s Shot, `duplicate_groups`
+  (burst, 12 bits), `split_far_duplicates`, `cluster_context` (order, days, 25 km places), `guess_genres` for photos.
+  Tests on pixels both apps make (`scripts/portable_picture.py` ↔ `Fixtures/PictureSynth.swift`, integer formulas +
+  SplitMix64 noise): `Golden/photos/measures.json` (14 photos: reductions ×2/×3, odd sizes, every orientation,
+  blurry, dark, a burst, faces — thumbnail fingerprints and measures), `shoot.json` (a Goa day like photo_dump with
+  given face boxes → the desktop's analysis, direction, story, polish, timeline), `places.json`, `faces.json` (res10 on
+  three frames of Intel's face video; the CI downloads it and `FacesTests` checks Vision lands on the same face). The
+  desktop guards: `test_photo_measures_are_current`, `test_photo_shoot_is_current`, `test_place_names_are_current`;
+  `python scripts/export_parity.py --photos` re-exports only these. `Brain/Directions.swift`: `directions()` for a
+  shoot of photos (target_length ≈ 2.4 + 1.2 s a photo, one photo 10 + 3.5 s a line past two; hook_options = the three
+  best covers by `coverScore`; direction_name; outline; knobs from the brief) — anything with video clips throws
+  `notOnPhoneYet` rather than guess; `DirectionTests` against photo_reel, photo_single and the test day. The app:
+  `ios/PrePro/PhotoReelCard.swift` (`ReelMaker`: PhotosPicker originals → `PhotoShoot.input` off the main actor → the
+  song from Files (`.fileImporter`, copied in) → analysis → directions → story → polish → `Compiler.compile`;
+  `ReelView` shows the cover with its title, the order and every decision; the test report gets the decisions with
+  asset ids for file names, faces, bursts, flags, days/zone). Testers' steps: docs/IOS_INSTALL.md "M1". Next in M1:
+  live preview, render, save/share, ✓/✕ on each decision.
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).

@@ -12,13 +12,14 @@ import UniformTypeIdentifiers
 struct PickedMedia: Transferable {
     let url: URL
     let isImage: Bool
+    let name: String                               // the file's own name ("IMG_4512.HEIC")
 
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(importedContentType: .movie) { received in
-            PickedMedia(url: try copy(received.file), isImage: false)
+            PickedMedia(url: try copy(received.file), isImage: false, name: received.file.lastPathComponent)
         }
         FileRepresentation(importedContentType: .image) { received in
-            PickedMedia(url: try copy(received.file), isImage: true)
+            PickedMedia(url: try copy(received.file), isImage: true, name: received.file.lastPathComponent)
         }
     }
 

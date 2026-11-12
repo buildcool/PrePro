@@ -1,0 +1,112 @@
+[
+ {
+  "lat": 15.5527,
+  "lon": 73.7517,
+  "name": "Calangute"
+ },
+ {
+  "lat": 15.552700000000002,
+  "lon": 73.7517,
+  "name": "Calangute"
+ },
+ {
+  "lat": 26.9124,
+  "lon": 75.7873,
+  "name": "Jaipur"
+ },
+ {
+  "lat": 24.5854,
+  "lon": 73.7125,
+  "name": "Udaipur"
+ },
+ {
+  "lat": 28.6139,
+  "lon": 77.209,
+  "name": "New Delhi"
+ },
+ {
+  "lat": 19.076,
+  "lon": 72.8777,
+  "name": "Mumbai"
+ },
+ {
+  "lat": 12.9716,
+  "lon": 77.5946,
+  "name": "Bangalore"
+ },
+ {
+  "lat": 48.8566,
+  "lon": 2.3522,
+  "name": "Paris"
+ },
+ {
+  "lat": 40.7128,
+  "lon": -74.006,
+  "name": "New York City"
+ },
+ {
+  "lat": -33.8688,
+  "lon": 151.2093,
+  "name": "Sydney"
+ },
+ {
+  "lat": 35.6762,
+  "lon": 139.6503,
+  "name": "Tokyo"
+ },
+ {
+  "lat": 51.5074,
+  "lon": -0.1278,
+  "name": "London"
+ },
+ {
+  "lat": -22.9068,
+  "lon": -43.1729,
+  "name": "Rio de Janeiro"
+ },
+ {
+  "lat": 64.1466,
+  "lon": -21.9426,
+  "name": "Kopavogur"
+ },
+ {
+  "lat": 0.0,
+  "lon": 0.0,
+  "name": "Takoradi"
+ },
+ {
+  "lat": 89.9,
+  "lon": 179.9,
+  "name": "Pevek"
+ },
+ {
+  "lat": -89.9,
+  "lon": -179.9,
+  "name": "Waitangi"
+ },
+ {
+  "lat": -17.7134,
+  "lon": 178.065,
+  "name": "Ba"
+ },
+ {
+  "lat": 52.52,
+  "lon": 13.405,
+  "name": "Mitte"
+ },
+ {
+  "lat": 1.3521,
+  "lon": 103.8198,
+  "name": "Singapore"
+ },
+ {
+  "lat": 30.0444,
+  "lon": 31.2357,
+  "name": "Cairo"
+ },
+ {
+  "lat": -1.2921,
+  "lon": 36.8219,
+  "name": "Nairobi"
+ }
+]

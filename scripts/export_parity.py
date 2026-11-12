@@ -110,6 +110,201 @@ def write_song_goldens() -> None:
               f"{[s['label'] for s in g['music']['sections']]}, {g['music']['key']} {g['music']['mode']}")
 
 
+# test photos for the iPhone's photo analysis (scripts/portable_picture.py): sizes that cross Pillow's paths (a 2× and
+# 3× box reduction, odd sizes with a leftover row and column, bicubic alone, no resize at all), every way a phone
+# stores a photo, out of focus, dark, a burst's second frame, faces: (name, picture, EXIF orientation, face boxes)
+PHOTO_CASES = [
+    ("wide", dict(w=2000, h=1500, seed=81, palette="beach"), 1, []),
+    ("tall_face", dict(w=1500, h=2000, seed=82, palette="cafe", faces=[[460, 400, 300]]), 6, [[0.46, 0.40, 0.30, 0.39]]),
+    ("pano", dict(w=2400, h=1350, seed=88, palette="sunset"), 1, []),
+    ("odd", dict(w=1999, h=1333, seed=85, palette="food"), 8, []),
+    ("big", dict(w=2880, h=2160, seed=90, palette="city"), 3, []),
+    ("small", dict(w=640, h=480, seed=87, palette="forest"), 2, []),
+    ("tiny", dict(w=400, h=300, seed=86, palette="market"), 1, []),
+    ("flipped", dict(w=1203, h=901, seed=83, palette="beach"), 4, []),
+    ("transposed", dict(w=1080, h=1350, seed=84, palette="cafe"), 5, []),
+    ("transverse", dict(w=1350, h=1080, seed=91, palette="forest"), 7, []),
+    ("blurry", dict(w=1500, h=2000, seed=86, palette="market", blur=8), 1, []),
+    ("dark", dict(w=2000, h=1500, seed=90, palette="city", noise=24, dim=[3, 10]), 1, []),
+    ("burst", dict(w=1500, h=2000, seed=82, palette="cafe", faces=[[460, 400, 300]], dx=14, dy=10, blur=1), 6, [[0.47, 0.41, 0.30, 0.39]]),
+    ("group", dict(w=2000, h=1500, seed=92, palette="cafe", faces=[[200, 420, 140], [500, 420, 140], [800, 420, 140]]), 1,
+     [[0.2, 0.42, 0.14, 0.24], [0.5, 0.42, 0.14, 0.24], [0.8, 0.42, 0.14, 0.24]]),
+]
+# a day in Goa like the photo_dump fixture, made of test photos: the burst copy, the out-of-focus and the dark photo an
+# editor leaves out, two stored on their side, lunch with friends named last but taken mid-day. The faces are given:
+# the phone finds faces with Vision, the desktop with its own detector, so both get the same boxes here and everything
+# after the detector is compared on its own. (name, picture, orientation, local time, face boxes)
+SHOOT_GPS = (15.5527, 73.7517)
+SHOOT = [
+    ("photos/IMG_0001.jpg", dict(w=2000, h=1500, seed=81, palette="beach"), 1, "08:02:10", []),
+    ("photos/IMG_0002.jpg", dict(w=1500, h=2000, seed=82, palette="beach", faces=[[460, 400, 300]]), 6, "08:05:31", [[0.46, 0.40, 0.30, 0.39]]),
+    ("photos/IMG_0003.jpg", dict(w=1500, h=2000, seed=82, palette="beach", faces=[[460, 400, 300]], dx=14, dy=10, blur=1), 6, "08:05:32",
+     [[0.47, 0.41, 0.30, 0.39]]),
+    ("photos/IMG_0004.jpg", dict(w=1500, h=2000, seed=84, palette="cafe"), 1, "09:31:00", []),
+    ("photos/IMG_0005.jpg", dict(w=2000, h=1500, seed=85, palette="food"), 1, "10:12:45", []),
+    ("photos/IMG_0006.jpg", dict(w=1500, h=2000, seed=86, palette="market", blur=8), 1, "11:03:20", []),
+    ("photos/IMG_0007.jpg", dict(w=1500, h=2000, seed=87, palette="forest"), 8, "13:22:05", []),
+    ("photos/IMG_0008.jpg", dict(w=2400, h=1350, seed=88, palette="sunset"), 1, "17:46:40", []),
+    ("photos/IMG_0009.jpg", dict(w=1500, h=2000, seed=89, palette="sunset", faces=[[550, 400, 300]]), 1, "18:10:12", [[0.55, 0.40, 0.30, 0.39]]),
+    ("photos/IMG_0010.jpg", dict(w=2000, h=1500, seed=90, palette="city", noise=24, dim=[3, 10]), 1, "21:34:50", []),
+    ("photos/IMG_0011.jpg", dict(w=2000, h=1500, seed=92, palette="cafe", faces=[[200, 420, 140], [500, 420, 140], [800, 420, 140]]), 1,
+     "12:31:15", [[0.2, 0.42, 0.14, 0.24], [0.5, 0.42, 0.14, 0.24], [0.8, 0.42, 0.14, 0.24]]),
+]
+# where the phone must name places as the desktop does: the fixture's beach, cities, the sea, the poles, the date line
+PLACES = [(15.5527, 73.7517), (15.552700000000002, 73.7517), (26.9124, 75.7873), (24.5854, 73.7125), (28.6139, 77.209),
+          (19.076, 72.8777), (12.9716, 77.5946), (48.8566, 2.3522), (40.7128, -74.006), (-33.8688, 151.2093),
+          (35.6762, 139.6503), (51.5074, -0.1278), (-22.9068, -43.1729), (64.1466, -21.9426), (0.0, 0.0), (89.9, 179.9),
+          (-89.9, -179.9), (-17.7134, 178.065), (52.52, 13.405), (1.3521, 103.8198), (30.0444, 31.2357), (-1.2921, 36.8219)]
+
+
+def picture_spec(spec: dict) -> dict:
+    """A picture's full recipe, every default spelled out (the phone reads it as is)."""
+    return {"w": spec["w"], "h": spec["h"], "seed": spec["seed"], "palette": spec.get("palette", "beach"), "shapes": spec.get("shapes", 7),
+            "noise": spec.get("noise", 8), "dx": spec.get("dx", 0), "dy": spec.get("dy", 0), "blur": spec.get("blur", 0),
+            "dim": spec.get("dim"), "faces": spec.get("faces", [])}
+
+
+def _face_boxes(faces: list) -> list:
+    from prepro.schema.analysis import FaceBox
+
+    return [FaceBox(t=0.0, x=x, y=y, w=w, h=h, conf=0.99) for x, y, w, h in faces]
+
+
+def photo_case(name: str, spec: dict, orientation: int, faces: list) -> dict:
+    """What the desktop measures on a test photo: its thumbnail's fingerprint and photo_measures."""
+    import numpy as np
+    from PIL import Image
+    from portable_picture import fnv, picture, stored
+
+    from prepro.analyze.pipeline import photo_measures
+
+    up = picture(**spec)
+    st = stored(up, orientation)
+    im = Image.fromarray(up)                           # what exif_transpose gives back from the stored pixels
+    im.thumbnail((480, 480))
+    thumb = np.asarray(im)
+    probe = [[x, y] for x in (0, up.shape[1] // 3, up.shape[1] - 1) for y in (0, up.shape[0] // 2, up.shape[0] - 1)]
+    return {"name": name, "picture": picture_spec(spec), "orientation": orientation, "faces": faces, "stored": [st.shape[1], st.shape[0]],
+            "probe": [[x, y, *(int(v) for v in up[y, x])] for x, y in probe], "thumb": [thumb.shape[1], thumb.shape[0]],
+            "thumb_fnv": fnv(thumb), "measures": photo_measures(im, _face_boxes(faces))}
+
+
+def shoot_golden() -> dict:
+    """The fixture-like shoot as the desktop analyses and cuts it: every photo measured, bursts, days, places, the genre,
+    then the rules brain's direction, story, polish and timeline (the song: the photo_reel golden's)."""
+    from datetime import datetime
+
+    from PIL import Image
+    from portable_picture import picture, stored
+
+    from prepro.analyze import context
+    from prepro.analyze.pipeline import ANALYSIS_VERSION, photo_measures
+    from prepro.analyze.visual import duplicate_groups
+    from prepro.brain.basic import BasicBrain
+    from prepro.schema.analysis import ClipAnalysis, ProjectAnalysis, Shot
+    from prepro.schema.brief import CreatorBrief
+    from prepro.schema.media import Asset, AssetKind, GeoPoint, MediaInfo
+    from prepro.timeline.compiler import compile_timeline
+
+    base = json.loads((OUT / "photo_reel" / "analysis.json").read_text(encoding="utf-8"))
+    song = next(a for a in base["assets"] if a["kind"] == "music")
+    pa = ProjectAnalysis(version=ANALYSIS_VERSION, root="", assets=[Asset.model_validate(song)],
+                         clips={song["id"]: ClipAnalysis.model_validate(base["clips"][song["id"]])})
+    photos = []
+    for k, (name, spec, orientation, taken, faces) in enumerate(SHOOT):
+        aid = f"I{k + 1:02d}"
+        up = picture(**spec)
+        h, w = stored(up, orientation).shape[:2]
+        im = Image.fromarray(up)
+        im.thumbnail((480, 480))
+        boxes = _face_boxes(faces)
+        m = photo_measures(im, boxes)
+        when = f"2026-10-10T{taken}+05:30"
+        info = MediaInfo(path=name, size=0, format_name="image2", duration=0.04, has_video=True, has_audio=False, is_image=True, width=w,
+                         height=h, fps=25.0, rotation={3: 180, 6: 90, 8: 270}.get(orientation, 0), creation_time=datetime.fromisoformat(when),
+                         location=GeoPoint(lat=SHOOT_GPS[0], lon=SHOOT_GPS[1]))
+        pa.assets.append(Asset(id=aid, path=name, hash="", kind=AssetKind.IMAGE, kind_reason="photo", info=info))
+        shot = Shot(id=f"{aid}.k0", asset_id=aid, t0=0.0, t1=0.04, keyframes=[0.0], phash=m["phash"], color=m["color"],
+                    brightness=m["brightness"], contrast=m["contrast"], sharpness=m["sharpness"], quality=m["quality"], flags=m["flags"],
+                    faces=boxes[:6], face_ratio=1.0 if boxes else 0.0, aesthetic=m["aesthetic"], shot_type="still",
+                    track=[(0.0, round(b.x, 3), round(b.y, 3)) for b in sorted(boxes, key=lambda b: -b.w * b.h)[:1]])
+        pa.clips[aid] = ClipAnalysis(asset_id=aid, shots=[shot])
+        photos.append({"name": name, "picture": picture_spec(spec), "orientation": orientation, "creation_time": when,
+                       "location": {"lat": SHOOT_GPS[0], "lon": SHOOT_GPS[1]}, "faces": faces})
+    duplicate_groups([s for a in pa.assets if a.kind == AssetKind.IMAGE for s in pa.clips[a.id].shots], max_dist=12, prefix="burst")
+    context.cluster_context(pa)
+    pa.genres = context.guess_genres(pa)
+    pa.stats["context_version"] = context.CONTEXT_VERSION
+    pa.stats.update({"assets": len(pa.assets), "analysis_seconds": 0.0, "footage_seconds": 0.0})
+    brief = CreatorBrief()
+    brain = BasicBrain(pa, brief)
+    d = next(x for x in brain.directions().directions if x.playbook == "photo_reel")
+    story = brain.story(d)
+    polish = brain.polish(d, story)
+    tl = compile_timeline(pa, d, story, polish, brief)
+    return {"photos": photos, "analysis": pa.model_dump(mode="json"), "brief": brief.model_dump(mode="json"), "direction": d.model_dump(mode="json"),
+            "story": story.model_dump(mode="json"), "polish": polish.model_dump(mode="json"), "timeline": tl.model_dump(mode="json")}
+
+
+FACE_VIDEO = ("head-pose-face-detection-female.mp4",
+              "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female.mp4")
+FACE_TIMES = (5.0, 40.0, 90.0)
+
+
+def faces_golden() -> dict | None:
+    """Where the desktop's face detector finds a real face (Intel's sample video, CC BY 4.0) on frames of it, measured
+    like a photo (the 480 px thumbnail): the phone's Vision boxes must land on the same face, the same way up."""
+    import subprocess
+
+    import numpy as np
+    from PIL import Image
+
+    from prepro.analyze.visual import face_detector
+    from prepro.fixtures.realmedia import cache_dir
+
+    video = cache_dir() / "face" / FACE_VIDEO[0]
+    if not video.exists():
+        return None
+    frames = []
+    with tempfile.TemporaryDirectory() as td:
+        for t in FACE_TIMES:
+            png = Path(td) / f"{t}.png"
+            subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t}", "-i", str(video), "-frames:v", "1", "-y", str(png)], check=True)
+            im = Image.open(png).convert("RGB")
+            im.thumbnail((480, 480))
+            boxes = face_detector()(np.asarray(im), 0.0)
+            frames.append({"t": t, "size": list(im.size), "boxes": [b.model_dump(mode="json") for b in boxes]})
+    return {"video": FACE_VIDEO[0], "url": FACE_VIDEO[1], "frames": frames}
+
+
+def places_golden() -> list:
+    from prepro.analyze.context import place_name
+    from prepro.schema.media import GeoPoint
+
+    return [{"lat": lat, "lon": lon, "name": place_name(GeoPoint(lat=lat, lon=lon))} for lat, lon in PLACES]
+
+
+def write_photo_goldens() -> None:
+    out = OUT / "photos"
+    out.mkdir(parents=True, exist_ok=True)
+    cases = [photo_case(*c) for c in PHOTO_CASES]
+    (out / "measures.json").write_text(json.dumps(cases, indent=1), encoding="utf-8")
+    for c in cases:
+        m = c["measures"]
+        print(f"photo {c['name']}: {c['thumb'][0]}x{c['thumb'][1]} sharp {m['sharpness']} striking {m['aesthetic']} {m['flags']}")
+    shoot = shoot_golden()
+    (out / "shoot.json").write_text(json.dumps(shoot, indent=1, ensure_ascii=False), encoding="utf-8")
+    left = [s["ref"] for s in shoot["story"]["items"]]
+    print(f"photo shoot: {len(shoot['photos'])} photos -> reel of {left}, {len(shoot['timeline']['items'])} timeline items")
+    (out / "places.json").write_text(json.dumps(places_golden(), indent=1, ensure_ascii=False), encoding="utf-8")
+    faces = faces_golden()
+    if faces:
+        (out / "faces.json").write_text(json.dumps(faces, indent=1), encoding="utf-8")
+        print(f"faces: {[(f['t'], len(f['boxes'])) for f in faces['frames']]}")
+    else:
+        print("faces: the face video isn't downloaded (prepro testmedia fetch): faces.json left as it is")
+
+
 def write_text_metrics() -> None:
     """The bundled fonts' advance widths as the desktop measures them (Pillow, basic layout, the font's default
     instance, size 100: a plain sum of per-character advances, checked in tests/unit/test_ios_goldens.py), plus the
@@ -147,7 +342,11 @@ def write_text_metrics() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--shoots", default=os.environ.get("PREPRO_TEST_SHOOTS") or str(Path(tempfile.gettempdir()) / "prepro-parity"))
+    ap.add_argument("--photos", action="store_true", help="only the photo goldens (photos/: measures, shoot, places, faces)")
     args = ap.parse_args()
+    if args.photos:
+        write_photo_goldens()
+        return 0
     from prepro import knowledge as K
     from prepro.assist.music import brief_for, rank_tracks
     from prepro.brain.basic import BasicBrain
@@ -209,6 +408,7 @@ def main() -> int:
         }
         (out / "expect.json").write_text(json.dumps(expect, indent=1, ensure_ascii=False), encoding="utf-8")
         print(f"{name}: {tl.playbook}, {tl.duration:.2f} s, {len(tl.items)} items -> {out}")
+    write_photo_goldens()                             # after photo_reel: its song goes into the test shoot
     return 0
 
 

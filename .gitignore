@@ -25,5 +25,6 @@ Thumbs.db
 ios/*.xcodeproj/
 ios/PreProCore/.build/
 ios/PreProCore/Sources/PreProCore/Resources/knowledge/
+ios/PreProCore/Sources/PreProCore/Resources/places.bin
 *.ipa
 *.xcarchive/

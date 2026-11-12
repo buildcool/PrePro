@@ -135,10 +135,16 @@ gets tested for real, on the Pro and the base chip and memory.
     - its tempo and beats (to librosa's exact frames);
     - its bar lines, energy, sections (intro, build, drop, outro …), key, mood;
     - a song file read the way the desktop reads it (checked on a 44.1 kHz stereo file).
+  - Done: the phone reads and judges photos the way the desktop does, checked against the desktop on test photos:
+    - the time on the camera's own clock, the place (named offline from the GPS), which way up;
+    - the same thumbnail to the last bit, the same sharpness, brightness, striking score and burst matches;
+    - faces with Apple's Vision, checked on a real face against the desktop's detector;
+    - the day's bursts, out-of-focus and dark photos found, and the same reel cut from it.
+  - Done: in the test build, pick photos and a song and see the reel PrePro cuts: the cover and its title, the order,
+    and every decision with its reason (also in the test report, in words).
   - Next:
-    - Photos import;
-    - the phone's own photo analysis (faces, aesthetics, sharpness, bursts);
-    - live preview, render, save and share.
+    - live preview, render, save and share;
+    - ✓/✕ on each decision.
 
 ## M6 in detail: "for the full heavy lifting, connect your PC"
 **When the phone suggests it.** Never as a nag: one calm card on the review screen with the reason in plain words,
