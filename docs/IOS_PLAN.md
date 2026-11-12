@@ -134,7 +134,7 @@ gets tested for real, on the Pro and the base chip and memory.
   - Done: the phone hears a song the way the desktop does, checked against the desktop on test songs:
     - its tempo and beats (to librosa's exact frames);
     - its bar lines, energy, sections (intro, build, drop, outro …), key, mood;
-    - a song file read as the analysis expects it.
+    - a song file read the way the desktop reads it (checked on a 44.1 kHz stereo file).
   - Next:
     - Photos import;
     - the phone's own photo analysis (faces, aesthetics, sharpness, bursts);

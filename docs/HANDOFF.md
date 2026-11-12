@@ -80,9 +80,20 @@ v0.3 review UI → v0.4 desktop app → v0.5+ Phase 2 → v1.0.
   chroma tuning 0 (the desktop estimates it; no change on the test songs) and the key from a 4096-point STFT chroma, not
   constant-Q (same mode; Am–F–C–G: desktop F major, phone C major). Seen on the way, for both apps: librosa hears the
   all-drop 140 BPM trap test song at 112 BPM (tempo prior pulls a wrong peak; margin 0.014) — a reel on it would be cut
-  off the beat; worth a check of the top tempo candidates against beat alignment. Next in M1: Photos import (EXIF time
-  + offset, GPS), Vision analysis (faces, aesthetics, sharpness, duplicates by feature print), decoding a song to
-  22.05 kHz mono with AVFoundation, preview/render, save/share.
+  off the beat; worth a check of the top tempo candidates against beat alignment.
+  **Then reading a song file (2026-11-12):** `Sound/AudioDecoder.swift` = `librosa.load(sr=22050, mono=True,
+  duration=600)`: AVAudioFile reads in pieces until every frame is in (a read may return less than asked), channels are
+  averaged by hand, AVAudioConverter (mastering algorithm, max quality) resamples, fed in pieces of at most what it asks
+  for, cut or padded to librosa's length ceil(n · 22050 / rate). `AudioDecoderTests`: a 3 s tone keeps its length,
+  level and pitch to the end; a float32 WAV at 22.05 kHz reads back bit for bit and gives the golden's beats; the test
+  song made at 44.1 kHz in stereo sounds as it does on the desktop (`from_44k` in `Golden/songs/happy_100.json` is the
+  desktop's own decode of that file: the same 99.38 BPM, beats within a frame give or take one, the same sections). The
+  tests write their WAVs byte by byte: a file written by AVAudioFile read back 179 frames short (which side lost them
+  wasn't pinned down; the decoder now reads until the file has no more). Seen on the way: on the 44.1 kHz file the
+  desktop hears 48 beats where the 22.05 kHz song has 56, because librosa's tracker stops before the quiet outro; a
+  reel's grid carries on at the song's tempo past the last beat heard (`_beat_at`), so its cuts stay on the beat.
+  Next in M1: Photos import (EXIF time + offset, GPS), Vision analysis (faces, aesthetics, sharpness, duplicates by
+  feature print), preview/render, save/share.
 - **v0.12.0 (2026-11-06; CHANGELOG [0.12.0], QA "v0.12"): your words on video.** Playbook `text_reel` (a
   brief-driven direction: `BasicBrain.directions` inserts it when the brief has `text_line` rules and `_words_fit()`
   — ≥ 2 good B-roll shots, not more photos than clips, little talking; after `day_in_life` when that leads).
