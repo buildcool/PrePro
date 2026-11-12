@@ -57,6 +57,10 @@ SONGS = {
     "trap_140": dict(bpm=140, seed=10, sections=[("drop", 8, 1.0), ("outro", 2, 0.3)]),
     "ballad_64": dict(bpm=64, key="E", seed=4, sections=[("intro", 2, 0.3), ("verse", 4, 0.5), ("chorus", 4, 0.7), ("outro", 2, 0.3)]),
 }
+# songs also made at 44.1 kHz, as a creator's file would be: the desktop decodes them like librosa.load (soxr to
+# 22.05 kHz) and the phone with AVAudioConverter; both must hear the same song (the analysis changes with the rate the
+# song was made at, so this is checked against its own golden, not the 22.05 kHz one)
+FROM_44K = {"happy_100"}
 
 
 def song_golden(name: str) -> dict:
@@ -81,7 +85,19 @@ def song_golden(name: str) -> dict:
         "samples": len(y), "probe": {str(i): float(y[i]) for i in probe}, "energy": float(np.sum(y.astype(np.float64) ** 2)),
         "onset": [float(v) for v in onset], "tempo": float(np.atleast_1d(tempo)[0]), "beat_frames": [int(f) for f in frames],
         "music": music_info(y, 22050).model_dump(mode="json"),
+        **({"from_44k": _from_44k(params)} if name in FROM_44K else {}),
     }
+
+
+def _from_44k(params: dict) -> dict:
+    import librosa
+    from portable_song import song
+
+    from prepro.analyze.sound import music_info
+
+    y44, _ = song(**params, sr=44100)
+    y = librosa.resample(y44, orig_sr=44100, target_sr=22050)          # what librosa.load(sr=22050) hands the analysis
+    return {"samples_44k": len(y44), "samples": len(y), "music": music_info(y, 22050).model_dump(mode="json")}
 
 
 def write_song_goldens() -> None:

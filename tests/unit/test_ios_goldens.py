@@ -138,3 +138,8 @@ def test_song_analysis_is_current(name):
     assert [s["label"] for s in g["sections"]] == [s["label"] for s in w["sections"]], f"{name} sections: {STALE}"
     assert max(abs(a["t0"] - b["t0"]) for a, b in zip(g["sections"], w["sections"], strict=True)) < 0.05
     assert max(abs(a - b) for a, b in zip(g["energy_curve"], w["energy_curve"], strict=True)) < 0.01
+    if "from_44k" in want:                                    # the same song made at 44.1 kHz, decoded like librosa.load
+        f, h = got["from_44k"]["music"], want["from_44k"]["music"]
+        assert (got["from_44k"]["samples"], f["bpm"], len(f["beats"])) == (want["from_44k"]["samples"], h["bpm"], len(h["beats"]))
+        assert max(abs(a - b) for a, b in zip(f["beats"], h["beats"], strict=True)) < 0.024, f"{name} at 44.1 kHz: {STALE}"
+        assert [s["label"] for s in f["sections"]] == [s["label"] for s in h["sections"]], f"{name} at 44.1 kHz: {STALE}"

@@ -23,20 +23,28 @@ public enum AudioDecoder {
             throw AudioDecoderError.unreadable(error.localizedDescription)
         }
         let format = file.processingFormat                      // float32, one buffer per channel
-        let frames = AVAudioFrameCount(min(Double(file.length), maxSeconds * format.sampleRate))
-        guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return [] }
-        do {
-            try file.read(into: buffer, frameCount: frames)
-        } catch {
-            throw AudioDecoderError.unreadable(error.localizedDescription)
-        }
-        guard let channels = buffer.floatChannelData else { throw AudioDecoderError.unreadable("not float audio") }
-        let n = Int(buffer.frameLength), count = Int(format.channelCount)
-        var mono = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            var s: Float = 0
-            for c in 0..<count { s += channels[c][i] }
-            mono[i] = count == 1 ? s : s / Float(count)
+        let total = AVAudioFramePosition(min(Double(file.length), maxSeconds * format.sampleRate))
+        let piece: AVAudioFrameCount = 65536
+        guard total > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: piece) else { return [] }
+        let count = Int(format.channelCount)
+        var mono = [Float]()
+        mono.reserveCapacity(Int(total))
+        // a read may return less than asked: keep reading until the song is in, or the file has no more
+        while file.framePosition < total {
+            let want = AVAudioFrameCount(min(Int64(piece), total - file.framePosition))
+            do {
+                try file.read(into: buffer, frameCount: want)
+            } catch {
+                if mono.isEmpty { throw AudioDecoderError.unreadable(error.localizedDescription) }
+                break
+            }
+            let n = Int(buffer.frameLength)
+            guard n > 0, let channels = buffer.floatChannelData else { break }
+            for i in 0..<n {
+                var s: Float = 0
+                for c in 0..<count { s += channels[c][i] }
+                mono.append(count == 1 ? s : s / Float(count))
+            }
         }
         if abs(format.sampleRate - target) < 0.5 { return mono }
         return try resample(mono, from: format.sampleRate, to: target)
