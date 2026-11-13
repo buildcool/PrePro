@@ -83,7 +83,13 @@ final class PhotoFileTests: XCTestCase {
     func testTheFileHashIsTheDesktops() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("prepro-\(UUID().uuidString).bin")
         defer { try? FileManager.default.removeItem(at: url) }
-        try Data((0..<(3 * 1_048_576 + 5)).map { UInt8(($0 * 7 + 3) % 251) }).write(to: url)
+        let count: Int = 3 * 1_048_576 + 5
+        var bytes = [UInt8](repeating: 0, count: count)
+        for i in 0..<count {
+            let v: Int = (i * 7 + 3) % 251
+            bytes[i] = UInt8(v)
+        }
+        try Data(bytes).write(to: url)
         XCTAssertEqual(PhotoFile.fastHash(url), "5dcf4087e500e6bb", "size, the first and the last MiB")
         try Data("not a photo".utf8).write(to: url)
         XCTAssertEqual(PhotoFile.fastHash(url), "d0a463a232cd2e5a")
