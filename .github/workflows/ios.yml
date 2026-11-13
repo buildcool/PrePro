@@ -54,8 +54,8 @@ jobs:
           echo "::notice title=PreProCore tests::$(grep -E "Executed [0-9]+ tests?" "$RUNNER_TEMP/core.log" | tail -1 | sed -E 's/.*(Executed [0-9]+ tests?, with [0-9]+ failures?).*/\1/')"
           grep -oE "Test Suite '[A-Za-z]+Tests' passed" "$RUNNER_TEMP/core.log" | sed -E "s/Test Suite '([A-Za-z]+)' passed/\1/" | sort -u | tr '\n' ' ' | sed 's/^/::notice title=PreProCore suites::/'; echo
           # where Vision found the real face, next to the desktop's detector (public, for tuning)
-          grep -E "^FACES " "$RUNNER_TEMP/core.log" | head -5 | while IFS= read -r l; do echo "::notice title=Faces::${l:0:900}"; done
-          grep -E "Test Case .*(skipped)" "$RUNNER_TEMP/core.log" | head -5 | while IFS= read -r l; do echo "::warning title=Skipped::${l:0:900}"; done
+          grep -E "^FACES " "$RUNNER_TEMP/core.log" | head -5 | while IFS= read -r l; do echo "::notice title=Faces::${l:0:900}"; done || true
+          grep -E "Test Case .*(skipped)" "$RUNNER_TEMP/core.log" | head -5 | while IFS= read -r l; do echo "::warning title=Skipped::${l:0:900}"; done || true
       - name: Generate the Xcode project
         run: |
           brew install xcodegen
