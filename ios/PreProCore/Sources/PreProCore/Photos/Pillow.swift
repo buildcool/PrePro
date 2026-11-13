@@ -189,7 +189,7 @@ enum Pillow {
     }
 
     static func clip8(_ v: Int) -> UInt8 {
-        if v >= (1 << precisionBits << 8) { return 255 }
+        if v >= (1 << (precisionBits + 8)) { return 255 }
         if v <= 0 { return 0 }
         return UInt8(v >> precisionBits)
     }
