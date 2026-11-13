@@ -23,7 +23,7 @@ public struct PhotoMeasures: Equatable, Sendable {
         public var colourful: Double
     }
 
-    public static func measure(_ img: Picture, faces: [FaceBox], photo: Bool = true) -> PhotoMeasures {
+    public static func measure(_ img: PhotoPixels, faces: [FaceBox], photo: Bool = true) -> PhotoMeasures {
         precondition(img.channels == 3)
         let W = img.width, H = img.height, n = W * H
         // np.asarray(im, float32) / 255
@@ -165,7 +165,7 @@ public struct PhotoMeasures: Equatable, Sendable {
 
     /// imagehash.phash: Pillow's grey, Lanczos to 32×32, the DCT's 8×8 lowest frequencies against their median, as 16 hex
     /// digits (the first coefficient is the top bit).
-    public static func phash(_ img: Picture) -> String {
+    public static func phash(_ img: PhotoPixels) -> String {
         let small = Pillow.resample(Pillow.grey(img), 32, 32, .lanczos)
         let px = small.pixels.map(Double.init)
         var d = [Double](repeating: 0, count: 64)

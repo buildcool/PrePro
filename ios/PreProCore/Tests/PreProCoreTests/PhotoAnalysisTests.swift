@@ -39,9 +39,9 @@ final class PhotoAnalysisTests: XCTestCase {
     static func boxes(_ f: [[Double]]) -> [FaceBox] { f.map { FaceBox(t: 0, x: $0[0], y: $0[1], w: $0[2], h: $0[3], conf: 0.99) } }
 
     /// The test photos, made once for the tests that need them (a debug build makes pixels slowly).
-    nonisolated(unsafe) static var made: [PictureSynth.Spec: Picture] = [:]
+    nonisolated(unsafe) static var made: [PictureSynth.Spec: PhotoPixels] = [:]
 
-    static func picture(_ s: PictureSynth.Spec) -> Picture {
+    static func picture(_ s: PictureSynth.Spec) -> PhotoPixels {
         if let p = made[s] { return p }
         let p = PictureSynth.picture(s)
         made[s] = p

@@ -93,7 +93,7 @@ public struct PhotoFile: Sendable {
     }
 
     /// The photo upright at full size, 8-bit RGB (ImageOps.exif_transpose(im).convert("RGB")).
-    public func upright() throws -> Picture {
+    public func upright() throws -> PhotoPixels {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
               let cg = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else {
             throw PhotoFileError.unreadable(url.lastPathComponent)

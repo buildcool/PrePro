@@ -2,7 +2,7 @@ import Foundation
 
 /// An 8-bit picture held the way Pillow holds one after convert("RGB") or convert("L"): rows top to bottom, each
 /// pixel's channels side by side.
-public struct Picture: Equatable, Sendable {
+public struct PhotoPixels: Equatable, Sendable {
     public var width: Int
     public var height: Int
     public var channels: Int                   // 3 (RGB) or 1 (grey)
@@ -36,7 +36,7 @@ enum Pillow {
 
     /// The picture turned upright: `pixels` stored under EXIF `orientation` (1…8), `stride` bytes a pixel, of which the
     /// first three are R, G, B (or one grey byte when stride is 1).
-    static func upright(_ src: UnsafeBufferPointer<UInt8>, width W: Int, height H: Int, stride: Int, orientation: Int) -> Picture {
+    static func upright(_ src: UnsafeBufferPointer<UInt8>, width W: Int, height H: Int, stride: Int, orientation: Int) -> PhotoPixels {
         let swap = orientation >= 5 && orientation <= 8
         let w = swap ? H : W, h = swap ? W : H
         let C = stride >= 3 ? 3 : 1
@@ -65,10 +65,10 @@ enum Pillow {
                 }
             }
         }
-        return Picture(width: w, height: h, channels: C, pixels: out)
+        return PhotoPixels(width: w, height: h, channels: C, pixels: out)
     }
 
-    static func upright(_ img: Picture, orientation: Int) -> Picture {
+    static func upright(_ img: PhotoPixels, orientation: Int) -> PhotoPixels {
         img.pixels.withUnsafeBufferPointer {
             upright($0, width: img.width, height: img.height, stride: img.channels, orientation: orientation)
         }
@@ -81,7 +81,7 @@ enum Pillow {
     }
 
     /// Image.reduce((fx, fy)) of the whole picture: box averages; the last column and row average what is left.
-    static func reduce(_ img: Picture, _ fx: Int, _ fy: Int) -> Picture {
+    static func reduce(_ img: PhotoPixels, _ fx: Int, _ fy: Int) -> PhotoPixels {
         let W = img.width, H = img.height, C = img.channels
         let ow = (W + fx - 1) / fx, oh = (H + fy - 1) / fy
         let fullW = W / fx, fullH = H / fy
@@ -124,7 +124,7 @@ enum Pillow {
                 }
             }
         }
-        return Picture(width: ow, height: oh, channels: C, pixels: out)
+        return PhotoPixels(width: ow, height: oh, channels: C, pixels: out)
     }
 
     // MARK: Image.resize (Resample.c)
@@ -196,7 +196,7 @@ enum Pillow {
 
     /// ImagingResample with a box (Pillow's `box` in floats): the horizontal pass over just the rows the vertical pass
     /// reads, then the vertical pass.
-    static func resample(_ img: Picture, _ outW: Int, _ outH: Int, _ filter: Filter, box: (Float, Float, Float, Float)? = nil) -> Picture {
+    static func resample(_ img: PhotoPixels, _ outW: Int, _ outH: Int, _ filter: Filter, box: (Float, Float, Float, Float)? = nil) -> PhotoPixels {
         let W = img.width, H = img.height, C = img.channels
         let b = box ?? (0, 0, Float(W), Float(H))
         let needH = outW != W || b.0 != 0 || b.2 != Float(outW)
@@ -231,7 +231,7 @@ enum Pillow {
                     }
                 }
             }
-            cur = Picture(width: outW, height: rows, channels: C, pixels: tmp)
+            cur = PhotoPixels(width: outW, height: rows, channels: C, pixels: tmp)
         }
         guard needV else { return cur }
         let w = cur.width
@@ -255,7 +255,7 @@ enum Pillow {
                 }
             }
         }
-        return Picture(width: w, height: outH, channels: C, pixels: out)
+        return PhotoPixels(width: w, height: outH, channels: C, pixels: out)
     }
 
     // MARK: Image.thumbnail
@@ -279,7 +279,7 @@ enum Pillow {
     }
 
     /// Image.thumbnail((maxSide, maxSide)) with its defaults (bicubic, reducing_gap 2.0) on a decoded picture.
-    static func thumbnail(_ img: Picture, maxSide: Int = 480, reducingGap: Double = 2.0) -> Picture {
+    static func thumbnail(_ img: PhotoPixels, maxSide: Int = 480, reducingGap: Double = 2.0) -> PhotoPixels {
         guard let size = thumbnailSize(img.width, img.height, maxSide, maxSide) else { return img }
         let (ow, oh) = size
         var src = img
@@ -296,7 +296,7 @@ enum Pillow {
     // MARK: grey
 
     /// Pillow's convert("L").
-    static func grey(_ img: Picture) -> Picture {
+    static func grey(_ img: PhotoPixels) -> PhotoPixels {
         guard img.channels == 3 else { return img }
         var out = [UInt8](repeating: 0, count: img.width * img.height)
         img.pixels.withUnsafeBufferPointer { p in
@@ -305,6 +305,6 @@ enum Pillow {
                 out[i] = UInt8((r * 19595 + g * 38470 + b * 7471 + 0x8000) >> 16)
             }
         }
-        return Picture(width: img.width, height: img.height, channels: 1, pixels: out)
+        return PhotoPixels(width: img.width, height: img.height, channels: 1, pixels: out)
     }
 }

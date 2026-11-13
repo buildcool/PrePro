@@ -6,7 +6,7 @@ import Vision
 /// (analyze/visual.py FaceDetector): centre, width and height as fractions of the picture with y running down,
 /// confidence ≥ 0.6, none narrower or shorter than 3 % of the picture, the surest first.
 public enum Faces {
-    public static func find(in img: Picture, minConfidence: Double = 0.6) -> [FaceBox] {
+    public static func find(in img: PhotoPixels, minConfidence: Double = 0.6) -> [FaceBox] {
         guard let cg = img.cgImage else { return [] }
         let request = VNDetectFaceRectanglesRequest()
         let handler = VNImageRequestHandler(cgImage: cg, orientation: .up, options: [:])
@@ -29,7 +29,7 @@ public enum Faces {
     }
 }
 
-extension Picture {
+extension PhotoPixels {
     /// An image drawn into 8-bit RGB (sRGB): a video frame, a preview.
     public init?(cgImage cg: CGImage) {
         let w = cg.width, h = cg.height

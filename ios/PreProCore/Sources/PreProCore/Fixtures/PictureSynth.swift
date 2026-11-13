@@ -46,7 +46,7 @@ public enum PictureSynth {
     /// SplitMix64 seeded with `seed`: its k-th output (k = 1, 2, …).
     static func stream(_ seed: UInt64, _ k: UInt64) -> UInt64 { mix(seed &+ k &* golden) }
 
-    public static func picture(_ s: Spec) -> Picture {
+    public static func picture(_ s: Spec) -> PhotoPixels {
         let w = s.w, h = s.h
         let pal = palettes[s.palette] ?? palettes["beach"]!
         let (top, sky, land, bottom) = (pal[0], pal[1], pal[2], pal[3])
@@ -126,7 +126,7 @@ public enum PictureSynth {
         if let d = s.dim, d.count == 2 {
             for i in 0..<img.count { img[i] = (img[i] * d[0] + d[1] / 2) / d[1] }
         }
-        return Picture(width: w, height: h, pixels: img.map { UInt8($0) })
+        return PhotoPixels(width: w, height: h, pixels: img.map { UInt8($0) })
     }
 
     /// A box blur of radius r along x or y, the edge pixel repeated, rounded to the nearest level (halves up).

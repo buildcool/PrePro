@@ -13,7 +13,7 @@ public struct PhotoInput: Sendable {
     public var creationTime: String?
     public var location: GeoPoint?
     public var hash: String
-    public var thumbnail: Picture
+    public var thumbnail: PhotoPixels
     public var faces: [FaceBox]
 }
 

@@ -8,7 +8,7 @@ import XCTest
 /// phone's zone), the GPS, which way up it goes, the pixels as stored (no colour conversion) — and a lossless file
 /// measures exactly as the desktop's goldens say.
 final class PhotoFileTests: XCTestCase {
-    func write(_ pic: Picture, _ type: UTType, _ props: [CFString: Any] = [:]) throws -> URL {
+    func write(_ pic: PhotoPixels, _ type: UTType, _ props: [CFString: Any] = [:]) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("prepro-\(UUID().uuidString).\(type.preferredFilenameExtension ?? "img")")
         let cg = try XCTUnwrap(pic.cgImage)
@@ -92,7 +92,7 @@ final class PhotoFileTests: XCTestCase {
 
     func testAPictureFromACGImage() throws {
         let pic = PictureSynth.picture(spec(97, 61, seed: 9))
-        let back = try XCTUnwrap(Picture(cgImage: try XCTUnwrap(pic.cgImage)))
+        let back = try XCTUnwrap(PhotoPixels(cgImage: try XCTUnwrap(pic.cgImage)))
         XCTAssertTrue(back == pic, "drawn back without a change")
     }
 }

@@ -34,7 +34,7 @@ final class FacesTests: XCTestCase {
         gen.requestedTimeToleranceAfter = .zero
         for f in g.frames {
             let (cg, _) = try await gen.image(at: CMTime(seconds: f.t, preferredTimescale: 600))
-            let thumb = Pillow.thumbnail(try XCTUnwrap(Picture(cgImage: cg)))
+            let thumb = Pillow.thumbnail(try XCTUnwrap(PhotoPixels(cgImage: cg)))
             XCTAssertEqual([thumb.width, thumb.height], f.size, "frame at \(f.t) s")
             let found = Faces.find(in: thumb)
             print("FACES t=\(f.t) vision=\(found.map { [$0.x, $0.y, $0.w, $0.h, $0.conf].map { Py.round($0, 3) } }) desktop=\(f.boxes.map { [$0.x, $0.y, $0.w, $0.h].map { Py.round($0, 3) } })")
